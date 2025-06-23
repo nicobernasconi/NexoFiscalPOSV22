@@ -41,4 +41,19 @@ class CierreCaja {
                 ", usuario=" + usuario +
                 '}'
     }
+
+    fun copy(id: Int = this.id, fecha: String? = this.fecha, totalVentas: Double? = this.totalVentas, totalGastos: Double? = this.totalGastos, efectivoInicial: Double? = this.efectivoInicial, efectivoFinal: Double? = this.efectivoFinal, tipoCajaId: Int? = this.tipoCajaId, usuario: Usuario? = this.usuario): CierreCaja {
+        val cierreCaja = CierreCaja()
+        cierreCaja.id = id
+        cierreCaja.fecha = fecha
+        cierreCaja.totalVentas = totalVentas
+        cierreCaja.totalGastos = totalGastos
+        cierreCaja.efectivoInicial = efectivoInicial
+        cierreCaja.efectivoFinal = efectivoFinal
+        cierreCaja.tipoCajaId = tipoCajaId
+        cierreCaja.usuario = usuario?.copy() // Asumiendo que Usuario tiene un método copy()
+        return cierreCaja
+    }
+
+
 }

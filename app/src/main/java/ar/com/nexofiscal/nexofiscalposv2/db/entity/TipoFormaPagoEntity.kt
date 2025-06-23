@@ -1,11 +1,15 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/db/entity/TipoFormaPagoEntity.kt
 package ar.com.nexofiscal.nexofiscalposv2.db.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "tipos_forma_pago")
+// --- CAMBIO: Se añaden serverId y syncStatus, y se ajusta la clave primaria ---
+@Entity(tableName = "tipos_forma_pago", indices = [Index(value = ["serverId"])])
 data class TipoFormaPagoEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    var serverId: Int?,
+    var syncStatus: SyncStatus,
+
     val nombre: String?
 )

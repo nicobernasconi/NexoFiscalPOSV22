@@ -1,27 +1,36 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/PromocionRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+// main/java/ar/com/nexofiscal/nexofiscalposv2/repository/PromocionRepository.kt
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.PromocionDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.PromocionEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import kotlinx.coroutines.flow.Flow
 
 class PromocionRepository(private val dao: PromocionDao) {
 
-    /** Flujo con todas las promociones */
-    fun todas(): Flow<List<PromocionEntity>> = dao.getAll()
+    fun getPromocionesPaginated(query: String): Flow<PagingData<PromocionEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSource()
+                } else {
+                    dao.searchPagingSource(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Obtiene una promoción por su id */
     suspend fun porId(id: Int): PromocionEntity? = dao.getById(id)
-
-    /** Inserta o reemplaza una promoción */
     suspend fun guardar(p: PromocionEntity) = dao.insert(p)
-
-    /** Actualiza una promoción existente */
     suspend fun actualizar(p: PromocionEntity) = dao.update(p)
-
-    /** Elimina una promoción */
-    suspend fun eliminar(p: PromocionEntity) = dao.delete(p)
-
-    /** Borra todas las promociones */
+    suspend fun eliminar(entity: PromocionEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
     suspend fun eliminarTodo() = dao.clearAll()
 }

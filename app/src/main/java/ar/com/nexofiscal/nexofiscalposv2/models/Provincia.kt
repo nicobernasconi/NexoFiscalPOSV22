@@ -19,5 +19,12 @@ class Provincia {
                 "nombre='" + nombre + '\'' +
                 '}'
     }
+    fun copy(id: Int = this.id, nombre: String? = this.nombre, pais: Pais? = this.pais): Provincia {
+        val provincia = Provincia()
+        provincia.id = id
+        provincia.nombre = nombre
+        provincia.pais = pais
+        return provincia
+    }
 }
 

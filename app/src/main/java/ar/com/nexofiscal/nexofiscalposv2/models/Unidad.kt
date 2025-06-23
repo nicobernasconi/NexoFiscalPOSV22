@@ -19,4 +19,12 @@ class Unidad {
                 ", simbolo='" + simbolo + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, nombre: String? = this.nombre, simbolo: String? = this.simbolo): Unidad {
+        val unidad = Unidad()
+        unidad.id = id
+        unidad.nombre = nombre
+        unidad.simbolo = simbolo
+        return unidad
+    }
 }

@@ -1,27 +1,44 @@
 // src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/ClienteRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ClienteDao
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ClienteEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import kotlinx.coroutines.flow.Flow
 
 class ClienteRepository(private val dao: ClienteDao) {
 
-    /** Flujo observable con todos los clientes */
-    fun todos(): Flow<List<ClienteEntity>> = dao.getAll()
+    fun getClientesPaginated(query: String): Flow<PagingData<ClienteEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(
+                pageSize = 200,
+                enablePlaceholders = false
+            ),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSource()
+                } else {
+                    dao.searchPagingSource(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Recupera un cliente por su id */
     suspend fun porId(id: Int): ClienteEntity? = dao.getById(id)
 
-    /** Inserta o actualiza un cliente */
     suspend fun guardar(c: ClienteEntity) = dao.insert(c)
 
-    /** Actualiza un cliente existente */
     suspend fun actualizar(c: ClienteEntity) = dao.update(c)
 
-    /** Elimina un cliente */
-    suspend fun eliminar(c: ClienteEntity) = dao.delete(c)
+    suspend fun eliminar(entity: ClienteEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
 
-    /** Borra todos los registros de clientes */
     suspend fun eliminarTodo() = dao.clearAll()
 }

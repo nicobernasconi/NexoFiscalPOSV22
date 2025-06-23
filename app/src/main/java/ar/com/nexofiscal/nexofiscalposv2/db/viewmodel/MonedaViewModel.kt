@@ -1,40 +1,60 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/MonedaViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.MonedaEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.MonedaRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.models.Moneda
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.MonedaRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
-class MonedaViewModel(context: Context) : ViewModel() {
+class MonedaViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = MonedaRepository(
-        AppDatabase.getInstance(context).monedaDao()
-    )
+    private val repo: MonedaRepository
+    private val _searchQuery = MutableStateFlow("")
 
-    /** Lista observable de monedas */
-    val monedas = repo.todas()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    init {
+        val dao = AppDatabase.getInstance(application).monedaDao()
+        repo = MonedaRepository(dao)
+    }
 
-    /** Guarda o actualiza una moneda */
+    val pagedMonedas: Flow<PagingData<Moneda>> = _searchQuery
+        .flatMapLatest { query ->
+            repo.getMonedasPaginated(query)
+        }
+        .map { pagingData ->
+            pagingData.map { entity -> entity.toDomainModel() }
+        }
+        .cachedIn(viewModelScope)
+
+    fun search(query: String) {
+        _searchQuery.value = query
+    }
+
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(m: MonedaEntity) {
-        viewModelScope.launch { repo.guardar(m) }
-    }
-
-    /** Elimina una moneda */
-    fun delete(m: MonedaEntity) {
-        viewModelScope.launch { repo.eliminar(m) }
-    }
-
-    /** Carga una moneda por id */
-    fun loadById(id: Int, callback: (MonedaEntity?)->Unit) {
         viewModelScope.launch {
-            callback(repo.porId(id))
+            if (m.serverId == null) {
+                m.syncStatus = SyncStatus.CREATED
+            } else {
+                m.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(m)
+        }
+    }
+
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    fun delete(m: MonedaEntity) {
+        viewModelScope.launch {
+            m.syncStatus = SyncStatus.DELETED
+            repo.actualizar(m)
         }
     }
 }

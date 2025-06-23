@@ -39,4 +39,8 @@ class Agrupacion {
                 ", icono='" + icono + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, numero: Int? = this.numero, nombre: String? = this.nombre, color: String? = this.color, icono: String? = this.icono): Agrupacion {
+        return Agrupacion(id, numero, nombre, color, icono)
+    }
 }

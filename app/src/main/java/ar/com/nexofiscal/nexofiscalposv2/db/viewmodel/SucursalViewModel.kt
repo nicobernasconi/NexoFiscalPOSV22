@@ -1,40 +1,60 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/SucursalViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SucursalEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.SucursalRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.models.Sucursal
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.SucursalRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
-class SucursalViewModel(context: Context) : ViewModel() {
+class SucursalViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = SucursalRepository(
-        AppDatabase.getInstance(context).sucursalDao()
-    )
+    private val repo: SucursalRepository
+    private val _searchQuery = MutableStateFlow("")
 
-    /** Lista observable de sucursales */
-    val sucursales = repo.todas()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    /** Guarda o actualiza una sucursal */
-    fun save(sucursal: SucursalEntity) {
-        viewModelScope.launch { repo.guardar(sucursal) }
+    init {
+        val dao = AppDatabase.getInstance(application).sucursalDao()
+        repo = SucursalRepository(dao)
     }
 
-    /** Elimina una sucursal */
-    fun delete(sucursal: SucursalEntity) {
-        viewModelScope.launch { repo.eliminar(sucursal) }
+    val pagedSucursales: Flow<PagingData<Sucursal>> = _searchQuery
+        .flatMapLatest { query ->
+            repo.getSucursalesPaginated(query)
+        }
+        .map { pagingData ->
+            pagingData.map { entity -> entity.toDomainModel() }
+        }
+        .cachedIn(viewModelScope)
+
+    fun search(query: String) {
+        _searchQuery.value = query
     }
 
-    /** Carga una sucursal por id */
-    fun loadById(id: Int, callback: (SucursalEntity?) -> Unit) {
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
+    fun save(s: SucursalEntity) {
         viewModelScope.launch {
-            callback(repo.porId(id))
+            if (s.serverId == null) {
+                s.syncStatus = SyncStatus.CREATED
+            } else {
+                s.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(s)
+        }
+    }
+
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    fun delete(s: SucursalEntity) {
+        viewModelScope.launch {
+            s.syncStatus = SyncStatus.DELETED
+            repo.actualizar(s)
         }
     }
 }

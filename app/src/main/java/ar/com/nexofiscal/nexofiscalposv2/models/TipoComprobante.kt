@@ -19,4 +19,12 @@ class TipoComprobante {
                 ", nombre='" + nombre + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, numero: Int? = this.numero, nombre: String? = this.nombre): TipoComprobante {
+        val tipoComprobante = TipoComprobante()
+        tipoComprobante.id = id
+        tipoComprobante.numero = numero
+        tipoComprobante.nombre = nombre
+        return tipoComprobante
+    }
 }

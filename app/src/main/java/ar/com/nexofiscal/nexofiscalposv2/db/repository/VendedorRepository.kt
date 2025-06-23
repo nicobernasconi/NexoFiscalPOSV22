@@ -1,27 +1,37 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/VendedorRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+// main/java/ar/com/nexofiscal/nexofiscalposv2/repository/VendedorRepository.kt
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.VendedorDao
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.UsuarioEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
+import kotlinx.coroutines.flow.Flow
 
 class VendedorRepository(private val dao: VendedorDao) {
 
-    /** Flujo con todos los vendedores */
-    fun todos(): Flow<List<VendedorEntity>> = dao.getAll()
+    fun getVendedoresPaginated(query: String): Flow<PagingData<VendedorEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSource()
+                } else {
+                    dao.searchPagingSource(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Obtiene un vendedor por id */
     suspend fun porId(id: Int): VendedorEntity? = dao.getById(id)
-
-    /** Inserta o actualiza */
     suspend fun guardar(item: VendedorEntity) = dao.insert(item)
-
-    /** Actualiza existente */
     suspend fun actualizar(item: VendedorEntity) = dao.update(item)
-
-    /** Elimina */
-    suspend fun eliminar(item: VendedorEntity) = dao.delete(item)
-
-    /** Borra todos */
+    suspend fun eliminar(entity: VendedorEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
     suspend fun eliminarTodo() = dao.clearAll()
 }

@@ -7,7 +7,7 @@ import kotlinx.coroutines.launch
 
 /** Tipos de notificación */
 enum class NotificationType {
-    SUCCESS, ERROR, INFO
+    SUCCESS, ERROR, INFO, WARNING
 }
 
 /** Datos de una notificación */

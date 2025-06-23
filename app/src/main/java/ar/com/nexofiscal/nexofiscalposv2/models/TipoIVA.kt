@@ -21,4 +21,13 @@ class TipoIVA {
                 "nombre='" + nombre + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, nombre: String? = this.nombre, letraFactura: String? = this.letraFactura, porcentaje: Double? = this.porcentaje): TipoIVA {
+        val tipoIVA = TipoIVA()
+        tipoIVA.id = id
+        tipoIVA.nombre = nombre
+        tipoIVA.letraFactura = letraFactura
+        tipoIVA.porcentaje = porcentaje
+        return tipoIVA
+    }
 }

@@ -1,40 +1,60 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/TipoIvaViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoIvaEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.TipoIvaRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.models.TipoIVA
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoIvaRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
-class TipoIvaViewModel(context: Context) : ViewModel() {
+class TipoIvaViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = TipoIvaRepository(
-        AppDatabase.getInstance(context).tipoIvaDao()
-    )
+    private val repo: TipoIvaRepository
+    private val _searchQuery = MutableStateFlow("")
 
-    /** Lista observable de tipos de IVA */
-    val tiposIva = repo.todos()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    /** Guarda o reemplaza un tipo de IVA */
-    fun save(item: TipoIvaEntity) {
-        viewModelScope.launch { repo.guardar(item) }
+    init {
+        val dao = AppDatabase.getInstance(application).tipoIvaDao()
+        repo = TipoIvaRepository(dao)
     }
 
-    /** Elimina un tipo de IVA */
-    fun delete(item: TipoIvaEntity) {
-        viewModelScope.launch { repo.eliminar(item) }
+    val pagedTiposIva: Flow<PagingData<TipoIVA>> = _searchQuery
+        .flatMapLatest { query ->
+            repo.getTiposIvaPaginated(query)
+        }
+        .map { pagingData ->
+            pagingData.map { entity -> entity.toDomainModel() }
+        }
+        .cachedIn(viewModelScope)
+
+    fun search(query: String) {
+        _searchQuery.value = query
     }
 
-    /** Carga un tipo de IVA por id */
-    fun loadById(id: Int, callback: (TipoIvaEntity?) -> Unit) {
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
+    fun save(ti: TipoIvaEntity) {
         viewModelScope.launch {
-            callback(repo.porId(id))
+            if (ti.serverId == null) {
+                ti.syncStatus = SyncStatus.CREATED
+            } else {
+                ti.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(ti)
+        }
+    }
+
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    fun delete(ti: TipoIvaEntity) {
+        viewModelScope.launch {
+            ti.syncStatus = SyncStatus.DELETED
+            repo.actualizar(ti)
         }
     }
 }

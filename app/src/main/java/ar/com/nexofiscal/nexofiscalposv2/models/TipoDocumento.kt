@@ -15,5 +15,12 @@ class TipoDocumento {
                 "nombre='" + nombre + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, nombre: String? = this.nombre): TipoDocumento {
+        val tipoDocumento = TipoDocumento()
+        tipoDocumento.id = id
+        tipoDocumento.nombre = nombre
+        return tipoDocumento
+    }
 }
 

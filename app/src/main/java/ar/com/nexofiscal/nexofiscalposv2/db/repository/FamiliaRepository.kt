@@ -1,27 +1,36 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/FamiliaRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+// main/java/ar/com/nexofiscal/nexofiscalposv2/repository/FamiliaRepository.kt
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.FamiliaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.FamiliaEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import kotlinx.coroutines.flow.Flow
 
 class FamiliaRepository(private val dao: FamiliaDao) {
 
-    /** Flujo con todas las familias */
-    fun todas(): Flow<List<FamiliaEntity>> = dao.getAll()
+    fun getFamiliasPaginated(query: String): Flow<PagingData<FamiliaEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSource()
+                } else {
+                    dao.searchPagingSource(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Obtiene una familia por id */
     suspend fun porId(id: Int): FamiliaEntity? = dao.getById(id)
-
-    /** Inserta o reemplaza una familia */
     suspend fun guardar(entity: FamiliaEntity) = dao.insert(entity)
-
-    /** Actualiza una familia existente */
     suspend fun actualizar(entity: FamiliaEntity) = dao.update(entity)
-
-    /** Elimina una familia */
-    suspend fun eliminar(entity: FamiliaEntity) = dao.delete(entity)
-
-    /** Borra todas las familias */
+    suspend fun eliminar(entity: FamiliaEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
     suspend fun eliminarTodo() = dao.clearAll()
 }

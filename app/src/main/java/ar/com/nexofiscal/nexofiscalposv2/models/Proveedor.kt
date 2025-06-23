@@ -45,4 +45,25 @@ class Proveedor {
 
     @SerializedName("saldo_actual")
     var saldoActual: Double = 0.0
+    override fun toString(): String {
+        return "Proveedor(cuit=$cuit, razonSocial=$razonSocial)"
+    }
+    fun copy(id: Int = this.id, razonSocial: String? = this.razonSocial, direccion: String? = this.direccion, localidad: Localidad? = this.localidad, telefono: String? = this.telefono, email: String? = this.email, tipoIva: TipoIVA? = this.tipoIva, cuit: String? = this.cuit, categoria: Categoria? = this.categoria, subcategoria: Categoria? = this.subcategoria, fechaUltimaCompra: String? = this.fechaUltimaCompra, fechaUltimoPago: String? = this.fechaUltimoPago, saldoActual: Double = this.saldoActual): Proveedor {
+        val proveedor = Proveedor()
+        proveedor.id = id
+        proveedor.razonSocial = razonSocial
+        proveedor.direccion = direccion
+        proveedor.localidad = localidad
+        proveedor.telefono = telefono
+        proveedor.email = email
+        proveedor.tipoIva = tipoIva
+        proveedor.cuit = cuit
+        proveedor.categoria = categoria
+        proveedor.subcategoria = subcategoria
+        proveedor.fechaUltimaCompra = fechaUltimaCompra
+        proveedor.fechaUltimoPago = fechaUltimoPago
+        proveedor.saldoActual = saldoActual
+        return proveedor
+    }
+
 }

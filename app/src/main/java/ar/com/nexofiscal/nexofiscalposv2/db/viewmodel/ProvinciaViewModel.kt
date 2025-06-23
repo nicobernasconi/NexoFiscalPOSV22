@@ -1,40 +1,67 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/ProvinciaViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProvinciaEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.ProvinciaRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.models.Provincia
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.PaisRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.ProvinciaRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
-class ProvinciaViewModel(context: Context) : ViewModel() {
+class ProvinciaViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = ProvinciaRepository(
-        AppDatabase.getInstance(context).provinciaDao()
-    )
+    private val repo: ProvinciaRepository
+    private val paisRepo: PaisRepository
+    private val _searchQuery = MutableStateFlow("")
 
-    /** Lista observable de provincias */
-    val provincias = repo.todas()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    init {
+        val db = AppDatabase.getInstance(application)
+        repo = ProvinciaRepository(db.provinciaDao())
+        paisRepo = PaisRepository(db.paisDao())
+    }
 
-    /** Guarda o actualiza una provincia */
+    val pagedProvincias: Flow<PagingData<Provincia>> = _searchQuery
+        .flatMapLatest { query ->
+            // El repo ahora devuelve un Flow<PagingData<ProvinciaConDetalles>>
+            repo.getProvinciasPaginated(query)
+        }
+        .map { pagingData ->
+            // El map ahora es simple: solo llama al nuevo mapper síncrono
+            pagingData.map { provinciaConDetalles ->
+                provinciaConDetalles.toDomainModel()
+            }
+        }
+        .cachedIn(viewModelScope)
+
+    fun search(query: String) {
+        _searchQuery.value = query
+    }
+
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(p: ProvinciaEntity) {
-        viewModelScope.launch { repo.guardar(p) }
-    }
-
-    /** Elimina una provincia */
-    fun delete(p: ProvinciaEntity) {
-        viewModelScope.launch { repo.eliminar(p) }
-    }
-
-    /** Carga una provincia por id */
-    fun loadById(id: Int, callback: (ProvinciaEntity?) -> Unit) {
         viewModelScope.launch {
-            callback(repo.porId(id))
+            if (p.serverId == null) {
+                p.syncStatus = SyncStatus.CREATED
+            } else {
+                p.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(p)
+        }
+    }
+
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    fun delete(p: ProvinciaEntity) {
+        viewModelScope.launch {
+            p.syncStatus = SyncStatus.DELETED
+            repo.actualizar(p)
         }
     }
 }

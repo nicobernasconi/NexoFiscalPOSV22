@@ -15,4 +15,19 @@ class TasaIva {
 
     @SerializedName("tasa")
     var tasa: Double = 0.0
+
+    override fun toString(): String {
+        return "TasaIva{" +
+                "nombre='" + nombre + '\'' +
+                ", tasa=" + tasa +
+                '}'
+    }
+
+    fun copy(id: Int = this.id, nombre: String? = this.nombre, tasa: Double = this.tasa): TasaIva {
+        val tasaIva = TasaIva()
+        tasaIva.id = id
+        tasaIva.nombre = nombre
+        tasaIva.tasa = tasa
+        return tasaIva
+    }
 }

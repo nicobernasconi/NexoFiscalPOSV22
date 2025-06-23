@@ -1,9 +1,12 @@
 package ar.com.nexofiscal.nexofiscalposv2.models
 
+import com.google.gson.annotations.JsonAdapter
 import com.google.gson.annotations.SerializedName
 
 class Producto {
     // Getters & Setters omitted for brevity...
+    var localId: Int = 0
+
     @SerializedName("id")
     var id: Int = 0
 
@@ -49,6 +52,7 @@ class Producto {
     @SerializedName("moneda")
     var moneda: Moneda? = null
 
+    @JsonAdapter(TasaIvaAdapter::class)
     @SerializedName("tasa_iva")
     var tasaIva: TasaIva? = null
 
@@ -124,4 +128,128 @@ class Producto {
 
     @SerializedName("combinaciones")
     var combinaciones: MutableList<Combinacion?>? = null
+    override fun toString(): String {
+        return "Producto(codigo=$codigo, descripcion=$descripcion)"
+    }
+
+    fun copy(localId: Int = this.localId,
+             id: Int = this.id,
+             codigo: String? = this.codigo,
+             descripcion: String? = this.descripcion,
+             descripcionAmpliada: String? = this.descripcionAmpliada,
+             stock: Int = this.stock,
+             stockMinimo: Int = this.stockMinimo,
+             stockPedido: Int = this.stockPedido,
+             codigoBarra: String? = this.codigoBarra,
+             articuloActivado: Boolean? = this.articuloActivado,
+             productoBalanza: Int? = this.productoBalanza,
+             precio1: Double = this.precio1,
+             precio2: Double = this.precio2,
+             precio3: Double = this.precio3,
+             precio4: Double = this.precio4,
+             moneda: Moneda? = this.moneda?.copy(),
+             tasaIva: TasaIva? = this.tasaIva?.copy(),
+             incluyeIva: Int? = this.incluyeIva,
+             impuestoInterno: Double = this.impuestoInterno,
+             tipoImpuestoInterno: Int = this.tipoImpuestoInterno,
+             precio1ImpuestoInterno: Double = this.precio1ImpuestoInterno,
+             precio2ImpuestoInterno: Double = this.precio2ImpuestoInterno,
+             precio3ImpuestoInterno: Double = this.precio3ImpuestoInterno,
+             precioCosto: Double = this.precioCosto,
+             fraccionado: Int? = this.fraccionado,
+             rg5329_23: Int? = this.rg5329_23,
+             activo: Int = this.activo,
+             textoPanel: String? = this.textoPanel,
+             iibb: Double = this.iibb,
+             codigoBarra2: String? = this.codigoBarra2,
+             oferta: Int? = this.oferta,
+             margenGanancia: Double = this.margenGanancia,
+             favorito: Int = this.favorito,
+             stockActual: MutableList<StockProducto?>? = null, // No se copia por defecto
+             materiaPrima: Any? = null, // No se copia por defecto
+             familia: Familia? = null, // No se copia por defecto
+             agrupacion: Agrupacion? = null, // No se copia por defecto
+             proveedor: Proveedor? = null, // No se copia por defecto
+             tipo: Tipo? = null, //
+             unidad: Unidad? = null, // No se copia por defecto
+             combinaciones: MutableList<Combinacion?>? = null // No se copia por defecto
+    ): Producto {
+        val producto = Producto()
+        producto.id = id
+        producto.localId = localId
+        producto.codigo = codigo
+        producto.descripcion = descripcion
+        producto.descripcionAmpliada = descripcionAmpliada
+        producto.stock = stock
+        producto.stockMinimo = stockMinimo
+        producto.stockPedido = stockPedido
+        producto.codigoBarra = codigoBarra
+        producto.articuloActivado = articuloActivado
+        producto.productoBalanza = productoBalanza
+        producto.precio1 = precio1
+        producto.precio2 = precio2
+        producto.precio3 = precio3
+        producto.precio4 = precio4
+        producto.moneda = moneda?.copy()
+        producto.tasaIva = tasaIva?.copy()
+        producto.incluyeIva = incluyeIva
+        producto.impuestoInterno = impuestoInterno
+        producto.tipoImpuestoInterno = tipoImpuestoInterno
+        producto.precio1ImpuestoInterno = precio1ImpuestoInterno
+        producto.precio2ImpuestoInterno = precio2ImpuestoInterno
+        producto.precio3ImpuestoInterno = precio3ImpuestoInterno
+        producto.precioCosto = precioCosto
+        producto.fraccionado = fraccionado
+        producto.rg5329_23 = rg5329_23
+        producto.activo = activo
+        producto.textoPanel = textoPanel
+        producto.iibb = iibb
+        producto.codigoBarra2 = codigoBarra2
+        producto.oferta = oferta
+        producto.margenGanancia = margenGanancia
+        producto.favorito = favorito
+
+        // No se copian los valores por defecto de las listas y objetos complejos.
+        if (stockActual != null) {
+            producto.stockActual = stockActual.map { it?.copy() }.toMutableList()
+        }
+
+        if (materiaPrima != null) {
+            // Aquí podrías definir cómo copiar materiaPrima si es necesario.
+            // Por ahora, lo dejamos como está.
+            producto.materiaPrima = materiaPrima
+        }
+
+        if (familia != null) {
+            // Aquí podrías definir cómo copiar familia si es necesario.
+            // Por ahora, lo dejamos como está.
+            producto.familia = familia.copy()
+        }
+
+        if (agrupacion != null) {
+            // Aquí podrías definir cómo copiar agrupacion si es necesario.
+            // Por ahora, lo dejamos como está.
+            producto.agrupacion = agrupacion.copy()
+
+        }
+        if (proveedor != null) {
+            // Aquí podrías definir cómo copiar proveedor si es necesario.
+            // Por ahora, lo dejamos como está.
+            producto.proveedor = proveedor.copy()
+        }
+        if (tipo != null) {
+            // Aquí podrías definir cómo copiar tipo si es necesario.
+            // Por ahora, lo dejamos como está.
+            producto.tipo = tipo.copy()
+        }
+        if (unidad != null) {
+            // Aquí podrías definir cómo copiar unidad si es necesario.
+            // Por ahora, lo dejamos como está.
+            producto.unidad = unidad.copy()
+        }
+        if (combinaciones != null) {
+            producto.combinaciones = combinaciones.map { it?.copy() }.toMutableList()
+        }
+        return producto
+    }
 }

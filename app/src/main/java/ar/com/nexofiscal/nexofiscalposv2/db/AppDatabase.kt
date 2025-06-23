@@ -12,6 +12,8 @@ import ar.com.nexofiscal.nexofiscalposv2.db.dao.CierreCajaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ClienteDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.CombinacionDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ComprobanteDao
+import ar.com.nexofiscal.nexofiscalposv2.db.dao.ComprobantePagoDao
+import ar.com.nexofiscal.nexofiscalposv2.db.dao.ComprobantePromocionDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.FamiliaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.FormaPagoDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.LocalidadDao
@@ -41,6 +43,8 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ClienteEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CombinacionEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobantePagoEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobantePromocionEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.FamiliaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.FormaPagoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.LocalidadEntity
@@ -96,10 +100,12 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
         VendedorEntity::class,
         ComprobanteEntity::class,
         RenglonComprobanteEntity::class,
+        ComprobantePagoEntity::class,      // Se añade la nueva entidad
+        ComprobantePromocionEntity::class
 
 
     ],
-    version = 1,
+    version = 4,
     exportSchema = false
 )
 
@@ -134,6 +140,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun vendedorDao(): VendedorDao
     abstract fun comprobanteDao(): ComprobanteDao
     abstract fun renglonComprobanteDao(): RenglonComprobanteDao
+    abstract fun comprobantePagoDao(): ComprobantePagoDao // Añadido para manejar pagos
+    abstract fun comprobantePromocionDao(): ComprobantePromocionDao // Añadido para manejar promociones en comprobantes
 
 
 
@@ -148,7 +156,8 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "nexofiscal.db"
-                ).build().also { INSTANCE = it }
+                ).fallbackToDestructiveMigration()
+                    .build().also { INSTANCE = it }
             }
     }
 }

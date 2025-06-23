@@ -1,15 +1,16 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/db/entity/VendedorEntity.kt
 package ar.com.nexofiscal.nexofiscalposv2.db.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "vendedores")
+// --- CAMBIO: Se añaden serverId y syncStatus, y se ajusta la clave primaria ---
+@Entity(tableName = "vendedores", indices = [Index(value = ["serverId"])])
 data class VendedorEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    var serverId: Int?,
+    var syncStatus: SyncStatus,
+
     val nombre: String?,
-    val direccion: String?,
-    val telefono: String?,
-    val porcentajeComision: Double?,
-    val fechaIngreso: String?
+    val porcentajeComision: Double
 )

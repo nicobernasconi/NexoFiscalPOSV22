@@ -38,5 +38,28 @@ class Usuario {
                 ", nombreCompleto='" + nombreCompleto + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id,
+             nombreUsuario: String? = this.nombreUsuario,
+             password: String? = this.password,
+             nombreCompleto: String? = this.nombreCompleto,
+             activo: Int? = this.activo,
+             empresaId: Int = this.empresaId,
+             rol: Rol? = this.rol,
+             sucursal: Sucursal? = this.sucursal,
+             vendedor: Vendedor? = this.vendedor): Usuario {
+        val usuario = Usuario()
+        usuario.id = id
+        usuario.nombreUsuario = nombreUsuario
+        usuario.password = password
+        usuario.nombreCompleto = nombreCompleto
+        usuario.activo = activo
+        usuario.empresaId = empresaId
+        usuario.rol = rol
+        usuario.sucursal = sucursal
+        usuario.vendedor = vendedor
+        return usuario
+    }
+
 }
 

@@ -46,4 +46,21 @@ class Sucursal {
                 "nombre='" + nombre + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, empresaId: Int = this.empresaId, nombre: String? = this.nombre, direccion: String? = this.direccion, telefono: String? = this.telefono, email: String? = this.email, contactoNombre: String? = this.contactoNombre, contactoTelefono: String? = this.contactoTelefono, contactoEmail: String? = this.contactoEmail, referenteNombre: String? = this.referenteNombre, referenteTelefono: String? = this.referenteTelefono, referenteEmail: String? = this.referenteEmail): Sucursal {
+        val sucursal = Sucursal()
+        sucursal.id = id
+        sucursal.empresaId = empresaId
+        sucursal.nombre = nombre
+        sucursal.direccion = direccion
+        sucursal.telefono = telefono
+        sucursal.email = email
+        sucursal.contactoNombre = contactoNombre
+        sucursal.contactoTelefono = contactoTelefono
+        sucursal.contactoEmail = contactoEmail
+        sucursal.referenteNombre = referenteNombre
+        sucursal.referenteTelefono = referenteTelefono
+        sucursal.referenteEmail = referenteEmail
+        return sucursal
+    }
 }

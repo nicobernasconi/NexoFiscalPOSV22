@@ -16,5 +16,12 @@ class TipoFormaPago {
                 "nombre='" + nombre + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, nombre: String? = this.nombre): TipoFormaPago {
+        val tipoFormaPago = TipoFormaPago()
+        tipoFormaPago.id = id
+        tipoFormaPago.nombre = nombre
+        return tipoFormaPago
+    }
 }
 

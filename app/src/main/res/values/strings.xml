@@ -1,3 +1,42 @@
 <resources>
-    <string name="app_name">NexoFiscal POS V2</string>
+    <string name="app_name">NexoFiscal POS</string>
+    <string name="create_new_item">Crear nuevo ítem</string>
+    <string name="select_item">Seleccionar ítem</string>
+    <string name="edit_item">Editar ítem</string>
+    <string name="delete_item">Borrar ítem</string>
+    <string name="no_items_to_display">No hay elementos para mostrar</string>
+    <string name="navigate_up">Navegar hacia arriba</string>
+    <string name="item_name">Nombre del ítem</string>
+    <string name="item_price">Precio del ítem</string>
+    <string name="item_description">Descripción del ítem</string>
+    <string name="item_category">Categoría del ítem</string>
+    <string name="item_quantity">Cantidad del ítem</string>
+    <string name="item_discount">Descuento del ítem</string>
+    <string name="item_tax">Impuesto del ítem</string>
+    <string name="save_changes">Guardar cambios</string>
+    <string name="cancel">Cancelar</string>
+    <string name="delete_confirmation">¿Estás seguro de que deseas eliminar este ítem?</string>
+    <string name="yes">Sí</string>
+    <string name="no">No</string>
+    <string name="item_added_successfully">Ítem añadido con éxito</string>
+    <string name="item_updated_successfully">Ítem actualizado con éxito</string>
+    <string name="item_deleted_successfully">Ítem eliminado con éxito</string>
+    <string name="error_occurred">Ocurrió un error</string>
+    <string name="network_error">Error de red. Por favor, inténtalo de nuevo más tarde.</string>
+    <string name="loading">Cargando...</string>
+    <string name="search_items">Buscar ítems</string>
+    <string name="no_search_results">No se encontraron resultados para tu búsqueda</string>
+    <string name="clear_search_description">Para limpiar la búsqueda, toca el icono de búsqueda nuevamente.</string>
+    <string name="search_icon_description">Icono de búsqueda</string>
+    <string name="default_search_hint">Buscar ítems por nombre, categoría o descripción</string>
+    <string name="settings">Configuración</string>
+    <string name="edit_entity_dialog_title_prefix">Editar</string>
+    <string name="edit_entity_dialog_cancel">Cancelar</string>
+    <string name="edit_entity_dialog_save">GUARDAR</string>
+    <string name="main_screen_edit_client_dialog_prefix">Editar Cliente</string>
+    <string name="main_screen_edit_product_dialog_prefix">Editar Producto</string>
+
+
+
+
 </resources>

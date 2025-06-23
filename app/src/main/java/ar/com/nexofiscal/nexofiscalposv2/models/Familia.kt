@@ -20,4 +20,7 @@ class Familia {
                 ", nombre='" + nombre + '\'' +
                 '}'
     }
+    fun copy(id: Int = this.id, numero: Int? = this.numero, nombre: String? = this.nombre): Familia {
+        return Familia(id, numero, nombre)
+    }
 }

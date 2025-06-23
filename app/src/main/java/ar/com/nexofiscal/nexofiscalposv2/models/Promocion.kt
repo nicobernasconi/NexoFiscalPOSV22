@@ -22,5 +22,14 @@ class Promocion {
                 ", porcentaje=" + porcentaje +
                 '}'
     }
+
+    fun copy(id: Int = this.id, nombre: String? = this.nombre, descripcion: String? = this.descripcion, porcentaje: Int = this.porcentaje): Promocion {
+        val promocion = Promocion()
+        promocion.id = id
+        promocion.nombre = nombre
+        promocion.descripcion = descripcion
+        promocion.porcentaje = porcentaje
+        return promocion
+    }
 }
 

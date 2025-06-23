@@ -65,6 +65,12 @@ fun NotificationHost() {
                         R.drawable.ic_info
                     )
                 }
+                NotificationType.WARNING -> {
+                    Pair(
+                        colorResource(id = R.color.noti_warning),
+                        R.drawable.ic_warning
+                    )
+                }
             }
 
             Row(

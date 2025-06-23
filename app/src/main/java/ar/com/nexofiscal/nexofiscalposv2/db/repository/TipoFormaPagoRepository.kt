@@ -1,27 +1,37 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/TipoFormaPagoRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+// main/java/ar/com/nexofiscal/nexofiscalposv2/repository/TipoFormaPagoRepository.kt
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.TipoFormaPagoDao
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoDocumentoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoFormaPagoEntity
+import kotlinx.coroutines.flow.Flow
 
 class TipoFormaPagoRepository(private val dao: TipoFormaPagoDao) {
 
-    /** Flujo con todos los tipos de forma de pago */
-    fun todos(): Flow<List<TipoFormaPagoEntity>> = dao.getAll()
+    fun getTiposFormaPagoPaginated(query: String): Flow<PagingData<TipoFormaPagoEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSource()
+                } else {
+                    dao.searchPagingSource(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Obtiene uno por su id */
     suspend fun porId(id: Int): TipoFormaPagoEntity? = dao.getById(id)
-
-    /** Guarda o reemplaza */
     suspend fun guardar(item: TipoFormaPagoEntity) = dao.insert(item)
-
-    /** Actualiza */
     suspend fun actualizar(item: TipoFormaPagoEntity) = dao.update(item)
-
-    /** Elimina */
-    suspend fun eliminar(item: TipoFormaPagoEntity) = dao.delete(item)
-
-    /** Borra todo */
+    suspend fun eliminar(entity: TipoFormaPagoEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
     suspend fun eliminarTodo() = dao.clearAll()
 }

@@ -1,37 +1,45 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/SubcategoriaViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SubcategoriaEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.SubcategoriaRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.SubcategoriaEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.SubcategoriaRepository
 
-class SubcategoriaViewModel(context: Context) : ViewModel() {
+class SubcategoriaViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo = SubcategoriaRepository(
-        AppDatabase.getInstance(context).subcategoriaDao()
+        AppDatabase.getInstance(application).subcategoriaDao()
     )
 
-    /** Lista observable de subcategorías */
     val subcategorias = repo.todas()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    /** Guarda o actualiza una subcategoría */
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(item: SubcategoriaEntity) {
-        viewModelScope.launch { repo.guardar(item) }
+        viewModelScope.launch {
+            if (item.serverId == null) {
+                item.syncStatus = SyncStatus.CREATED
+            } else {
+                item.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(item)
+        }
     }
 
-    /** Elimina una subcategoría */
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
     fun delete(item: SubcategoriaEntity) {
-        viewModelScope.launch { repo.eliminar(item) }
+        viewModelScope.launch {
+            item.syncStatus = SyncStatus.DELETED
+            repo.actualizar(item)
+        }
     }
 
-    /** Carga una subcategoría por id */
     fun loadById(id: Int, callback: (SubcategoriaEntity?) -> Unit) {
         viewModelScope.launch {
             callback(repo.porId(id))

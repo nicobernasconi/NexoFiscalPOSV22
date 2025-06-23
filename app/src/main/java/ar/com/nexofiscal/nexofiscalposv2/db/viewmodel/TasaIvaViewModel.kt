@@ -1,40 +1,60 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/TasaIvaViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TasaIvaEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.TasaIvaRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.models.TasaIva
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.TasaIvaRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
-class TasaIvaViewModel(context: Context) : ViewModel() {
+class TasaIvaViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = TasaIvaRepository(
-        AppDatabase.getInstance(context).tasaIvaDao()
-    )
+    private val repo: TasaIvaRepository
+    private val _searchQuery = MutableStateFlow("")
 
-    /** Lista observable de tasas de IVA */
-    val tasasIva = repo.todas()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    /** Guarda o actualiza una tasa de IVA */
-    fun save(item: TasaIvaEntity) {
-        viewModelScope.launch { repo.guardar(item) }
+    init {
+        val dao = AppDatabase.getInstance(application).tasaIvaDao()
+        repo = TasaIvaRepository(dao)
     }
 
-    /** Elimina una tasa de IVA */
-    fun delete(item: TasaIvaEntity) {
-        viewModelScope.launch { repo.eliminar(item) }
+    val pagedTasasIva: Flow<PagingData<TasaIva>> = _searchQuery
+        .flatMapLatest { query ->
+            repo.getTasasIvaPaginated(query)
+        }
+        .map { pagingData ->
+            pagingData.map { entity -> entity.toDomainModel() }
+        }
+        .cachedIn(viewModelScope)
+
+    fun search(query: String) {
+        _searchQuery.value = query
     }
 
-    /** Carga una tasa de IVA por id */
-    fun loadById(id: Int, callback: (TasaIvaEntity?) -> Unit) {
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
+    fun save(t: TasaIvaEntity) {
         viewModelScope.launch {
-            callback(repo.porId(id))
+            if (t.serverId == null) {
+                t.syncStatus = SyncStatus.CREATED
+            } else {
+                t.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(t)
+        }
+    }
+
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    fun delete(t: TasaIvaEntity) {
+        viewModelScope.launch {
+            t.syncStatus = SyncStatus.DELETED
+            repo.actualizar(t)
         }
     }
 }

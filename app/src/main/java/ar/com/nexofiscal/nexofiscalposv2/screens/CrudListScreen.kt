@@ -1,114 +1,256 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/screens/CrudListScreen.kt
 package ar.com.nexofiscal.nexofiscalposv2.screens
 
-import android.R
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.paging.LoadState
+import androidx.paging.compose.LazyPagingItems
+import ar.com.nexofiscal.nexofiscalposv2.R
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.AzulNexo
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.Blanco
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.GrisClaro
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.NegroNexo
 
-/**
- * Pantalla genérica para listar objetos y permitir Editar, Seleccionar o Borrar.
- *
- * @param title       Título de la pantalla.
- * @param items       Lista de objetos a mostrar.
- * @param itemLabel   Función que obtiene el texto a mostrar de cada objeto.
- * @param onEdit      Callback cuando el usuario toca el ícono de editar.
- * @param onSelect    Callback cuando el usuario toca el ícono de seleccionar.
- * @param onDelete    Callback cuando el usuario toca el ícono de borrar.
- */
-@OptIn(ExperimentalMaterial3Api::class)
+enum class CrudScreenMode {
+    VIEW_SELECT,
+    EDIT_DELETE,
+    EDIT_DELETE_EDIT_PRINT,
+    ONLY_VIEW
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun <T> CrudListScreen(
+fun <T: Any> CrudListScreen(
     title: String,
-    items: List<T>,
-    itemLabel: (T) -> String,
-    onEdit: (T) -> Unit,
+    items: LazyPagingItems<T>,
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Se cambia itemLabel por itemContent para aceptar un @Composable
+    itemContent: @Composable (T) -> Unit,
+    // --- FIN DE LA MODIFICACIÓN ---
+    onSearchQueryChanged: (String) -> Unit,
     onSelect: (T) -> Unit,
-    onDelete: (T) -> Unit,
-    type: String = "R",//estaclece el tipo de listado R= listar, C= crear, U= actualizar
+    onDismiss: () -> Unit,
+    onAttemptEdit: ((T) -> Unit)? = null,
+    onDelete: ((T) -> Unit)? = null,
+    onCreate: (() -> Unit)? = null,
+    screenMode: CrudScreenMode = CrudScreenMode.VIEW_SELECT,
+    itemKey: ((T) -> Any)? = null,
+    searchHint: String = stringResource(R.string.default_search_hint)
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(title = { Text(title) })
-        }
-    ) { padding ->
-        if (items.isEmpty()) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("No hay elementos para mostrar", color = Color.Gray)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                items(items) { item ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color.White)
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Texto principal
-                        Text(
-                            text = itemLabel(item),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onSelect(item) }
-                        )
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+    var searchText by remember { mutableStateOf("") }
 
-                        // Ícono Seleccionar - mostrar solo en tipos R y C
-                        if (type == "R") {
-                            IconButton(onClick = { onSelect(item) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Seleccionar",
-                                    tint = Color.Green
-                                )
-                            }
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = { Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Blanco)
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AzulNexo,
+                    titleContentColor = Blanco,
+                    navigationIconContentColor = Blanco
+                )
+            )
+        },
+        floatingActionButton = {
+            if (onCreate != null && screenMode != CrudScreenMode.VIEW_SELECT && screenMode != CrudScreenMode.ONLY_VIEW) {
+                FloatingActionButton(onClick = onCreate) {
+                    Icon(Icons.Default.Add, stringResource(R.string.create_new_item))
+                }
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = {
+                    searchText = it
+                    onSearchQueryChanged(it) // Notifica al ViewModel sobre la búsqueda
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text(searchHint) },
+                leadingIcon = { Icon(Icons.Default.Search, stringResource(R.string.search_icon_description)) },
+                trailingIcon = {
+                    if (searchText.isNotEmpty()) {
+                        IconButton(onClick = {
+                            searchText = ""
+                            onSearchQueryChanged("")
+                        }) {
+                            Icon(Icons.Default.Clear, stringResource(R.string.clear_search_description))
                         }
-                        // Ícono Editar - mostrar solo en tipos R y U
-                        if ( type == "U") {
-                            IconButton(onClick = { onEdit(item) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Editar"
-                                )
-                            }
-                        }
-                        // Ícono Borrar - mostrar solo en tipos R y U
-                        if ( type == "D") {
-                            IconButton(onClick = { onDelete(item) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Borrar"
-                                )
+                    }
+                },
+                singleLine = true
+            )
+
+            when (items.loadState.refresh) {
+                is LoadState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+                is LoadState.Error -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Error al cargar los datos.")
+                    }
+                }
+                else -> {
+                    if (items.itemCount == 0) {
+                        EmptyStateOrNoResults(modifier = Modifier.weight(1f), isSearchActive = searchText.isNotBlank())
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.background),
+                            contentPadding = PaddingValues(bottom = 8.dp)
+                        ) {
+                            items(
+                                count = items.itemCount,
+                                key = if (itemKey != null) { index -> items.peek(index)?.let { itemKey(it) } ?: index } else null
+                            ) { index ->
+                                val item = items[index]
+                                if (item != null) {
+                                    CrudListItem(
+                                        item = item,
+                                        // --- INICIO DE LA MODIFICACIÓN ---
+                                        itemContent = { itemContent(item) },
+                                        // --- FIN DE LA MODIFICACIÓN ---
+                                        onSelect = { onSelect(item) },
+                                        onEdit = if (screenMode == CrudScreenMode.EDIT_DELETE || screenMode == CrudScreenMode.EDIT_DELETE_EDIT_PRINT) {
+                                            { onAttemptEdit?.invoke(item) }
+                                        } else null,
+                                        onDelete = if (screenMode == CrudScreenMode.EDIT_DELETE || screenMode == CrudScreenMode.EDIT_DELETE_EDIT_PRINT) {
+                                            { onDelete?.invoke(item) }
+                                        } else null,
+                                        showSelectActionIcon = screenMode == CrudScreenMode.VIEW_SELECT,
+                                        screenMode = screenMode
+                                    )
+                                }
                             }
                         }
                     }
-                    Divider()
                 }
             }
         }
+    }
+}
+
+@Composable
+fun <T> CrudListItem(
+    item: T,
+    itemContent: @Composable () -> Unit,
+    onSelect: () -> Unit,
+    onEdit: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
+    showSelectActionIcon: Boolean,
+    screenMode: CrudScreenMode
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable(onClick = onSelect),
+        shape = RoundedCornerShape(5.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = GrisClaro,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                // --- INICIO DE LA MODIFICACIÓN ---
+                itemContent()
+                // --- FIN DE LA MODIFICACIÓN ---
+            }
+            Spacer(Modifier.width(16.dp))
+            if (showSelectActionIcon) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = stringResource(R.string.select_item),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                if (onEdit != null) {
+                    IconButton(onClick = onEdit) {
+                        if (screenMode == CrudScreenMode.EDIT_DELETE_EDIT_PRINT) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_print),
+                                contentDescription = "Reimprimir",
+                                tint = NegroNexo
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = stringResource(R.string.edit_item),
+                                tint = NegroNexo
+                            )
+                        }
+                    }
+                }
+                if (onDelete != null) {
+                    if (onEdit != null) Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.delete_item),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyStateOrNoResults(modifier: Modifier = Modifier, isSearchActive: Boolean) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = if (isSearchActive) stringResource(R.string.no_search_results)
+            else stringResource(R.string.no_items_to_display),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

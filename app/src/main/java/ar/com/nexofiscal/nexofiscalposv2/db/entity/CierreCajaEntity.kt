@@ -1,17 +1,21 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/db/entity/CierreCajaEntity.kt
 package ar.com.nexofiscal.nexofiscalposv2.db.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "cierres_caja")
+// --- CAMBIO: Se añaden serverId y syncStatus ---
+@Entity(tableName = "cierres_caja", indices = [Index(value = ["serverId"])])
 data class CierreCajaEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    var serverId: Int?,
+    var syncStatus: SyncStatus,
+
     val fecha: String?,
     val totalVentas: Double?,
     val totalGastos: Double?,
     val efectivoInicial: Double?,
     val efectivoFinal: Double?,
     val tipoCajaId: Int?,
-    val usuarioId: Int?    // guarda sólo el id del Usuario; puedes añadir ForeignKey si defines UsuarioEntity
+    val usuarioId: Int?
 )

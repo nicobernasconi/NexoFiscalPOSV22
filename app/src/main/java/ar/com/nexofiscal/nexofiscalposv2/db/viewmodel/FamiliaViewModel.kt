@@ -1,40 +1,64 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/FamiliaViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.FamiliaEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.FamiliaRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.models.Familia
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.FamiliaRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
-class FamiliaViewModel(context: Context) : ViewModel() {
+class FamiliaViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = FamiliaRepository(
-        AppDatabase.getInstance(context).familiaDao()
-    )
+    private val repo: FamiliaRepository
+    private val _searchQuery = MutableStateFlow("")
 
-    /** Lista observable de familias */
-    val familias = repo.todas()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    /** Guarda o actualiza una familia */
-    fun save(f: FamiliaEntity) {
-        viewModelScope.launch { repo.guardar(f) }
+    init {
+        val dao = AppDatabase.getInstance(application).familiaDao()
+        repo = FamiliaRepository(dao)
     }
 
-    /** Elimina una familia */
-    fun delete(f: FamiliaEntity) {
-        viewModelScope.launch { repo.eliminar(f) }
+    val pagedFamilias: Flow<PagingData<Familia>> = _searchQuery
+        .flatMapLatest { query ->
+            repo.getFamiliasPaginated(query)
+        }
+        .map { pagingData ->
+            pagingData.map { entity -> entity.toDomainModel() }
+        }
+        .cachedIn(viewModelScope)
+
+    fun search(query: String) {
+        _searchQuery.value = query
     }
 
-    /** Carga una familia por id */
-    fun loadById(id: Int, callback: (FamiliaEntity?)->Unit) {
+    suspend fun porId(id: Int): FamiliaEntity? = repo.porId(id)
+
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
+    fun guardar(entity: FamiliaEntity) {
         viewModelScope.launch {
-            callback(repo.porId(id))
+            if (entity.serverId == null) {
+                entity.syncStatus = SyncStatus.CREATED
+            } else {
+                entity.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(entity)
         }
     }
+
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    fun eliminar(entity: FamiliaEntity) {
+        viewModelScope.launch {
+            entity.syncStatus = SyncStatus.DELETED
+            repo.actualizar(entity)
+        }
+    }
+
+    suspend fun eliminarTodo() = repo.eliminarTodo()
 }

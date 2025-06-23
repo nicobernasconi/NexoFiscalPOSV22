@@ -1,27 +1,36 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/ProveedorRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+// main/java/ar/com/nexofiscal/nexofiscalposv2/repository/ProveedorRepository.kt
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ProveedorDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProveedorEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import kotlinx.coroutines.flow.Flow
 
 class ProveedorRepository(private val dao: ProveedorDao) {
 
-    /** Flujo con todos los proveedores */
-    fun todos(): Flow<List<ProveedorEntity>> = dao.getAll()
+    fun getProveedoresPaginated(query: String): Flow<PagingData<ProveedorEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSource()
+                } else {
+                    dao.searchPagingSource(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Obtiene un proveedor por su id */
     suspend fun porId(id: Int): ProveedorEntity? = dao.getById(id)
-
-    /** Inserta o reemplaza un proveedor */
     suspend fun guardar(p: ProveedorEntity) = dao.insert(p)
-
-    /** Actualiza un proveedor existente */
     suspend fun actualizar(p: ProveedorEntity) = dao.update(p)
-
-    /** Elimina un proveedor */
-    suspend fun eliminar(p: ProveedorEntity) = dao.delete(p)
-
-    /** Borra todos los proveedores */
+    suspend fun eliminar(entity: ProveedorEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
     suspend fun eliminarTodo() = dao.clearAll()
 }

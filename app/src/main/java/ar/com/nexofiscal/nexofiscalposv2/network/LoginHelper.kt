@@ -36,7 +36,7 @@ object LoginHelper {
         val call: Call<String?> = service.login(request)
 
         call.enqueue(object : Callback<String?> {
-            public override fun onResponse(call: Call<String?>?, resp: Response<String?>) {
+            override fun onResponse(call: Call<String?>?, resp: Response<String?>) {
                 if (resp.isSuccessful() && resp.body() != null) {
                     try {
                         val json: JSONObject = JSONObject(resp.body())
@@ -139,23 +139,23 @@ object LoginHelper {
                             ed.putLong("login_time", System.currentTimeMillis())
                             ed.apply()
 
-                            ed.putLong("login_time", System.currentTimeMillis())
-                            ed.apply()
-
                             callback.onSuccess(json)
                         } else {
-                            callback.onError(json.optString("message", "Login fallido"))
+                            // Error de credenciales o del servidor (no de red)
+                            callback.onError(json.optString("message", "Login fallido"), false)
                         }
                     } catch (e: Exception) {
-                        callback.onError("Error procesando la respuesta: " + e.message)
+                        callback.onError("Error procesando la respuesta: " + e.message, false)
                     }
                 } else {
-                    callback.onError("Error HTTP: " + resp.code())
+                    // Error de HTTP (no de red)
+                    callback.onError("Error HTTP: " + resp.code(), false)
                 }
             }
 
-            public override fun onFailure(call: Call<String?>?, t: Throwable) {
-                callback.onError("Error de red: " + t.message)
+            override fun onFailure(call: Call<String?>?, t: Throwable) {
+                // Error de red (sin conexión, timeout, etc.)
+                callback.onError("Error de red: " + t.message, true)
             }
         })
     }
@@ -168,6 +168,6 @@ object LoginHelper {
 
     interface LoginCallback {
         fun onSuccess(response: JSONObject?)
-        fun onError(error: String?)
+        fun onError(error: String?, isNetworkError: Boolean)
     }
 }

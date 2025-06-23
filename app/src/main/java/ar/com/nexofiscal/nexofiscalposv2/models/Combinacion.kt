@@ -37,5 +37,8 @@ class Combinacion {
                 ", empresaId=" + empresaId +
                 '}'
     }
+    fun copy(productoPrincipalId: Int = this.productoPrincipalId, subproductoId: Int = this.subproductoId, cantidad: Double = this.cantidad, empresaId: Int = this.empresaId): Combinacion {
+        return Combinacion(productoPrincipalId, subproductoId, cantidad, empresaId)
+    }
 }
 

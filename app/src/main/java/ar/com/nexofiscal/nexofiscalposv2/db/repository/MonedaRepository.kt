@@ -1,27 +1,36 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/MonedaRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+// main/java/ar/com/nexofiscal/nexofiscalposv2/repository/MonedaRepository.kt
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.MonedaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.MonedaEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import kotlinx.coroutines.flow.Flow
 
 class MonedaRepository(private val dao: MonedaDao) {
 
-    /** Flujo con todas las monedas */
-    fun todas(): Flow<List<MonedaEntity>> = dao.getAll()
+    fun getMonedasPaginated(query: String): Flow<PagingData<MonedaEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSource()
+                } else {
+                    dao.searchPagingSource(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Obtiene una moneda por su id */
     suspend fun porId(id: Int): MonedaEntity? = dao.getById(id)
-
-    /** Inserta o reemplaza una moneda */
     suspend fun guardar(m: MonedaEntity) = dao.insert(m)
-
-    /** Actualiza una moneda existente */
     suspend fun actualizar(m: MonedaEntity) = dao.update(m)
-
-    /** Elimina una moneda */
-    suspend fun eliminar(m: MonedaEntity) = dao.delete(m)
-
-    /** Borra todas las monedas */
+    suspend fun eliminar(entity: MonedaEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
     suspend fun eliminarTodo() = dao.clearAll()
 }

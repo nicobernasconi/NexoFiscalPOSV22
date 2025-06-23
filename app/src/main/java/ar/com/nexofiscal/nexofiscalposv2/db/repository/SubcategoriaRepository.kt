@@ -1,9 +1,10 @@
 // src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/SubcategoriaRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
 import kotlinx.coroutines.flow.Flow
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.SubcategoriaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SubcategoriaEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 
 class SubcategoriaRepository(private val dao: SubcategoriaDao) {
 
@@ -20,7 +21,10 @@ class SubcategoriaRepository(private val dao: SubcategoriaDao) {
     suspend fun actualizar(item: SubcategoriaEntity) = dao.update(item)
 
     /** Elimina una subcategoría */
-    suspend fun eliminar(item: SubcategoriaEntity) = dao.delete(item)
+    suspend fun eliminar(entity: SubcategoriaEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
 
     /** Borra todas las subcategorías */
     suspend fun eliminarTodo() = dao.clearAll()

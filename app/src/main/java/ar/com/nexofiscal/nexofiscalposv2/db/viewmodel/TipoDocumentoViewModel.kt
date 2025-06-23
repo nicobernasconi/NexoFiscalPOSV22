@@ -1,41 +1,60 @@
-// 5. ViewModel
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/TipoDocumentoViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoDocumentoEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.TipoDocumentoRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoDocumentoRepository
+import ar.com.nexofiscal.nexofiscalposv2.models.TipoDocumento
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
-class TipoDocumentoViewModel(context: Context) : ViewModel() {
+class TipoDocumentoViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = TipoDocumentoRepository(
-        AppDatabase.getInstance(context).tipoDocumentoDao()
-    )
+    private val repo: TipoDocumentoRepository
+    private val _searchQuery = MutableStateFlow("")
 
-    /** Lista observable de tipos de documento */
-    val tiposDocumento = repo.todos()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    /** Guarda o actualiza un tipo de documento */
-    fun save(item: TipoDocumentoEntity) {
-        viewModelScope.launch { repo.guardar(item) }
+    init {
+        val dao = AppDatabase.getInstance(application).tipoDocumentoDao()
+        repo = TipoDocumentoRepository(dao)
     }
 
-    /** Elimina un tipo de documento */
-    fun delete(item: TipoDocumentoEntity) {
-        viewModelScope.launch { repo.eliminar(item) }
+    val pagedTiposDocumento: Flow<PagingData<TipoDocumento>> = _searchQuery
+        .flatMapLatest { query ->
+            repo.getTiposDocumentoPaginated(query)
+        }
+        .map { pagingData ->
+            pagingData.map { entity -> entity.toDomainModel() }
+        }
+        .cachedIn(viewModelScope)
+
+    fun search(query: String) {
+        _searchQuery.value = query
     }
 
-    /** Carga un tipo de documento por id */
-    fun loadById(id: Int, callback: (TipoDocumentoEntity?) -> Unit) {
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
+    fun save(td: TipoDocumentoEntity) {
         viewModelScope.launch {
-            callback(repo.porId(id))
+            if (td.serverId == null) {
+                td.syncStatus = SyncStatus.CREATED
+            } else {
+                td.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(td)
+        }
+    }
+
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    fun delete(td: TipoDocumentoEntity) {
+        viewModelScope.launch {
+            td.syncStatus = SyncStatus.DELETED
+            repo.actualizar(td)
         }
     }
 }

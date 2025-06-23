@@ -1,40 +1,64 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/TipoComprobanteViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoComprobanteEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.TipoComprobanteRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoComprobanteRepository
+import ar.com.nexofiscal.nexofiscalposv2.models.TipoComprobante
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
-class TipoComprobanteViewModel(context: Context) : ViewModel() {
+class TipoComprobanteViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = TipoComprobanteRepository(
-        AppDatabase.getInstance(context).tipoComprobanteDao()
-    )
+    private val repo: TipoComprobanteRepository
+    private val _searchQuery = MutableStateFlow("")
 
-    /** Lista observable de tipos de comprobante */
-    val tiposComprobante = repo.todos()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    /** Guarda o actualiza un tipo de comprobante */
-    fun save(item: TipoComprobanteEntity) {
-        viewModelScope.launch { repo.guardar(item) }
+    init {
+        val dao = AppDatabase.getInstance(application).tipoComprobanteDao()
+        repo = TipoComprobanteRepository(dao)
     }
 
-    /** Elimina un tipo de comprobante */
-    fun delete(item: TipoComprobanteEntity) {
-        viewModelScope.launch { repo.eliminar(item) }
+    val pagedTiposComprobante: Flow<PagingData<TipoComprobante>> = _searchQuery
+        .flatMapLatest { query ->
+            repo.getTiposComprobantePaginated(query)
+        }
+        .map { pagingData ->
+            pagingData.map { entity -> entity.toDomainModel() }
+        }
+        .cachedIn(viewModelScope)
+
+    fun search(query: String) {
+        _searchQuery.value = query
     }
 
-    /** Carga un tipo por id */
-    fun loadById(id: Int, callback: (TipoComprobanteEntity?) -> Unit) {
+    suspend fun getById(id: Int): TipoComprobante? {
+        return repo.porId(id)?.toDomainModel()
+    }
+
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
+    fun save(tc: TipoComprobanteEntity) {
         viewModelScope.launch {
-            callback(repo.porId(id))
+            if (tc.serverId == null) {
+                tc.syncStatus = SyncStatus.CREATED
+            } else {
+                tc.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(tc)
+        }
+    }
+
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    fun delete(tc: TipoComprobanteEntity) {
+        viewModelScope.launch {
+            tc.syncStatus = SyncStatus.DELETED
+            repo.actualizar(tc)
         }
     }
 }

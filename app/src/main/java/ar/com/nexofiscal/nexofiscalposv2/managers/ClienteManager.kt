@@ -1,50 +1,55 @@
 package ar.com.nexofiscal.nexofiscalposv2.managers
 
+import android.content.Context
+import android.util.Log
+import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toClienteEntityList
 import ar.com.nexofiscal.nexofiscalposv2.models.Cliente
-import ar.com.nexofiscal.nexofiscalposv2.network.ApiCallback
-import ar.com.nexofiscal.nexofiscalposv2.network.ApiClient
-import ar.com.nexofiscal.nexofiscalposv2.network.HttpMethod
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object ClienteManager {
     private const val TAG = "ClienteManager"
-    private const val ENDPOINT_CLIENTES =
-        "/api/clientes" // Reemplaza con la ruta correcta de tu API
+    private const val ENDPOINT_CLIENTES = "/api/clientes"
 
     fun obtenerClientes(
-        headers: kotlin.collections.MutableMap<kotlin.String?, kotlin.String?>?,
+        context: Context,
+        headers: MutableMap<String?, String?>?,
         callback: ClienteListCallback
     ) {
-        val clienteListType = object :
-            com.google.gson.reflect.TypeToken<kotlin.collections.MutableList<Cliente?>?>() {}.getType()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val clienteListType = object : com.google.gson.reflect.TypeToken<MutableList<Cliente?>?>() {}.type
 
-        ApiClient.request(
-            HttpMethod.GET,
-            ClienteManager.ENDPOINT_CLIENTES,
-            headers,
-            null,
-            clienteListType,
-            object : ApiCallback<kotlin.collections.MutableList<Cliente?>?> {
-                public override fun onSuccess(
-                    statusCode: kotlin.Int,
-                    headers: okhttp3.Headers?,
-                    clientes: kotlin.collections.MutableList<Cliente?>?
-                ) {
-                    callback.onSuccess(clientes)
+                // 1. Llama al gestor de paginación para obtener TODOS los clientes
+                val allClientes = PaginationManager.fetchAllPages<Cliente>(ENDPOINT_CLIENTES, headers, clienteListType)
+
+                // 2. Guarda la lista completa en la base de datos
+                val clienteDao = AppDatabase.getInstance(context.applicationContext).clienteDao()
+                val clienteEntities = allClientes.toClienteEntityList()
+                clienteEntities.forEach { entity ->
+                    clienteDao.insert(entity)
+                }
+                Log.d(TAG, "${clienteEntities.size} clientes guardados/actualizados en la BD.")
+
+                // 3. Notifica el éxito con la lista completa
+                withContext(Dispatchers.Main) {
+                    callback.onSuccess(allClientes.toMutableList())
                 }
 
-                public override fun onError(statusCode: kotlin.Int, errorMessage: kotlin.String?) {
-                    android.util.Log.e(
-                        ClienteManager.TAG,
-                        "Error al obtener clientes. Código: " + statusCode + ", Mensaje: " + errorMessage
-                    )
-                    callback.onError(errorMessage)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al obtener todas las páginas de clientes: ", e)
+                withContext(Dispatchers.Main) {
+                    callback.onError(e.message)
                 }
             }
-        )
-    } // Puedes agregar otros métodos para crear, actualizar o eliminar clientes si tu API lo permite.
+        }
+    }
 
     interface ClienteListCallback {
-        fun onSuccess(clientes: kotlin.collections.MutableList<Cliente?>?)
-        fun onError(errorMessage: kotlin.String?)
+        fun onSuccess(clientes: MutableList<Cliente?>?)
+        fun onError(errorMessage: String?)
     }
 }

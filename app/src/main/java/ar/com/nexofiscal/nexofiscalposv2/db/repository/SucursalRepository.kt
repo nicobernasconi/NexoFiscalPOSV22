@@ -1,27 +1,36 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/SucursalRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+// main/java/ar/com/nexofiscal/nexofiscalposv2/repository/SucursalRepository.kt
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.SucursalDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SucursalEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import kotlinx.coroutines.flow.Flow
 
 class SucursalRepository(private val dao: SucursalDao) {
 
-    /** Flujo con todas las sucursales */
-    fun todas(): Flow<List<SucursalEntity>> = dao.getAll()
+    fun getSucursalesPaginated(query: String): Flow<PagingData<SucursalEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSource()
+                } else {
+                    dao.searchPagingSource(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Obtiene una sucursal por su id */
     suspend fun porId(id: Int): SucursalEntity? = dao.getById(id)
-
-    /** Inserta o reemplaza una sucursal */
     suspend fun guardar(suc: SucursalEntity) = dao.insert(suc)
-
-    /** Actualiza una sucursal existente */
     suspend fun actualizar(suc: SucursalEntity) = dao.update(suc)
-
-    /** Elimina una sucursal */
-    suspend fun eliminar(suc: SucursalEntity) = dao.delete(suc)
-
-    /** Borra todas las sucursales */
+    suspend fun eliminar(entity: SucursalEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
     suspend fun eliminarTodo() = dao.clearAll()
 }

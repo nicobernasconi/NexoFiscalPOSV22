@@ -1,18 +1,38 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/db/dao/CierreCajaDao.kt
 package ar.com.nexofiscal.nexofiscalposv2.db.dao
 
+import androidx.paging.PagingSource
 import androidx.room.*
-import kotlinx.coroutines.flow.Flow
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 
 @Dao
 interface CierreCajaDao {
 
-    @Query("SELECT * FROM cierres_caja")
-    fun getAll(): Flow<List<CierreCajaEntity>>
+    // --- CAMBIO: Las consultas ahora excluyen los registros marcados para borrar ---
+    @Query("SELECT * FROM cierres_caja WHERE syncStatus != :statusDeleted ORDER BY fecha DESC")
+    fun getPagingSource(statusDeleted: SyncStatus = SyncStatus.DELETED): PagingSource<Int, CierreCajaEntity>
+
+    @Query("SELECT * FROM cierres_caja WHERE fecha LIKE :query AND syncStatus != :statusDeleted ORDER BY fecha DESC")
+    fun searchPagingSource(query: String, statusDeleted: SyncStatus = SyncStatus.DELETED): PagingSource<Int, CierreCajaEntity>
 
     @Query("SELECT * FROM cierres_caja WHERE id = :id")
     suspend fun getById(id: Int): CierreCajaEntity?
+
+    // --- FUNCIONES NUEVAS PARA SINCRONIZACIÓN ---
+
+    @Query("SELECT * FROM cierres_caja WHERE syncStatus != :statusSynced")
+    suspend fun getUnsynced(statusSynced: SyncStatus = SyncStatus.SYNCED): List<CierreCajaEntity>
+
+    @Query("UPDATE cierres_caja SET serverId = :serverId, syncStatus = :statusSynced WHERE id = :localId")
+    suspend fun updateServerIdAndStatus(localId: Int, serverId: Int, statusSynced: SyncStatus = SyncStatus.SYNCED)
+
+    @Query("UPDATE cierres_caja SET syncStatus = :statusSynced WHERE serverId = :serverId")
+    suspend fun updateStatusToSyncedByServerId(serverId: Int, statusSynced: SyncStatus = SyncStatus.SYNCED)
+
+    @Query("DELETE FROM cierres_caja WHERE id = :localId")
+    suspend fun deleteByLocalId(localId: Int)
+
+    // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(cierre: CierreCajaEntity)
@@ -20,8 +40,7 @@ interface CierreCajaDao {
     @Update
     suspend fun update(cierre: CierreCajaEntity)
 
-    @Delete
-    suspend fun delete(cierre: CierreCajaEntity)
+    // El @Delete original se elimina, el borrado ahora es lógico (cambio de estado).
 
     @Query("DELETE FROM cierres_caja")
     suspend fun clearAll()

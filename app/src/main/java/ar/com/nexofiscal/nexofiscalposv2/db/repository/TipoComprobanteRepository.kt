@@ -1,27 +1,37 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/TipoComprobanteRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+// main/java/ar/com/nexofiscal/nexofiscalposv2/repository/TipoComprobanteRepository.kt
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.TipoComprobanteDao
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.TasaIvaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoComprobanteEntity
+import kotlinx.coroutines.flow.Flow
 
 class TipoComprobanteRepository(private val dao: TipoComprobanteDao) {
 
-    /** Flujo con todos los tipos de comprobante */
-    fun todos(): Flow<List<TipoComprobanteEntity>> = dao.getAll()
+    fun getTiposComprobantePaginated(query: String): Flow<PagingData<TipoComprobanteEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSource()
+                } else {
+                    dao.searchPagingSource(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Obtiene un tipo por su id */
     suspend fun porId(id: Int): TipoComprobanteEntity? = dao.getById(id)
-
-    /** Inserta o reemplaza un registro */
     suspend fun guardar(item: TipoComprobanteEntity) = dao.insert(item)
-
-    /** Actualiza un registro existente */
     suspend fun actualizar(item: TipoComprobanteEntity) = dao.update(item)
-
-    /** Elimina un registro */
-    suspend fun eliminar(item: TipoComprobanteEntity) = dao.delete(item)
-
-    /** Borra todos los registros */
+    suspend fun eliminar(entity: TipoComprobanteEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
     suspend fun eliminarTodo() = dao.clearAll()
 }

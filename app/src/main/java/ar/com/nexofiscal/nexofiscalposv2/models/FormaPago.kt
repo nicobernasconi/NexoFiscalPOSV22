@@ -23,4 +23,12 @@ class FormaPago {
                 ", porcentaje=" + porcentaje +
                 '}'
     }
+    fun copy(id: Int = this.id, nombre: String? = this.nombre, porcentaje: Int = this.porcentaje, tipoFormaPago: TipoFormaPago? = this.tipoFormaPago): FormaPago {
+        val formaPago = FormaPago()
+        formaPago.id = id
+        formaPago.nombre = nombre
+        formaPago.porcentaje = porcentaje
+        formaPago.tipoFormaPago = tipoFormaPago?.copy() // Asumiendo que TipoFormaPago tiene un método copy()
+        return formaPago
+    }
 }

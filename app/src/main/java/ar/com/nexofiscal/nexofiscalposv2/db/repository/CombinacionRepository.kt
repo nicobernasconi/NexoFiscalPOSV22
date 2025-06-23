@@ -1,5 +1,5 @@
 // src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/CombinacionRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
 import kotlinx.coroutines.flow.Flow
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.CombinacionDao

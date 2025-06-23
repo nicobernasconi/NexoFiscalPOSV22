@@ -19,4 +19,14 @@ class Tipo {
                 ", nombre='" + nombre + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, numero: Int? = this.numero, nombre: String? = this.nombre): Tipo {
+        val tipo = Tipo()
+        tipo.id = id
+        tipo.numero = numero
+        tipo.nombre = nombre
+        return tipo
+    }
+
+
 }

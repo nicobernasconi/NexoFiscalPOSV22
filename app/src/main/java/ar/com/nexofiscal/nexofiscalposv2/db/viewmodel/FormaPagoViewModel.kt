@@ -1,40 +1,82 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/ui/viewmodel/FormaPagoViewModel.kt
-package ar.com.nexofiscal.nexofiscalposv2.ui.viewmodel
+package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.FormaPagoEntity
-import ar.com.nexofiscal.nexofiscalposv2.repository.FormaPagoRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.models.FormaPago
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.FormaPagoRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoFormaPagoRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
-class FormaPagoViewModel(context: Context) : ViewModel() {
+class FormaPagoViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = FormaPagoRepository(
-        AppDatabase.getInstance(context).formaPagoDao()
-    )
+    private val repo: FormaPagoRepository
+    private val tipoFormaPagoRepo: TipoFormaPagoRepository
+    private val _searchQuery = MutableStateFlow("")
 
-    /** Lista reactiva de formas de pago */
-    val formasPago = repo.todas()
+    init {
+        val database = AppDatabase.getInstance(application)
+        repo = FormaPagoRepository(database.formaPagoDao())
+        tipoFormaPagoRepo = TipoFormaPagoRepository(database.tipoFormaPagoDao())
+    }
+
+    val allFormasPago: StateFlow<List<FormaPago>> = repo.getAll()
+        .map { entities ->
+            entities.map { entity ->
+                val domainModel = entity.toDomainModel()
+                entity.tipoFormaPagoId?.let { tipoId ->
+                    domainModel.tipoFormaPago = tipoFormaPagoRepo.porId(tipoId)?.toDomainModel()
+                }
+                domainModel
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    /** Guarda o actualiza */
-    fun save(f: FormaPagoEntity) {
-        viewModelScope.launch { repo.guardar(f) }
+    val pagedFormasPago: Flow<PagingData<FormaPago>> = _searchQuery
+        .flatMapLatest { query ->
+            repo.getFormasPagoPaginated(query)
+        }
+        .map { pagingData ->
+            pagingData.map { entity ->
+                val domainModel = entity.toDomainModel()
+                entity.tipoFormaPagoId?.let { tipoId ->
+                    val tipoEntity = tipoFormaPagoRepo.porId(tipoId)
+                    domainModel.tipoFormaPago = tipoEntity?.toDomainModel()
+                }
+                domainModel
+            }
+        }
+        .cachedIn(viewModelScope)
+
+    fun search(query: String) {
+        _searchQuery.value = query
     }
 
-    /** Elimina */
-    fun delete(f: FormaPagoEntity) {
-        viewModelScope.launch { repo.eliminar(f) }
-    }
-
-    /** Carga por id y devuelve por callback */
-    fun loadById(id: Int, callback: (FormaPagoEntity?)->Unit) {
+    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
+    fun guardar(f: FormaPagoEntity) {
         viewModelScope.launch {
-            callback(repo.porId(id))
+            if (f.serverId == null) {
+                f.syncStatus = SyncStatus.CREATED
+            } else {
+                f.syncStatus = SyncStatus.UPDATED
+            }
+            repo.guardar(f)
+        }
+    }
+
+    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    fun eliminar(f: FormaPagoEntity) {
+        viewModelScope.launch {
+            f.syncStatus = SyncStatus.DELETED
+            repo.actualizar(f)
         }
     }
 }

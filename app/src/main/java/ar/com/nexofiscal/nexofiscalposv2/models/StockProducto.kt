@@ -75,4 +75,40 @@ class StockProducto {
                 ", sucursalId=" + sucursalId +
                 '}'
     }
+
+    fun copy(id: Int? = this.id,
+             codigo: String? = this.codigo,
+             stockInicial: Double? = this.stockInicial,
+             controlaStock: Boolean? = this.controlaStock,
+             puntoPedido: Double? = this.puntoPedido,
+             largo: Double? = this.largo,
+             alto: Double? = this.alto,
+             ancho: Double? = this.ancho,
+             peso: Double? = this.peso,
+             unidadId: Int? = this.unidadId,
+             ubicacionId: Int? = this.ubicacionId,
+             proveedoresId: Int? = this.proveedoresId,
+             productoId: Int? = this.productoId,
+             empresaId: Int? = this.empresaId,
+             stockActual: Double? = this.stockActual,
+             sucursalId: Int? = this.sucursalId): StockProducto {
+        val stockProducto = StockProducto()
+        stockProducto.id = id
+        stockProducto.codigo = codigo
+        stockProducto.stockInicial = stockInicial
+        stockProducto.controlaStock = controlaStock
+        stockProducto.puntoPedido = puntoPedido
+        stockProducto.largo = largo
+        stockProducto.alto = alto
+        stockProducto.ancho = ancho
+        stockProducto.peso = peso
+        stockProducto.unidadId = unidadId
+        stockProducto.ubicacionId = ubicacionId
+        stockProducto.proveedoresId = proveedoresId
+        stockProducto.productoId = productoId
+        stockProducto.empresaId = empresaId
+        stockProducto.stockActual = stockActual
+        stockProducto.sucursalId = sucursalId
+        return stockProducto
+    }
 }

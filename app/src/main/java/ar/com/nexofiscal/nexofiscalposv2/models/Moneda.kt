@@ -22,4 +22,12 @@ class Moneda {
                 ", nombre='" + nombre + '\'' +
                 '}'
     }
+    fun copy(id: Int = this.id, simbolo: String? = this.simbolo, nombre: String? = this.nombre, cotizacion: Double = this.cotizacion): Moneda {
+        val moneda = Moneda()
+        moneda.id = id
+        moneda.simbolo = simbolo
+        moneda.nombre = nombre
+        moneda.cotizacion = cotizacion
+        return moneda
+    }
 }

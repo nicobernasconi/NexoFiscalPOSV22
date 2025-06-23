@@ -20,4 +20,12 @@ class Categoria {
                 "nombre='" + nombre + '\'' +
                 '}'
     }
+
+    fun copy(id: Int? = this.id, nombre: String? = this.nombre, seImprime: Int? = this.seImprime): Categoria {
+        val categoria = Categoria()
+        categoria.id = id
+        categoria.nombre = nombre
+        categoria.seImprime = seImprime
+        return categoria
+    }
 }

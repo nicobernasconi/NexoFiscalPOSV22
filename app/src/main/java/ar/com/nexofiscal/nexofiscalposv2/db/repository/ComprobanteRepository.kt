@@ -1,27 +1,41 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/db/repository/ComprobanteRepository.kt
 package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
-import kotlinx.coroutines.flow.Flow
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ComprobanteDao
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteConDetallesEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import kotlinx.coroutines.flow.Flow
 
 class ComprobanteRepository(private val dao: ComprobanteDao) {
 
-    /** Flujo con todos los comprobantes */
-    fun todos(): Flow<List<ComprobanteEntity>> = dao.getAll()
+    fun getComprobantesPaginated(query: String): Flow<PagingData<ComprobanteConDetallesEntity>> {
+        val normalizedQuery = "%${query.trim()}%"
+        return Pager(
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
+            pagingSourceFactory = {
+                if (query.isBlank()) {
+                    dao.getPagingSourceWithDetails()
+                } else {
+                    dao.searchPagingSourceWithDetails(normalizedQuery)
+                }
+            }
+        ).flow
+    }
 
-    /** Obtén un comprobante por su ID */
     suspend fun porId(id: Int): ComprobanteEntity? = dao.getById(id)
 
-    /** Inserta o reemplaza */
-    suspend fun guardar(entity: ComprobanteEntity) = dao.insert(entity)
 
-    /** Actualiza existente */
+    suspend fun getHighestNumeroForTipo(tipoId: Int): Int? = dao.getHighestNumeroForTipo(tipoId)
+
+    suspend fun guardar(entity: ComprobanteEntity): Long = dao.insert(entity)
     suspend fun actualizar(entity: ComprobanteEntity) = dao.update(entity)
-
-    /** Elimina */
-    suspend fun eliminar(entity: ComprobanteEntity) = dao.delete(entity)
-
-    /** Limpia la tabla */
+    suspend fun eliminar(entity: ComprobanteEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
     suspend fun eliminarTodo() = dao.clearAll()
 }

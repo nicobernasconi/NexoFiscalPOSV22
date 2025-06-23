@@ -10,6 +10,9 @@
     <color name="noti_exito">#213821</color>
     <color name="noti_error">#950E0E</color>
     <color name="noti_info">#08115F</color>
+    <color name="noti_warning">#A65C00</color>
     <color name="nexoCeleste">#00AEEF</color>
     <color name="colorPrimary50">#8000AEEF</color>
+
+
 </resources>

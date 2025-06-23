@@ -16,4 +16,11 @@ class Pais {
                 "nombre='" + nombre + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, nombre: String? = this.nombre): Pais {
+        val pais = Pais()
+        pais.id = id
+        pais.nombre = nombre
+        return pais
+    }
 }

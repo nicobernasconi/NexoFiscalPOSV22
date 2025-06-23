@@ -1,51 +1,49 @@
 package ar.com.nexofiscal.nexofiscalposv2.managers
 
+import android.content.Context
+import android.util.Log
+import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toProductoEntityList
 import ar.com.nexofiscal.nexofiscalposv2.models.Producto
-import ar.com.nexofiscal.nexofiscalposv2.network.ApiCallback
-import ar.com.nexofiscal.nexofiscalposv2.network.ApiClient
-import ar.com.nexofiscal.nexofiscalposv2.network.HttpMethod
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object ProductoManager {
     private const val TAG = "ProductoManager"
     private const val ENDPOINT_PRODUCTO = "/api/productos"
 
     fun obtenerProductos(
-        headers: kotlin.collections.MutableMap<kotlin.String?, kotlin.String?>?,
-        body: kotlin.String?,
+        context: Context,
+        headers: MutableMap<String?, String?>?,
+        body: String?,
         callback: ProductoListCallback
     ) {
-        val productoListType = object :
-            com.google.gson.reflect.TypeToken<kotlin.collections.MutableList<Producto?>?>() {}.getType()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val listType = object : com.google.gson.reflect.TypeToken<MutableList<Producto?>?>() {}.type
+                val allItems = PaginationManager.fetchAllPages<Producto>(ENDPOINT_PRODUCTO, headers, listType)
 
-        ApiClient.request(
-            HttpMethod.GET,
-            ProductoManager.ENDPOINT_PRODUCTO,
-            headers,
-            body,
-            productoListType,
-            object : ApiCallback<kotlin.collections.MutableList<Producto?>?> {
-                public override fun onSuccess(
-                    statusCode: kotlin.Int,
-                    headers: okhttp3.Headers?,
-                    productos: kotlin.collections.MutableList<Producto?>?
-                ) {
-                    callback.onSuccess(productos)
+                val dao = AppDatabase.getInstance(context.applicationContext).productoDao()
+                val entities = allItems.toProductoEntityList()
+                entities.forEach { entity -> dao.insert(entity) }
+                Log.d(TAG, "${entities.size} productos guardados/actualizados en la BD.")
+
+                withContext(Dispatchers.Main) {
+                    callback.onSuccess(allItems.toMutableList())
                 }
-
-                public override fun onError(statusCode: kotlin.Int, errorMessage: kotlin.String?) {
-                    android.util.Log.e(
-                        ProductoManager.TAG,
-                        "Error al obtener productos. Código: " + statusCode + ", Mensaje: " + errorMessage
-                    )
-                    callback.onError(errorMessage)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al obtener todas las páginas de productos: ", e)
+                withContext(Dispatchers.Main) {
+                    callback.onError(e.message)
                 }
             }
-        )
+        }
     }
 
-
     interface ProductoListCallback {
-        fun onSuccess(productos: kotlin.collections.MutableList<Producto?>?)
-        fun onError(errorMessage: kotlin.String?)
+        fun onSuccess(productos: MutableList<Producto?>?)
+        fun onError(errorMessage: String?)
     }
 }

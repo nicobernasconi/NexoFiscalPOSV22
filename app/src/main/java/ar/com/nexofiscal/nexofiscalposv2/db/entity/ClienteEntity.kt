@@ -1,17 +1,23 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalposv2/db/entity/ClienteEntity.kt
+// main/java/ar/com/nexofiscal/nexofiscalposv2/db/entity/ClienteEntity.kt
+
 package ar.com.nexofiscal.nexofiscalposv2.db.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "clientes")
+@Entity(tableName = "clientes", indices = [Index(value = ["serverId"], unique = true)]) // `unique = true` es una buena práctica
 data class ClienteEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0, // Clave local
+    var serverId: Int?, // <-- CAMBIO: AÑADIDO
+    var syncStatus: SyncStatus, // <-- CAMBIO: AÑADIDO
+
     val nroCliente: Int,
     val nombre: String?,
-    val cuit: Long?,
+    val cuit: String?,
+    // ... el resto de los campos permanece igual
     val tipoDocumentoId: Int?,
-    val numeroDocumento: Long?,
+    val numeroDocumento: String?,
     val direccionComercial: String?,
     val direccionEntrega: String?,
     val localidadId: Int?,

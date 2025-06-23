@@ -28,4 +28,15 @@ class Vendedor {
                 "nombre='" + nombre + '\'' +
                 '}'
     }
+
+    fun copy(id: Int = this.id, nombre: String? = this.nombre, direccion: String? = this.direccion, telefono: String? = this.telefono, porcentajeComision: Double? = this.porcentajeComision, fechaIngreso: String? = this.fechaIngreso): Vendedor {
+        val vendedor = Vendedor()
+        vendedor.id = id
+        vendedor.nombre = nombre
+        vendedor.direccion = direccion
+        vendedor.telefono = telefono
+        vendedor.porcentajeComision = porcentajeComision
+        vendedor.fechaIngreso = fechaIngreso
+        return vendedor
+    }
 }

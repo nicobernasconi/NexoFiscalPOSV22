@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "ar.com.nexofiscal.nexofiscalposv2"
-        minSdk = 33
+        minSdk = 28
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -78,8 +78,14 @@ dependencies {
      implementation("com.squareup.okhttp3:logging-interceptor:4.9.3") // Interceptor para logs de red
      implementation("com.squareup.retrofit2:converter-scalars:2.9.0")
 
+    //PAGINACION
+    implementation ("androidx.paging:paging-runtime-ktx:3.2.1")
+    implementation ("androidx.paging:paging-compose:3.3.0-alpha02")
+    implementation ("androidx.room:room-paging:2.6.1")
 
-     // --- Room (Base de datos local) ---
+
+
+    // --- Room (Base de datos local) ---
     val roomVersion = "2.6.1" // Reemplaza con tu versión deseada
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
@@ -102,4 +108,15 @@ dependencies {
      androidTestImplementation(libs.androidx.ui.test.junit4) // Pruebas de UI con JUnit4
      debugImplementation(libs.androidx.ui.tooling) // Herramientas de depuración para Compose
      debugImplementation(libs.androidx.ui.test.manifest) // Manifest para pruebas de UI
+
+
+    implementation ("androidx.camera:camera-core:1.4.2")
+    implementation ("androidx.camera:camera-camera2:1.4.2")
+    implementation ("androidx.camera:camera-lifecycle:1.4.2")
+    implementation ("androidx.camera:camera-view:1.4.2")
+
+    // Para ML Kit de Google: Barcode Scanning
+    implementation ("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.0")
+
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }

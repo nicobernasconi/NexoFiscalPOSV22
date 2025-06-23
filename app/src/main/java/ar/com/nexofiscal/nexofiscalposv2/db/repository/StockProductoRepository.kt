@@ -1,9 +1,10 @@
 // src/main/java/ar/com/nexofiscal/nexofiscalposv2/repository/StockProductoRepository.kt
-package ar.com.nexofiscal.nexofiscalposv2.repository
+package ar.com.nexofiscal.nexofiscalposv2.db.repository
 
 import kotlinx.coroutines.flow.Flow
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.StockProductoDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.StockProductoEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 
 class StockProductoRepository(private val dao: StockProductoDao) {
 
@@ -20,7 +21,10 @@ class StockProductoRepository(private val dao: StockProductoDao) {
     suspend fun actualizar(item: StockProductoEntity) = dao.update(item)
 
     /** Elimina un registro */
-    suspend fun eliminar(item: StockProductoEntity) = dao.delete(item)
+    suspend fun eliminar(entity: StockProductoEntity) {
+        entity.syncStatus = SyncStatus.DELETED
+        dao.update(entity) // Se utiliza el método update del DAO.
+    }
 
     /** Borra todos los registros */
     suspend fun eliminarTodo() = dao.clearAll()

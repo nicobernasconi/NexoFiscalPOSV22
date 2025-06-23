@@ -19,4 +19,11 @@ class Subcategoria {
                 "nombre='" + nombre + '\'' +
                 '}'
     }
+    fun copy(id: Int? = this.id, nombre: String? = this.nombre, seImprime: Boolean? = this.seImprime): Subcategoria {
+        val subcategoria = Subcategoria()
+        subcategoria.id = id
+        subcategoria.nombre = nombre
+        subcategoria.seImprime = seImprime
+        return subcategoria
+    }
 }

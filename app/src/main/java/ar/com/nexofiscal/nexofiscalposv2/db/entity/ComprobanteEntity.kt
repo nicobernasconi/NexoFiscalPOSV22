@@ -1,20 +1,24 @@
-// data/local/ComprobanteEntity.kt
 package ar.com.nexofiscal.nexofiscalposv2.db.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
-import ar.com.nexofiscal.nexofiscalposv2.models.*
 import ar.com.nexofiscal.nexofiscalposv2.db.converter.ListIntegerConverter
+import ar.com.nexofiscal.nexofiscalposv2.db.converter.SyncStatusConverter
 
-@Entity(tableName = "comprobantes")
-@TypeConverters(ListIntegerConverter::class)
-
+// --- CAMBIO: Se añaden serverId, syncStatus, el índice y el nuevo TypeConverter ---
+@Entity(tableName = "comprobantes", indices = [Index(value = ["serverId"])])
+@TypeConverters(ListIntegerConverter::class, SyncStatusConverter::class)
 data class ComprobanteEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    var serverId: Int?,
+    var syncStatus: SyncStatus,
+
     val numero: Int?,
     val cuotas: Int?,
     val clienteId: Int,
+    // ... resto de los campos existentes
     val remito: String?,
     val persona: String?,
     val provinciaId: Int?,
@@ -102,6 +106,5 @@ data class ComprobanteEntity(
     val descuentoTotal: String?,
     val incrementoTotal: String?,
     val tipoComprobanteId: Int?,
-    val promociones: List<Int>,
-    val formasDePago: List<Int>
+
 )
