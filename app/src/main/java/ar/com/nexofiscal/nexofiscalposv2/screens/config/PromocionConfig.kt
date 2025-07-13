@@ -1,42 +1,26 @@
 package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import ar.com.nexofiscal.nexofiscalposv2.models.Promocion
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.FieldDescriptor
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
 
 fun getPromocionFieldDescriptors(): List<FieldDescriptor<Promocion>> {
     return listOf(
         FieldDescriptor(
-            id = "id",
-            label = "ID",
-            editorContent = { entity, _, _, _ ->
-                OutlinedTextField(
-                    value = entity.id.toString(),
-                    onValueChange = {},
-                    label = { Text("ID") },
-                    readOnly = true,
-                    modifier = Modifier
-                )
-            },
-            isReadOnly = { true }
-        ),
-        FieldDescriptor(
             id = "nombre",
             label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.nombre ?: "",
-                    onValueChange = { onUpdate(entity.copy(nombre = it)) },
-                    label = { Text("Nombre de la Promoción") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
-                    modifier = Modifier
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue) } },
+                    label = "Nombre de la Promoción",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = { entity ->
@@ -50,13 +34,15 @@ fun getPromocionFieldDescriptors(): List<FieldDescriptor<Promocion>> {
         FieldDescriptor(
             id = "descripcion",
             label = "Descripción",
-            editorContent = { entity, onUpdate, isReadOnly, _ ->
-                OutlinedTextField(
+            editorContent = { entity, onUpdate, isReadOnly, error ->
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.descripcion ?: "",
-                    onValueChange = { onUpdate(entity.copy(descripcion = it)) },
-                    label = { Text("Descripción (opcional)") },
-                    readOnly = isReadOnly,
-                    modifier = Modifier
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(descripcion = newValue) } },
+                    label = "Descripción (opcional)",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             }
         ),
@@ -64,15 +50,15 @@ fun getPromocionFieldDescriptors(): List<FieldDescriptor<Promocion>> {
             id = "porcentaje",
             label = "Porcentaje",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.porcentaje.toString(),
-                    onValueChange = { onUpdate(entity.copy(porcentaje = it.toIntOrNull() ?: 0)) },
-                    label = { Text("Porcentaje de Descuento") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(porcentaje = newValue.toIntOrNull() ?: 0) } },
+                    label = "Porcentaje de Descuento",
+                    isReadOnly = isReadOnly,
+                    error = error,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             },
             validator = {

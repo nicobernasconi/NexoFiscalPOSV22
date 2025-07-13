@@ -26,7 +26,7 @@ object UsuarioManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).usuarioDao()
                 val entities = allItems.toUsuarioEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} usuarios guardados/actualizados en la BD.")
 
                 withContext(Dispatchers.Main) {

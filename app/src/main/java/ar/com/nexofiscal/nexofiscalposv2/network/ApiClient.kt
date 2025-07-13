@@ -61,41 +61,56 @@ object ApiClient {
 
         call.enqueue(object : Callback<ResponseBody?> {
             override fun onResponse(c: Call<ResponseBody?>, r: Response<ResponseBody?>) {
-                val code: Int = r.code()
+                val httpCode: Int = r.code()
                 if (!r.isSuccessful()) {
                     val errorMsg = r.errorBody()?.let { safeString(it) } ?: r.message()
-                    Log.e(TAG, "Respuesta de error del servidor (código: $code) para la URL: ${c.request().url}. Body: $errorMsg")
-                    callback.onError(code, errorMsg)
+                    Log.e(TAG, "Respuesta de error HTTP (código: $httpCode) para la URL: ${c.request().url}. Body: $errorMsg")
+                    callback.onError(httpCode, errorMsg)
                     return
                 }
 
                 try {
                     val json: String? = r.body()?.string()
-
-                    // ================== INICIO DE LA MODIFICACIÓN ==================
-                    // Imprime en el log la respuesta cruda del servidor
-                    Log.d(TAG, "Respuesta exitosa del servidor (código: $code) para la URL: ${c.request().url}")
+                    Log.d(TAG, "Respuesta del servidor (HTTP $httpCode) para la URL: ${c.request().url}")
+                    Log.d(TAG, "Parametros de la petición: ${c.request().url.queryParameterNames.joinToString(", ")}")
                     Log.d(TAG, "Body de la Respuesta: $json")
-                    // =================== FIN DE LA MODIFICACIÓN ====================
 
                     if (json.isNullOrBlank()) {
-                        if (code in 200..299) {
-                            callback.onSuccess(code, r.headers(), null)
-                        } else {
-                            callback.onError(code, "Respuesta vacía del servidor con código de error.")
-                        }
+                        callback.onSuccess(httpCode, r.headers(), null)
                         return
                     }
 
+                    val jsonElement = com.google.gson.JsonParser.parseString(json)
+
+                    // Verificamos si la respuesta es un objeto JSON para chequear el status.
+                    if (jsonElement.isJsonObject) {
+                        val jsonObject = jsonElement.asJsonObject
+                        val statusInJson = jsonObject.get("status")?.asInt
+                        val statusMessageInJson = jsonObject.get("status_message")?.asString
+
+                        if (statusInJson != null && statusInJson !in 200..299) {
+                            val errorMessage = statusMessageInJson ?: "Error en la respuesta de la API."
+                            Log.e(TAG, "Error lógico de la API (status JSON: $statusInJson): $errorMessage")
+                            callback.onError(statusInJson, errorMessage)
+                            return // Finalizamos, es un error lógico.
+                        }
+                    }
+                    // ---- FIN DE LA NUEVA LÓGICA ----
+
+                    // 3. Si no hay error lógico, procedemos como antes
                     val payload = gson.fromJson<T?>(json, responseType)
-                    callback.onSuccess(code, r.headers(), payload)
+                    callback.onSuccess(httpCode, r.headers(), payload)
 
                 } catch (e: java.io.IOException) {
                     Log.e(TAG, "Error de Parseo IO", e)
-                    callback.onError(code, "Error de Parseo IO: " + e.message)
+                    callback.onError(httpCode, "Error de Parseo IO: " + e.message)
                 } catch (e: com.google.gson.JsonSyntaxException) {
                     Log.e(TAG, "Error de Sintaxis JSON", e)
-                    callback.onError(code, "Error de Sintaxis JSON: " + e.message)
+                    callback.onError(httpCode, "Error de Sintaxis JSON: " + e.message)
+                } catch (e: Exception) {
+                    // Captura cualquier otro error durante el parseo del JSON, como un campo inesperado
+                    Log.e(TAG, "Error procesando la respuesta JSON", e)
+                    callback.onError(httpCode, "Error inesperado al procesar la respuesta: " + e.message)
                 }
             }
 

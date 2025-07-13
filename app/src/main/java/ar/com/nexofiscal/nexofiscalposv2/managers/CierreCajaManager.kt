@@ -26,7 +26,7 @@ object CierreCajaManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).cierreCajaDao()
                 val entities = allItems.toCierreCajaEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} cierres de caja guardados/actualizados en la BD.")
 
                 withContext(Dispatchers.Main) {

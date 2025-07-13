@@ -1,12 +1,14 @@
 package ar.com.nexofiscal.nexofiscalposv2.ui.theme
 
 import android.os.Build
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 
 private val DarkColorScheme = darkColorScheme(
     primary = AzulNexo,
@@ -37,6 +39,12 @@ fun NexoFiscalPOSV2Theme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
-        content = content
+        content = content,
+        // --- MODIFICACIÓN: Se agrega redondeo a todos los botones ---
+        shapes = MaterialTheme.shapes.copy(
+            small = RoundedCornerShape(5.dp),
+            medium = RoundedCornerShape(5.dp),
+            large = RoundedCornerShape(5.dp)
+        )
     )
 }

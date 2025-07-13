@@ -31,6 +31,30 @@ interface TipoFormaPagoDao {
     @Query("DELETE FROM tipos_forma_pago WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM tipos_forma_pago WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): TipoFormaPagoEntity?
+
+    /**
+     * Inserta o actualiza una lista de tipos de forma de pago. Si uno ya existe
+     * (mismo serverId), lo actualiza. Si no, lo inserta como nuevo.
+     */
+    @Transaction
+    suspend fun upsertAll(tipos: List<TipoFormaPagoEntity>) {
+        tipos.forEach { tipo ->
+            val existente = tipo.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                tipo.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                tipo
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

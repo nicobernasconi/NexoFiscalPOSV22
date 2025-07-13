@@ -28,6 +28,30 @@ interface AgrupacionDao {
     @Query("DELETE FROM agrupaciones WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM agrupaciones WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): AgrupacionEntity?
+
+    /**
+     * Inserta una lista de agrupaciones. Si una agrupación ya existe (mismo serverId),
+     * la actualiza. Si no, la inserta como nueva.
+     */
+    @Transaction
+    suspend fun upsertAll(agrupaciones: List<AgrupacionEntity>) {
+        agrupaciones.forEach { agrupacion ->
+            val existente = agrupacion.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                agrupacion.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                agrupacion
+            }
+
+            insert(entidadParaInsertar)
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Query("SELECT * FROM agrupaciones WHERE id = :id")

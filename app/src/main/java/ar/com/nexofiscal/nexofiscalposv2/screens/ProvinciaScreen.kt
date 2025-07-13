@@ -51,7 +51,7 @@ fun ProvinciaScreen(
                 entityInScreen = provincia
                 showEditScreen = true
             },
-            onDelete = { provincia ->
+             onAttemptDelete  = { provincia ->
                 provinciaViewModel.delete(provincia.toEntity())
                 NotificationManager.show("Provincia '${provincia.nombre}' eliminada.", NotificationType.SUCCESS)
             },

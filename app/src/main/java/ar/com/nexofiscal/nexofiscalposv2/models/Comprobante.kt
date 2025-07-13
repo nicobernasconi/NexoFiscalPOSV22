@@ -1,5 +1,6 @@
 package ar.com.nexofiscal.nexofiscalposv2.models
 
+import ar.com.nexofiscal.nexofiscalposv2.screens.Pago
 import com.google.gson.annotations.SerializedName
 
 class Comprobante(
@@ -95,16 +96,12 @@ class Comprobante(
     @SerializedName("sucursal_id") val sucursalId: Int?,
     @SerializedName("descuento_total") val descuentoTotal: String?,
     @SerializedName("incremento_total") val incrementoTotal: String?,
-
-    // Objetos anidados
     @SerializedName("cliente") val cliente: Cliente?,
-
-
     @SerializedName("vendedor") val vendedor: Vendedor?,
-
-
     @SerializedName("provincia") val provincia: Provincia?,
     @SerializedName("tipo_comprobante") val tipoComprobante: TipoComprobante?,
+    @SerializedName("promociones") val promociones: List<Promocion>?,
+    @SerializedName("formas_de_pago") val formas_de_pago: List<Pago>,
     var tipoComprobanteId: Int?
 ) {
     override fun toString(): String {
@@ -208,111 +205,34 @@ class Comprobante(
         vendedor: Vendedor? = this.vendedor,
         provincia: Provincia? = this.provincia,
         tipoComprobante: TipoComprobante? = this.tipoComprobante,
-        tipoComprobanteId: Int? = this.tipoComprobanteId,
-
-
+        promociones: List<Promocion>? = this.promociones,
+        formas_de_pago: List<Pago>? = this.formas_de_pago,
+        tipoComprobanteId: Int? = this.tipoComprobanteId
     ): Comprobante {
         return Comprobante(
-            id = id,
-            serverId= serverId,
-            localId = localId,
-            numero = numero,
-            cuotas = cuotas,
-            clienteId = clienteId,
-            remito = remito,
-            persona = persona,
-            provinciaId = provinciaId,
-            fecha = fecha,
-            fechaBaja = fechaBaja,
-            motivoBaja = motivoBaja,
-            hora = hora,
-            fechaProceso = fechaProceso,
-            letra = letra,
-            numeroFactura = numeroFactura,
-            prefijoFactura = prefijoFactura,
-            operacionNegocioId = operacionNegocioId,
-            retencionIva = retencionIva,
-            retencionIibb = retencionIibb,
-            retencionGanancias = retencionGanancias,
-            porcentajeGanancias = porcentajeGanancias,
-            porcentajeIibb = porcentajeIibb,
-            porcentajeIva = porcentajeIva,
-            noGravado = noGravado,
-            importeIva = importeIva,
-            total = total,
-            totalPagado = totalPagado,
-            condicionVentaId = condicionVentaId,
-            descripcionFlete = descripcionFlete,
-            vendedorId = vendedorId,
-            recibo = recibo,
-            observaciones1 = observaciones1,
-            observaciones2 = observaciones2,
-            observaciones3 = observaciones3,
-            observaciones4 = observaciones4,
-            descuento = descuento,
-            descuento1 = descuento1 ?: this.descuento1 ?: 0.0, // Default to 0.0 if null
-            descuento2 = descuento2 ?: this.descuento2 ?: 0.0, // Default to 0.0 if null
-            descuento3 = descuento3 ?: this.descuento3 ?: 0.0, // Default to 0.0 if null
-            descuento4 = descuento4 ?: this.descuento4 ?: 0.0, // Default to 0.0 if null
-            iva2 = iva2 ?: this.iva2 ?: 0.0, // Default to 0.0 if null
-            impresa = impresa ?: this.impresa ?: false, // Default to false if null
-            cancelado = cancelado ?: this.cancelado ?: false, // Default to false if null
-            nombreCliente = nombreCliente ?: this.nombreCliente ?: "",
-            direccionCliente = direccionCliente ?: this.direccionCliente ?: "",
-            localidadCliente = localidadCliente ?: this.localidadCliente ?: "",
-            garantia = garantia ?: this.garantia ?: "",
-            concepto = concepto ?: this.concepto ?: 0,
-            notas = notas ?: this.notas ?: "",
-            lineaPagoUltima = lineaPagoUltima ?: this.lineaPagoUltima ?: "",
-            relacionTk = relacionTk ?: this.relacionTk ?: "",
-            totalIibb = totalIibb ?: this.totalIibb ?: 0.0,
-            importeIibb = importeIibb ?: this.importeIibb ?: 0.0,
-            provinciaCategoriaIibbId = provinciaCategoriaIibbId ?: this.provinciaCategoriaIibbId
-            ?: 0,
-            importeRetenciones = importeRetenciones ?: this.importeRetenciones ?: 0.0,
-            provinciaIvaProveedorId = provinciaIvaProveedorId ?: this.provinciaIvaProveedorId ?: 0,
-            gananciasProveedorId = gananciasProveedorId ?: this.gananciasProveedorId ?: 0,
-            importeGanancias = importeGanancias ?: this.importeGanancias ?: 0.0,
-            numeroIibb = numeroIibb ?: this.numeroIibb ?: "",
-            numeroGanancias = numeroGanancias ?: this.numeroGanancias ?: "",
-            gananciasProveedor = gananciasProveedor ?: this.gananciasProveedor ?: "",
-            cae = cae ?: this.cae ?: "",
-            fechaVencimiento = fechaVencimiento ?: this.fechaVencimiento ?: "",
-            remitoCliente = remitoCliente ?: this.remitoCliente ?: "",
-            textoDolares = textoDolares ?: this.textoDolares ?: "",
-            comprobanteFinal = comprobanteFinal ?: this.comprobanteFinal ?: "",
-            numeroGuia1 = numeroGuia1 ?: this.numeroGuia1 ?: "",
-            numeroGuia2 = numeroGuia2 ?: this.numeroGuia2 ?: "",
-            numeroGuia3 = numeroGuia3 ?: this.numeroGuia3 ?: "",
-            tipoAlicuota1 = tipoAlicuota1 ?: this.tipoAlicuota1 ?: 0.0,
-            tipoAlicuota2 = tipoAlicuota2 ?: this.tipoAlicuota2 ?: 0.0,
-            tipoAlicuota3 = tipoAlicuota3 ?: this.tipoAlicuota3 ?: 0.0,
-            importeIva105 = importeIva105 ?: this.importeIva105 ?: 0.0,
-            importeIva21 = importeIva21 ?: this.importeIva21 ?: 0.0,
-            importeIva0 = importeIva0 ?: this.importeIva0 ?: 0.0,
-            noGravadoIva105 = noGravadoIva105 ?: this.noGravadoIva105 ?: 0.0,
-            noGravadoIva21 = noGravadoIva21 ?: this.noGravadoIva21 ?: 0.0,
-            noGravadoIva0 = noGravadoIva0 ?: this.noGravadoIva0 ?: 0.0,
-            direccionEntrega = direccionEntrega ?: this.direccionEntrega ?: "",
-            fechaEntrega = fechaEntrega ?: this.fechaEntrega ?: "",
-            horaEntrega = horaEntrega ?: this.horaEntrega ?: "",
-            empresaId = empresaId ?: this.empresaId ?: 0,
-            puntoVenta = puntoVenta ?: this.puntoVenta ?: 0,
-            tipoFactura = tipoFactura ?: this.tipoFactura ?: 0,
-            tipoDocumento = tipoDocumento ?: this.tipoDocumento ?: 0,
-            numeroDeDocumento = numeroDeDocumento ?: this.numeroDeDocumento ?: 0L,
-            qr = qr ?: this.qr ?: "",
-            comprobanteIdBaja = comprobanteIdBaja ?: this.comprobanteIdBaja ?: "",
-            sucursalId = sucursalId ?: this.sucursalId ?: 0,
-            descuentoTotal = descuentoTotal ?: this.descuentoTotal ?: "",
-            incrementoTotal = incrementoTotal ?: this.incrementoTotal ?: "",
-            cliente = cliente ?: this.cliente,
-            vendedor = vendedor ?: this.vendedor,
-            provincia = provincia ?: this.provincia,
-            tipoComprobante = tipoComprobante ?: this.tipoComprobante,
-            tipoComprobanteId = tipoComprobanteId ?: this.tipoComprobanteId ?: 0,
-
+            id, serverId, localId, numero, cuotas, clienteId, remito, persona, provinciaId,
+            fecha, fechaBaja, motivoBaja, hora, fechaProceso, letra, numeroFactura,
+            prefijoFactura, operacionNegocioId, retencionIva, retencionIibb, retencionGanancias,
+            porcentajeGanancias, porcentajeIibb, porcentajeIva, noGravado, importeIva, total,
+            totalPagado, condicionVentaId, descripcionFlete, vendedorId, recibo, observaciones1,
+            observaciones2, observaciones3, observaciones4, descuento, descuento1, descuento2,
+            descuento3, descuento4, iva2, impresa, cancelado, nombreCliente, direccionCliente,
+            localidadCliente, garantia, concepto, notas, lineaPagoUltima, relacionTk, totalIibb,
+            importeIibb, provinciaCategoriaIibbId, importeRetenciones, provinciaIvaProveedorId,
+            gananciasProveedorId, importeGanancias, numeroIibb, numeroGanancias,
+            gananciasProveedor, cae, fechaVencimiento, remitoCliente, textoDolares,
+            comprobanteFinal, numeroGuia1, numeroGuia2, numeroGuia3, tipoAlicuota1,
+            tipoAlicuota2, tipoAlicuota3, importeIva105, importeIva21, importeIva0,
+            noGravadoIva105, noGravadoIva21, noGravadoIva0, direccionEntrega, fechaEntrega,
+            horaEntrega, empresaId, puntoVenta, tipoFactura, tipoDocumento, numeroDeDocumento,
+            qr, comprobanteIdBaja, sucursalId, descuentoTotal, incrementoTotal,
+            cliente = cliente?.copy(),
+            vendedor = vendedor?.copy(),
+            provincia = provincia?.copy(),
+            tipoComprobante = tipoComprobante?.copy(),
+            promociones = promociones?.map { it.copy() } ?: emptyList(),
+            formas_de_pago = formas_de_pago?.map { it.copy() } ?: emptyList(),
+            tipoComprobanteId = tipoComprobanteId
         )
-
     }
 }

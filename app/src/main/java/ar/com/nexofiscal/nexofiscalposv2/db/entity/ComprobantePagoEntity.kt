@@ -6,21 +6,20 @@ import androidx.room.Index
 
 @Entity(
     tableName = "comprobante_pagos",
-    // La clave primaria es una combinación del comprobante y la forma de pago
-    primaryKeys = ["comprobanteLocalId", "formaPagoId"],
+    primaryKeys = ["comprobanteLocalId"],
     foreignKeys = [
         ForeignKey(
             entity = ComprobanteEntity::class,
-            parentColumns = ["id"], // Se enlaza con el ID local del comprobante
+            parentColumns = ["id"],
             childColumns = ["comprobanteLocalId"],
-            onDelete = ForeignKey.CASCADE // Si se borra el comprobante, se borran sus pagos
+            onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [Index(value = ["comprobanteLocalId"])]
 )
 data class ComprobantePagoEntity(
     val comprobanteLocalId: Long,
-    val formaPagoId: Int, // El ID de la Forma de Pago
-    val importe: Double,  // El monto pagado con esa forma
-    var syncStatus: SyncStatus = SyncStatus.CREATED // Para gestionar la subida futura
+    val formaPagoId: Int,
+    val importe: Double,
+    var syncStatus: SyncStatus // AÑADIDO
 )

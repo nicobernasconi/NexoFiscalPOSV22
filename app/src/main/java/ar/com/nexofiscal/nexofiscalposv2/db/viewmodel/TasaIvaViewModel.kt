@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.TasaIva
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TasaIvaRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -41,12 +42,13 @@ class TasaIvaViewModel(application: Application) : AndroidViewModel(application)
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(t: TasaIvaEntity) {
         viewModelScope.launch {
-            if (t.serverId == null) {
+            if (t.serverId == null || t.serverId == 0) {
                 t.syncStatus = SyncStatus.CREATED
             } else {
                 t.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(t)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

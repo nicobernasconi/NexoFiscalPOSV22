@@ -31,6 +31,31 @@ interface VendedorDao {
     @Query("DELETE FROM vendedores WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM vendedores WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): VendedorEntity?
+
+    /**
+     * Inserta o actualiza una lista de vendedores. Si un vendedor ya existe
+     * (mismo serverId), lo actualiza. Si no, lo inserta como nuevo.
+     */
+    @Transaction
+    suspend fun upsertAll(vendedores: List<VendedorEntity>) {
+        vendedores.forEach { vendedor ->
+            val existente = vendedor.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                vendedor.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                vendedor
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

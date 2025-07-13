@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.CierreCajaRepository
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.UsuarioRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.CierreCaja
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -51,12 +52,13 @@ class CierreCajaViewModel(application: Application) : AndroidViewModel(applicati
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(cierre: CierreCajaEntity) {
         viewModelScope.launch {
-            if (cierre.serverId == null) {
+            if (cierre.serverId == null || cierre.serverId == 0) {
                 cierre.syncStatus = SyncStatus.CREATED
             } else {
                 cierre.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(cierre)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

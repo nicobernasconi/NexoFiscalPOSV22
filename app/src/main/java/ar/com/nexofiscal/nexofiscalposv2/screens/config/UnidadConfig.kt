@@ -1,40 +1,24 @@
 package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
 import ar.com.nexofiscal.nexofiscalposv2.models.Unidad
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.FieldDescriptor
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
 
 fun getUnidadFieldDescriptors(): List<FieldDescriptor<Unidad>> {
     return listOf(
         FieldDescriptor(
-            id = "id",
-            label = "ID",
-            editorContent = { entity, _, _, _ ->
-                OutlinedTextField(
-                    value = entity.id.toString(),
-                    onValueChange = {},
-                    label = { Text("ID") },
-                    readOnly = true,
-                    modifier = Modifier
-                )
-            },
-            isReadOnly = { true }
-        ),
-        FieldDescriptor(
             id = "nombre",
             label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.nombre ?: "",
-                    onValueChange = { onUpdate(entity.copy(nombre = it)) },
-                    label = { Text("Nombre de la Unidad") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
-                    modifier = Modifier
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue) } },
+                    label = "Nombre de la Unidad",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = { entity ->
@@ -48,13 +32,15 @@ fun getUnidadFieldDescriptors(): List<FieldDescriptor<Unidad>> {
         FieldDescriptor(
             id = "simbolo",
             label = "Símbolo",
-            editorContent = { entity, onUpdate, isReadOnly, _ ->
-                OutlinedTextField(
+            editorContent = { entity, onUpdate, isReadOnly, error ->
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.simbolo ?: "",
-                    onValueChange = { onUpdate(entity.copy(simbolo = it)) },
-                    label = { Text("Símbolo (ej: Kg, Un, L)") },
-                    readOnly = isReadOnly,
-                    modifier = Modifier
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(simbolo = newValue) } },
+                    label = "Símbolo (ej: Kg, Un, L)",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             }
         )

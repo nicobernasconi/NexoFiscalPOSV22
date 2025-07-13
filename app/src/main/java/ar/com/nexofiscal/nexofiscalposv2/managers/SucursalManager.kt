@@ -26,7 +26,7 @@ object SucursalManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).sucursalDao()
                 val entities = allItems.toSucursalEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} sucursales guardadas/actualizadas en la BD.")
 
                 withContext(Dispatchers.Main) {

@@ -26,6 +26,9 @@ class ProductoRepository(private val dao: ProductoDao) {
         ).flow
     }
 
+    // Asegúrate de que este método, que ya existe en el DAO, esté expuesto aquí.
+
+
     suspend fun getConDetallesById(id: Int): ProductoConDetalles? = dao.getConDetallesById(id)
     fun getFavoritosWithDetails(): Flow<List<ProductoConDetalles>> = dao.getFavoritosWithDetails()
 

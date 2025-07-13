@@ -26,7 +26,7 @@ object VendedorManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).vendedorDao()
                 val entities = allItems.toVendedorEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} vendedores guardados/actualizados en la BD.")
 
                 withContext(Dispatchers.Main) {

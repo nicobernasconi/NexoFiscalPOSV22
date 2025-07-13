@@ -29,6 +29,8 @@ class UsuarioRepository(private val dao: UsuarioDao) {
 
     suspend fun porId(id: Int): UsuarioEntity? = dao.getById(id)
 
+    suspend fun getConDetallesById(id: Int): UsuarioConDetalles? = dao.getConDetallesById(id)
+
     suspend fun guardar(usuario: UsuarioEntity) = dao.insert(usuario)
 
     suspend fun actualizar(usuario: UsuarioEntity) = dao.update(usuario)

@@ -1,14 +1,11 @@
-// main/java/ar/com/nexofiscal/nexofiscalposv2/screens/config/MonedaConfig.kt
 package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import ar.com.nexofiscal.nexofiscalposv2.models.Moneda
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.FieldDescriptor
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
 
 fun getMonedaFieldDescriptors(): List<FieldDescriptor<Moneda>> {
     return listOf(
@@ -16,13 +13,14 @@ fun getMonedaFieldDescriptors(): List<FieldDescriptor<Moneda>> {
             id = "nombre",
             label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.nombre ?: "",
-                    onValueChange = { onUpdate(entity.copy(nombre = it)) },
-                    label = { Text("Nombre de la Moneda") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue) } },
+                    label = "Nombre de la Moneda",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = {
@@ -34,13 +32,14 @@ fun getMonedaFieldDescriptors(): List<FieldDescriptor<Moneda>> {
             id = "simbolo",
             label = "Símbolo",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.simbolo ?: "",
-                    onValueChange = { onUpdate(entity.copy(simbolo = it)) },
-                    label = { Text("Símbolo (ej: $, U\$S)") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(simbolo = newValue) } },
+                    label = "Símbolo (ej: $, U\$S)",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = {
@@ -51,12 +50,15 @@ fun getMonedaFieldDescriptors(): List<FieldDescriptor<Moneda>> {
         FieldDescriptor(
             id = "cotizacion",
             label = "Cotización",
-            editorContent = { entity, onUpdate, isReadOnly, _ ->
-                OutlinedTextField(
+            editorContent = { entity, onUpdate, isReadOnly, error ->
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.cotizacion.toString(),
-                    onValueChange = { onUpdate(entity.copy(cotizacion = it.toDoubleOrNull() ?: 0.0)) },
-                    label = { Text("Cotización") },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(cotizacion = newValue.toDoubleOrNull() ?: 0.0) } },
+                    label = "Cotización",
+                    isReadOnly = isReadOnly,
+                    error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
             }

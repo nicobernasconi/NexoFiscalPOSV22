@@ -44,9 +44,7 @@ object UnidadManager {
                             try {
                                 val unidadDao = AppDatabase.getInstance(context.applicationContext).unidadDao()
                                 val unidadEntities = listaUnidades.toUnidadEntityList()
-                                unidadEntities.forEach { entity ->
-                                    unidadDao.insert(entity)
-                                }
+                                unidadDao.upsertAll(unidadEntities)
                                 Log.d(TAG, "${unidadEntities.size} unidades guardadas/actualizadas en la BD.")
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error al guardar unidades en la BD: ${e.message}", e)

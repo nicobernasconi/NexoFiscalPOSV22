@@ -26,7 +26,7 @@ object LocalidadManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).localidadDao()
                 val entities = allItems.toLocalidadEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} localidades guardadas/actualizadas en la BD.")
 
                 withContext(Dispatchers.Main) {

@@ -19,6 +19,7 @@ roomRuntime = "2.7.1"
 roomRuntimeVersion = "2.5.2"
 pagingCommonAndroid = "3.3.6"
 pagingComposeAndroid = "3.3.6"
+localbroadcastmanager = "1.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -47,6 +48,7 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-paging-common-android = { group = "androidx.paging", name = "paging-common-android", version.ref = "pagingCommonAndroid" }
 androidx-paging-compose-android = { group = "androidx.paging", name = "paging-compose-android", version.ref = "pagingComposeAndroid" }
+androidx-localbroadcastmanager = { group = "androidx.localbroadcastmanager", name = "localbroadcastmanager", version.ref = "localbroadcastmanager" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

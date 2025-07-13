@@ -49,11 +49,11 @@ fun UnidadScreen(
                 entityInScreen = item
                 showEditScreen = true
             },
-            onDelete = { item ->
+             onAttemptDelete  = { item ->
                 viewModel.delete(item.toEntity())
                 NotificationManager.show("Unidad '${item.nombre}' eliminada.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id }
+            itemKey = { it.localId }
         )
 
         if (showEditScreen && entityInScreen != null) {

@@ -26,7 +26,7 @@ object TipoDocumentoManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).tipoDocumentoDao()
                 val entities = allItems.toTipoDocumentoEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} tipos de documento guardados/actualizados.")
 
                 withContext(Dispatchers.Main) {

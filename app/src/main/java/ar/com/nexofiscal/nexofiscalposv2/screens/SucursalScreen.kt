@@ -49,7 +49,7 @@ fun SucursalScreen(
                 entityInScreen = sucursal
                 showEditScreen = true
             },
-            onDelete = { sucursal ->
+             onAttemptDelete  = { sucursal ->
                 viewModel.delete(sucursal.toEntity())
                 NotificationManager.show("Sucursal '${sucursal.nombre}' eliminada.", NotificationType.SUCCESS)
             },

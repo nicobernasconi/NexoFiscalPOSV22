@@ -5,14 +5,14 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ComprobanteDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteConDetalles
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteConDetallesEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
 class ComprobanteRepository(private val dao: ComprobanteDao) {
 
-    fun getComprobantesPaginated(query: String): Flow<PagingData<ComprobanteConDetallesEntity>> {
+    fun getComprobantesPaginated(query: String): Flow<PagingData<ComprobanteConDetalles>> {
         val normalizedQuery = "%${query.trim()}%"
         return Pager(
             config = PagingConfig(pageSize = 200, enablePlaceholders = false),

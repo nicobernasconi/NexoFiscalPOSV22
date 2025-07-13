@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.Categoria
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.CategoriaRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -41,12 +42,13 @@ class CategoriaViewModel(application: Application) : AndroidViewModel(applicatio
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun addOrUpdate(cat: CategoriaEntity) {
         viewModelScope.launch {
-            if (cat.serverId == null) { // Si no tiene ID de servidor, es un registro nuevo.
+            if (cat.serverId == null || cat.serverId == 0) {
                 cat.syncStatus = SyncStatus.CREATED
             } else { // Si ya tiene ID de servidor, es una modificación.
                 cat.syncStatus = SyncStatus.UPDATED
             }
-            repo.guardar(cat) // Usa el método guardar que hace un REPLACE
+            repo.guardar(cat)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

@@ -31,6 +31,30 @@ interface LocalidadDao {
     @Query("DELETE FROM localidades WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM localidades WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): LocalidadEntity?
+
+    /**
+     * Inserta o actualiza una lista de localidades. Si una localidad ya existe
+     * (mismo serverId), la actualiza. Si no, la inserta como nueva.
+     */
+    @Transaction
+    suspend fun upsertAll(localidades: List<LocalidadEntity>) {
+        localidades.forEach { localidad ->
+            val existente = localidad.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                localidad.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                localidad
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import ar.com.nexofiscal.nexofiscalposv2.R
+import ar.com.nexofiscal.nexofiscalposv2.managers.KeyEventManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.BordeSuave
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -47,6 +48,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.zcs.sdk.DriverManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
@@ -62,6 +64,12 @@ fun BarcodeScannerScreen(
     val context = LocalContext.current
     val packageManager = context.packageManager
     val prefs = remember { context.getSharedPreferences("nexofiscal", Context.MODE_PRIVATE) }
+
+    LaunchedEffect(Unit) {
+        KeyEventManager.scannedCodeFlow.collectLatest { code ->
+            onCodeScanned(code)
+        }
+    }
 
     // --- Detección de Hardware ---
     val hqScanner = remember { try { DriverManager.getInstance().hQrsannerDriver

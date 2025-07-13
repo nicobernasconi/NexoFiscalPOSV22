@@ -1,7 +1,9 @@
 package ar.com.nexofiscal.nexofiscalposv2.managers
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
+import ar.com.nexofiscal.nexofiscalposv2.SyncService
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
@@ -21,11 +23,23 @@ import java.lang.reflect.Type
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-
 object UploadManager {
 
     private const val TAG = "UploadManager"
     private val gson = Gson()
+    /**
+     * Inicia el SyncService en segundo plano para ejecutar una única
+     * subida de datos locales.
+     *
+     * @param context El contexto de la aplicación.
+     */
+    fun triggerImmediateUpload(context: Context) {
+        val intent = Intent(context, SyncService::class.java).apply {
+            action = SyncService.ACTION_TRIGGER_UPLOAD_ONCE
+        }
+        context.startService(intent)
+        Log.i(TAG, "Se ha solicitado una subida inmediata de datos.")
+    }
 
     suspend fun uploadLocalChanges(context: Context, token: String) {
         val db = AppDatabase.getInstance(context)
@@ -36,29 +50,271 @@ object UploadManager {
             Log.d(TAG, "INICIANDO PROCESO DE SUBIDA DE CAMBIOS LOCALES")
             Log.d(TAG, "================================================")
 
-            // --- INICIO DE LA MODIFICACIÓN: Se reordena la subida por dependencias ---
-            // 1. Entidades independientes o de primer nivel
+            // --- Orden de subida por dependencias ---
+
+            uploadAgrupaciones(db, headers)
+            uploadCategorias(db, headers)
             uploadFamilias(db, headers)
+            uploadClientes(db, headers)
+            uploadFormasDePago(db, headers)
+            uploadMonedas(db, headers)
             uploadPromociones(db, headers)
-            uploadFormasDePago(db, headers) // Asumiendo que TipoFormaPago no se crea localmente
-
-            // 2. Entidades con dependencias de nivel 1
-            uploadProveedores(db, headers) // Depende de Localidad, etc. (se omite chequeo si no se gestionan localmente)
-            uploadClientes(db, headers)    // Depende de Localidad, etc.
-
-            // 3. Entidades con dependencias de nivel 2
-            uploadProductos(db, headers)   // Depende de Familia, Proveedor
-
-            // 4. Entidades de transacciones (las últimas)
-            uploadComprobantes(db, headers)// Depende de Cliente, Producto
-            // --- FIN DE LA MODIFICACIÓN ---
+            uploadTipoDocumento(db, headers)
+            uploadTipoIVA(db, headers)
+            uploadUnidades(db, headers)
+            uploadProveedores(db, headers)
+            uploadProductos(db, headers)
+            uploadComprobantes(db, headers)
 
             Log.d(TAG, "================================================")
             Log.d(TAG, "PROCESO DE SUBIDA FINALIZADO")
             Log.d(TAG, "================================================")
         }
     }
+    private suspend fun uploadAgrupaciones(db: AppDatabase, headers: MutableMap<String?, String?>) {
+        val dao = db.agrupacionDao()
+        try {
+            val unsyncedItems = dao.getUnsynced()
+            if (unsyncedItems.isEmpty()) {
+                return
+            }
+            Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Agrupaciones] ---")
 
+            for (entity in unsyncedItems) {
+                try {
+                    when (entity.syncStatus) {
+                        SyncStatus.CREATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            Log.d(TAG, "[AGRUPACION] Petición POST. Body: ${gson.toJson(uploadRequest)}")
+
+                            // En la creación, esperamos un objeto Agrupacion de vuelta.
+                            val response = apiRequest<Agrupacion>(
+                                method = HttpMethod.POST,
+                                url = "/api/agrupaciones",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Agrupacion>() {}.type // Se especifica el tipo
+                            )
+
+                            dao.updateServerIdAndStatus(entity.id, response.id)
+                            Log.i(TAG, "[AGRUPACION] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
+                        }
+                        SyncStatus.UPDATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            Log.d(TAG, "[AGRUPACION] Petición PUT a /api/agrupaciones/${entity.serverId}. Body: ${gson.toJson(uploadRequest)}")
+
+                            // En la actualización (PUT), no esperamos cuerpo de respuesta, solo éxito.
+                            // Especificamos 'Unit' como el tipo de respuesta.
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/agrupaciones/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type // ¡CORRECCIÓN CLAVE!
+                            )
+
+                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
+                            Log.i(TAG, "[AGRUPACION] Éxito PUT: ServerID=${entity.serverId} actualizado.")
+                        }
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "[AGRUPACION] Falló subida para LocalID ${entity.id} (ServerID: ${entity.serverId}). Error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error general en uploadAgrupaciones: ${e.message}", e)
+        }
+    }
+
+    private suspend fun uploadCategorias(db: AppDatabase, headers: MutableMap<String?, String?>) {
+        val dao = db.categoriaDao()
+        try {
+            val unsyncedItems = dao.getUnsynced()
+            if (unsyncedItems.isEmpty()) {
+                return // No hay nada que subir, termina la función.
+            }
+            Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Categorías] ---")
+
+            for (entity in unsyncedItems) {
+                try {
+                    when (entity.syncStatus) {
+                        SyncStatus.CREATED -> {
+                            // 1. Convertir la entidad a su DTO de subida.
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            Log.d(TAG, "[CATEGORIA] Petición POST a /api/categorias. Body: ${gson.toJson(uploadRequest)}")
+
+                            // 2. Realizar la petición POST.
+                            val response = apiRequest<Categoria>(
+                                method = HttpMethod.POST,
+                                url = "/api/categorias",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Categoria>() {}.type
+                            )
+
+                            // 3. Actualizar la entidad local con el ID del servidor.
+                            dao.updateServerIdAndStatus(entity.id, response.id ?: 0)
+                            Log.i(TAG, "[CATEGORIA] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
+                        }
+                        SyncStatus.UPDATED -> {
+                            // 1. Convertir la entidad a su DTO de subida.
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            Log.d(TAG, "[CATEGORIA] Petición PUT a /api/categorias/${entity.serverId}. Body: ${gson.toJson(uploadRequest)}")
+
+                            // 2. Realizar la petición PUT.
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/categorias/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
+
+                            // 3. Marcar la entidad local como sincronizada.
+                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
+                            Log.i(TAG, "[CATEGORIA] Éxito PUT: ServerID=${entity.serverId} actualizado.")
+                        }
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "[CATEGORIA] Falló subida para LocalID ${entity.id} (ServerID: ${entity.serverId}). Error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error general en uploadCategorias: ${e.message}", e)
+        }
+    }
+    private suspend fun uploadTipoDocumento(db: AppDatabase, headers: MutableMap<String?, String?>) {
+        val dao = db.tipoDocumentoDao()
+        try {
+            val unsyncedItems = dao.getUnsynced()
+            if (unsyncedItems.isEmpty()) return
+            Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Tipos de Documento] ---")
+            for (entity in unsyncedItems) {
+                try {
+                    when (entity.syncStatus) {
+                        SyncStatus.CREATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            val response = apiRequest<TipoDocumento>(
+                                method = HttpMethod.POST,
+                                url = "/api/tipos_documento",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<TipoDocumento>() {}.type
+                            )
+                            dao.updateServerIdAndStatus(entity.id, response.id)
+                            Log.i(TAG, "[TIPO_DOCUMENTO] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
+                        }
+                        SyncStatus.UPDATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/tipos_documento/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
+                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
+                            Log.i(TAG, "[TIPO_DOCUMENTO] Éxito PUT: ServerID=${entity.serverId} actualizado.")
+                        }
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "[TIPO_DOCUMENTO] Falló subida para LocalID ${entity.id} (ServerID: ${entity.serverId}). Error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error general en uploadTipoDocumento: ${e.message}", e)
+        }
+    }
+
+    private suspend fun uploadUnidades(db: AppDatabase, headers: MutableMap<String?, String?>) {
+        val dao = db.unidadDao()
+        try {
+            val unsyncedItems = dao.getUnsynced()
+            if (unsyncedItems.isEmpty()) return
+            Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Unidades] ---")
+            for (entity in unsyncedItems) {
+                try {
+                    when (entity.syncStatus) {
+                        SyncStatus.CREATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            val response = apiRequest<Unidad>(
+                                method = HttpMethod.POST,
+                                url = "/api/unidades",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unidad>() {}.type
+                            )
+                            dao.updateServerIdAndStatus(entity.id, response.id)
+                            Log.i(TAG, "[UNIDAD] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
+                        }
+                        SyncStatus.UPDATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/unidades/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
+                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
+                            Log.i(TAG, "[UNIDAD] Éxito PUT: ServerID=${entity.serverId} actualizado.")
+                        }
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "[UNIDAD] Falló subida para LocalID ${entity.id} (ServerID: ${entity.serverId}). Error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error general en uploadUnidades: ${e.message}", e)
+        }
+    }
+    private suspend fun uploadMonedas(db: AppDatabase, headers: MutableMap<String?, String?>) {
+        val dao = db.monedaDao()
+        try {
+            val unsyncedItems = dao.getUnsynced()
+            if (unsyncedItems.isEmpty()) return
+            Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Monedas] ---")
+            for (entity in unsyncedItems) {
+                try {
+                    when (entity.syncStatus) {
+                        SyncStatus.CREATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            val response = apiRequest<Moneda>(
+                                method = HttpMethod.POST,
+                                url = "/api/monedas",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Moneda>() {}.type
+                            )
+                            dao.updateServerIdAndStatus(entity.id, response.id)
+                            Log.i(TAG, "[MONEDA] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
+                        }
+                        SyncStatus.UPDATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/monedas/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
+                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
+                            Log.i(TAG, "[MONEDA] Éxito PUT: ServerID=${entity.serverId} actualizado.")
+                        }
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "[MONEDA] Falló subida para LocalID ${entity.id} (ServerID: ${entity.serverId}). Error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error general en uploadMonedas: ${e.message}", e)
+        }
+    }
     private suspend fun uploadClientes(db: AppDatabase, headers: MutableMap<String?, String?>) {
         val dao = db.clienteDao()
         try {
@@ -67,19 +323,28 @@ object UploadManager {
             Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Clientes] ---")
             for (entity in unsyncedItems) {
                 try {
-                    // Aquí se podrían añadir chequeos de dependencias si Localidad, etc., se gestionan localmente
                     when (entity.syncStatus) {
                         SyncStatus.CREATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[CLIENTE] Petición POST a /api/clientes. Body: ${gson.toJson(domainModel)}")
-                            val response = apiRequest<Cliente>(HttpMethod.POST, "/api/clientes", headers, domainModel, object : TypeToken<Cliente>() {}.type)
+                            val uploadRequest = db.clienteDao().getConDetallesById(entity.id)?.toDomainModel()?.toUploadRequest() ?: continue
+                            val response = apiRequest<Cliente>(
+                                method = HttpMethod.POST,
+                                url = "/api/clientes",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Cliente>() {}.type
+                            )
                             dao.updateServerIdAndStatus(entity.id, response.id)
                             Log.i(TAG, "[CLIENTE] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
                         }
                         SyncStatus.UPDATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[CLIENTE] Petición PUT a /api/clientes/${entity.serverId}. Body: ${gson.toJson(domainModel)}")
-                            apiRequest<Unit>(HttpMethod.PUT, "/api/clientes/${entity.serverId}", headers, domainModel, object : TypeToken<Unit>() {}.type)
+                            val uploadRequest = db.clienteDao().getConDetallesById(entity.id)?.toDomainModel()?.toUploadRequest() ?: continue
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/clientes/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
                             dao.updateStatusToSyncedByServerId(entity.serverId!!)
                             Log.i(TAG, "[CLIENTE] Éxito PUT: ServerID=${entity.serverId} actualizado.")
                         }
@@ -94,39 +359,6 @@ object UploadManager {
         }
     }
 
-    private suspend fun uploadProveedores(db: AppDatabase, headers: MutableMap<String?, String?>) {
-        val dao = db.proveedorDao()
-        try {
-            val unsyncedItems = dao.getUnsynced()
-            if (unsyncedItems.isEmpty()) return
-            Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Proveedores] ---")
-            for (entity in unsyncedItems) {
-                try {
-                    when (entity.syncStatus) {
-                        SyncStatus.CREATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[PROVEEDOR] Petición POST a /api/proveedores. Body: ${gson.toJson(domainModel)}")
-                            val response = apiRequest<Proveedor>(HttpMethod.POST, "/api/proveedores", headers, domainModel, object : TypeToken<Proveedor>() {}.type)
-                            dao.updateServerIdAndStatus(entity.id, response.id)
-                            Log.i(TAG, "[PROVEEDOR] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
-                        }
-                        SyncStatus.UPDATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[PROVEEDOR] Petición PUT a /api/proveedores/${entity.serverId}. Body: ${gson.toJson(domainModel)}")
-                            apiRequest<Unit>(HttpMethod.PUT, "/api/proveedores/${entity.serverId}", headers, domainModel, object : TypeToken<Unit>() {}.type)
-                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
-                            Log.i(TAG, "[PROVEEDOR] Éxito PUT: ServerID=${entity.serverId} actualizado.")
-                        }
-                        else -> {}
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "[PROVEEDOR] Falló subida para LocalID ${entity.id} (ServerID: ${entity.serverId}). Error: ${e.message}")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error general en uploadProveedores: ${e.message}", e)
-        }
-    }
 
     private suspend fun uploadProductos(db: AppDatabase, headers: MutableMap<String?, String?>) {
         val dao = db.productoDao()
@@ -136,30 +368,28 @@ object UploadManager {
             Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Productos] ---")
             for (entity in unsyncedItems) {
                 try {
-                    // --- INICIO DE LA VERIFICACIÓN DE DEPENDENCIAS ---
-                    if (entity.proveedorId != null && db.proveedorDao().findByServerId(entity.proveedorId) == null) {
-                        Log.w(TAG, "[PRODUCTO] Omitiendo subida para LocalID ${entity.id}. El Proveedor con ServerID ${entity.proveedorId} no está sincronizado.")
-                        continue
-                    }
-                    if (entity.familiaId != null && db.familiaDao().findByServerId(entity.familiaId) == null) {
-                        Log.w(TAG, "[PRODUCTO] Omitiendo subida para LocalID ${entity.id}. La Familia con ServerID ${entity.familiaId} no está sincronizada.")
-                        continue
-                    }
-                    // ... agregar más chequeos para otras dependencias si es necesario (tasaIvaId, etc.)
-                    // --- FIN DE LA VERIFICACIÓN DE DEPENDENCIAS ---
-
                     when (entity.syncStatus) {
                         SyncStatus.CREATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[PRODUCTO] Petición POST a /api/productos. Body: ${gson.toJson(domainModel)}")
-                            val response = apiRequest<Producto>(HttpMethod.POST, "/api/productos", headers, domainModel, object : TypeToken<Producto>() {}.type)
+                            val uploadRequest = db.productoDao().getConDetallesById(entity.id)?.toDomainModel()?.toUploadRequest() ?: continue
+                            val response = apiRequest<Producto>(
+                                method = HttpMethod.POST,
+                                url = "/api/productos",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Producto>() {}.type
+                            )
                             dao.updateServerIdAndStatus(entity.id, response.id)
                             Log.i(TAG, "[PRODUCTO] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
                         }
                         SyncStatus.UPDATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[PRODUCTO] Petición PUT a /api/productos/${entity.serverId}. Body: ${gson.toJson(domainModel)}")
-                            apiRequest<Unit>(HttpMethod.PUT, "/api/productos/${entity.serverId}", headers, domainModel, object : TypeToken<Unit>() {}.type)
+                            val uploadRequest = db.productoDao().getConDetallesById(entity.id)?.toDomainModel()?.toUploadRequest() ?: continue
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/productos/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
                             dao.updateStatusToSyncedByServerId(entity.serverId!!)
                             Log.i(TAG, "[PRODUCTO] Éxito PUT: ServerID=${entity.serverId} actualizado.")
                         }
@@ -184,16 +414,26 @@ object UploadManager {
                 try {
                     when (entity.syncStatus) {
                         SyncStatus.CREATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[FAMILIA] Petición POST a /api/familias. Body: ${gson.toJson(domainModel)}")
-                            val response = apiRequest<Familia>(HttpMethod.POST, "/api/familias", headers, domainModel, object : TypeToken<Familia>() {}.type)
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            val response = apiRequest<Familia>(
+                                method = HttpMethod.POST,
+                                url = "/api/familias",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Familia>() {}.type
+                            )
                             dao.updateServerIdAndStatus(entity.id, response.id)
                             Log.i(TAG, "[FAMILIA] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
                         }
                         SyncStatus.UPDATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[FAMILIA] Petición PUT a /api/familias/${entity.serverId}. Body: ${gson.toJson(domainModel)}")
-                            apiRequest<Unit>(HttpMethod.PUT, "/api/familias/${entity.serverId}", headers, domainModel, object : TypeToken<Unit>() {}.type)
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/familias/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
                             dao.updateStatusToSyncedByServerId(entity.serverId!!)
                             Log.i(TAG, "[FAMILIA] Éxito PUT: ServerID=${entity.serverId} actualizado.")
                         }
@@ -209,26 +449,62 @@ object UploadManager {
     }
 
     private suspend fun uploadFormasDePago(db: AppDatabase, headers: MutableMap<String?, String?>) {
-        val dao = db.formaPagoDao()
+        val formaPagoDao = db.formaPagoDao()
+        val tipoFormaPagoDao = db.tipoFormaPagoDao()
+
         try {
-            val unsyncedItems = dao.getUnsynced()
-            if (unsyncedItems.isEmpty()) return
+            val unsyncedItems = formaPagoDao.getUnsynced()
+            if (unsyncedItems.isEmpty()) {
+                return
+            }
             Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Formas de Pago] ---")
+
             for (entity in unsyncedItems) {
                 try {
+                    // 1. Convertir la entidad base a su modelo de dominio.
+                    val domainModel = entity.toDomainModel()
+
+                    // 2. CORRECCIÓN: Buscar la entidad relacionada (TipoFormaPago) usando su serverId,
+                    // que está guardado en el campo 'tipoFormaPagoId' de la FormaPago.
+                    if (entity.tipoFormaPagoId != null) {
+                        val tipoFormaPagoEntity = tipoFormaPagoDao.findByServerId(entity.tipoFormaPagoId)
+                        if (tipoFormaPagoEntity != null) {
+                            domainModel.tipoFormaPago = tipoFormaPagoEntity.toDomainModel()
+                        } else {
+                            Log.w(TAG, "[FORMA_PAGO] No se encontró el TipoFormaPago con ServerID ${entity.tipoFormaPagoId} para la Forma de Pago LocalID ${entity.id}. Se subirá sin esta relación.")
+                        }
+                    }
+
+                    // 3. Proceder con la lógica de subida usando el DTO correcto.
                     when (entity.syncStatus) {
                         SyncStatus.CREATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[FORMA_PAGO] Petición POST a /api/formas_pagos. Body: ${gson.toJson(domainModel)}")
-                            val response = apiRequest<FormaPago>(HttpMethod.POST, "/api/formas_pagos", headers, domainModel, object : TypeToken<FormaPago>() {}.type)
-                            dao.updateServerIdAndStatus(entity.id, response.id)
+                            val uploadRequest = domainModel.toUploadRequest()
+                            Log.d(TAG, "[FORMA_PAGO] Petición POST a /api/formas_pagos. Body: ${gson.toJson(uploadRequest)}")
+
+                            val response = apiRequest<FormaPago>(
+                                method = HttpMethod.POST,
+                                url = "/api/formas_pagos",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<FormaPago>() {}.type
+                            )
+
+                            formaPagoDao.updateServerIdAndStatus(entity.id, response.id)
                             Log.i(TAG, "[FORMA_PAGO] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
                         }
                         SyncStatus.UPDATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[FORMA_PAGO] Petición PUT a /api/formas_pagos/${entity.serverId}. Body: ${gson.toJson(domainModel)}")
-                            apiRequest<Unit>(HttpMethod.PUT, "/api/formas_pagos/${entity.serverId}", headers, domainModel, object : TypeToken<Unit>() {}.type)
-                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
+                            val uploadRequest = domainModel.toUploadRequest()
+                            Log.d(TAG, "[FORMA_PAGO] Petición PUT a /api/formas_pagos/${entity.serverId}. Body: ${gson.toJson(uploadRequest)}")
+
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/formas_pagos/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
+
+                            formaPagoDao.updateStatusToSyncedByServerId(entity.serverId!!)
                             Log.i(TAG, "[FORMA_PAGO] Éxito PUT: ServerID=${entity.serverId} actualizado.")
                         }
                         else -> {}
@@ -241,7 +517,6 @@ object UploadManager {
             Log.e(TAG, "Error general en uploadFormasDePago: ${e.message}", e)
         }
     }
-
     private suspend fun uploadPromociones(db: AppDatabase, headers: MutableMap<String?, String?>) {
         val dao = db.promocionDao()
         try {
@@ -252,16 +527,26 @@ object UploadManager {
                 try {
                     when (entity.syncStatus) {
                         SyncStatus.CREATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[PROMOCION] Petición POST a /api/promociones. Body: ${gson.toJson(domainModel)}")
-                            val response = apiRequest<Promocion>(HttpMethod.POST, "/api/promociones", headers, domainModel, object : TypeToken<Promocion>() {}.type)
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            val response = apiRequest<Promocion>(
+                                method = HttpMethod.POST,
+                                url = "/api/promociones",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Promocion>() {}.type
+                            )
                             dao.updateServerIdAndStatus(entity.id, response.id)
                             Log.i(TAG, "[PROMOCION] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
                         }
                         SyncStatus.UPDATED -> {
-                            val domainModel = entity.toDomainModel()
-                            Log.d(TAG, "[PROMOCION] Petición PUT a /api/promociones/${entity.serverId}. Body: ${gson.toJson(domainModel)}")
-                            apiRequest<Unit>(HttpMethod.PUT, "/api/promociones/${entity.serverId}", headers, domainModel, object : TypeToken<Unit>() {}.type)
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/promociones/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
                             dao.updateStatusToSyncedByServerId(entity.serverId!!)
                             Log.i(TAG, "[PROMOCION] Éxito PUT: ServerID=${entity.serverId} actualizado.")
                         }
@@ -287,63 +572,73 @@ object UploadManager {
 
             for (entity in unsyncedItems) {
                 try {
-                    // Verificación de dependencias (ej. cliente debe estar sincronizado)
-                    if (db.clienteDao().findByServerId(entity.clienteId) == null && entity.clienteId != 1) {
-                        Log.w(TAG, "[COMPROBANTE] Omitiendo subida para LocalID ${entity.id}. El Cliente con ServerID ${entity.clienteId} no está sincronizado.")
-                        continue
-                    }
+                    when (entity.syncStatus) {
+                        SyncStatus.CREATED -> {
+                            val comprobanteDomain = entity.toDomainModel()
+                            val comprobanteUploadRequest = comprobanteDomain.toUploadRequest()
 
-                    if (entity.syncStatus == SyncStatus.CREATED) {
-                        // --- INICIO DEL FLUJO DE 2 PASOS ---
+                            val responseComprobante = apiRequest<Comprobante>(
+                                method = HttpMethod.POST,
+                                url = "/api/comprobantes/",
+                                headers = headers,
+                                body = comprobanteUploadRequest,
+                                responseType = object : TypeToken<Comprobante>() {}.type
+                            )
+                            val newServerId = responseComprobante.id
+                            Log.i(TAG, "[COMPROBANTE] Éxito POST. LocalID ${entity.id} -> ServerID $newServerId.")
 
-                        // PASO 1: SUBIR LA CABEZA DEL COMPROBANTE
-                        val comprobanteDomain = entity.toDomainModel()
-                        val comprobanteUploadRequest = comprobanteDomain.toUploadRequest()
-                        Log.d(TAG, "[COMPROBANTE] Subiendo cabeza... LocalID=${entity.id}. Body: ${gson.toJson(comprobanteUploadRequest)}")
+                            val renglonEntities = renglonDao.getByComprobante(entity.id).first()
+                            val renglonesDomain = renglonEntities.map { it.toDomainModel() }
+                            var renglonesExitosos = 0
 
-                        val responseComprobante = apiRequest<Comprobante>(
-                            method = HttpMethod.POST,
-                            url = "/api/comprobantes/",
-                            headers = headers,
-                            body = comprobanteUploadRequest,
-                            responseType = object : TypeToken<Comprobante>() {}.type
-                        )
-                        val newServerId = responseComprobante.id
-                        Log.i(TAG, "[COMPROBANTE] Éxito. LocalID ${entity.id} -> ServerID $newServerId.")
+                            Log.d(TAG, "[RENGLONES] Subiendo ${renglonesDomain.size} renglones para Comprobante ServerID $newServerId...")
+                            for (renglon in renglonesDomain) {
+                                try {
+                                    val renglonUploadRequest = renglon.toUploadRequest(comprobanteServerId = newServerId)
+                                    apiRequest<Unit>(
+                                        method = HttpMethod.POST,
+                                        url = "/api/renglones_comprobantes/$newServerId/",
+                                        headers = headers,
+                                        body = renglonUploadRequest,
+                                        responseType = object : TypeToken<Unit>() {}.type
+                                    )
+                                    renglonesExitosos++
+                                } catch (renglonError: Exception) {
+                                    Log.e(TAG, "[RENGLON] Falló subida para Comprobante ServerID $newServerId. Error: ${renglonError.message}")
+                                }
+                            }
 
-                        // PASO 2: SUBIR LOS RENGLONES UNO POR UNO
-                        val renglonEntities = renglonDao.getByComprobante(entity.id).first()
-                        val renglonesDomain = renglonEntities.map { it.toDomainModel() }
-                        var renglonesExitosos = 0
-
-                        Log.d(TAG, "[RENGLONES] Subiendo ${renglonesDomain.size} renglones para Comprobante ServerID $newServerId...")
-                        for (renglon in renglonesDomain) {
-                            try {
-                                val renglonUploadRequest = renglon.toUploadRequest(comprobanteServerId = newServerId)
-                                apiRequest<Unit>(
-                                    method = HttpMethod.POST,
-                                    url = "/api/renglones_comprobantes/$newServerId/", // Endpoint para renglones
-                                    headers = headers,
-                                    body = renglonUploadRequest,
-                                    responseType = object : TypeToken<Unit>() {}.type
-                                )
-                                renglonesExitosos++
-                            } catch (renglonError: Exception) {
-                                Log.e(TAG, "[RENGLON] Falló subida de renglón para Comprobante ServerID $newServerId. Error: ${renglonError.message}")
+                            if (renglonesExitosos == renglonesDomain.size) {
+                                comprobanteDao.updateServerIdAndStatus(entity.id, newServerId)
+                                Log.i(TAG, "[COMPROBANTE] Sincronización completa para LocalID ${entity.id}.")
+                            } else {
+                                Log.w(TAG, "[COMPROBANTE] Sincronización incompleta para LocalID ${entity.id}.")
                             }
                         }
-                        Log.i(TAG, "[RENGLONES] Subida finalizada: ${renglonesExitosos}/${renglonesDomain.size} renglones exitosos.")
+                        SyncStatus.UPDATED -> {
 
-                        // PASO 3: ACTUALIZAR ESTADO LOCAL SI TODO FUE EXITOSO
-                        if (renglonesExitosos == renglonesDomain.size) {
-                            comprobanteDao.updateServerIdAndStatus(entity.id, newServerId)
-                            Log.i(TAG, "[COMPROBANTE] Sincronización completa para Comprobante LocalID ${entity.id}.")
-                        } else {
-                            Log.w(TAG, "[COMPROBANTE] Sincronización incompleta para LocalID ${entity.id}. No se marcará como SYNCED.")
+                            val comprobanteDomain = entity.toDomainModel()
+                            val comprobanteUploadRequest = comprobanteDomain.toUploadRequest() // Asume que este DTO incluye renglones
+
+                            if (entity.serverId == null) {
+                                Log.e(TAG, "[COMPROBANTE] Error: ServerID es nulo para un comprobante marcado como UPDATED. LocalID: ${entity.id}")
+                                continue // Salta este comprobante
+                            }
+
+                            Log.d(TAG, "[COMPROBANTE] Petición PUT a /api/comprobantes/${entity.serverId}. Body: ${gson.toJson(comprobanteUploadRequest)}")
+                                apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                    url = "/api/comprobantes/${entity.serverId}/", // Asegúrate que el endpoint sea el correcto
+                                    headers = headers,
+                                body = comprobanteUploadRequest,
+                                    responseType = object : TypeToken<Unit>() {}.type
+                                )
+                            comprobanteDao.updateServerIdAndStatus(entity.id, entity.serverId!!)
+                            Log.i(TAG, "[COMPROBANTE] Éxito PUT: ServerID=${entity.serverId} actualizado.")
                         }
-
-                    } else {
-                        Log.w(TAG, "[COMPROBANTE] Se omite la subida para el estado ${entity.syncStatus} del comprobante con LocalID ${entity.id}")
+                        else -> {
+                            Log.w(TAG, "[COMPROBANTE] Estado no manejado: ${entity.syncStatus} para LocalID ${entity.id}")
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "[COMPROBANTE] Falló subida para LocalID ${entity.id}. Error: ${e.message}")
@@ -354,12 +649,113 @@ object UploadManager {
         }
     }
 
+    private suspend fun uploadProveedores(db: AppDatabase, headers: MutableMap<String?, String?>) {
+        val dao = db.proveedorDao()
+        try {
+            val unsyncedItems = dao.getUnsynced()
+            if (unsyncedItems.isEmpty()) return
+            Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Proveedores] ---")
+            for (entity in unsyncedItems) {
+                try {
+                    when (entity.syncStatus) {
+                        SyncStatus.CREATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            val response = apiRequest<Proveedor>(
+                                method = HttpMethod.POST,
+                                url = "/api/proveedores",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Proveedor>() {}.type
+                            )
+                            dao.updateServerIdAndStatus(entity.id, response.id)
+                            Log.i(TAG, "[PROVEEDOR] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
+                        }
+                        SyncStatus.UPDATED -> {
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/proveedores/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
+                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
+                            Log.i(TAG, "[PROVEEDOR] Éxito PUT: ServerID=${entity.serverId} actualizado.")
+                        }
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "[PROVEEDOR] Falló subida para LocalID ${entity.id} (ServerID: ${entity.serverId}). Error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error general en uploadProveedores: ${e.message}", e)
+        }
+    }
+    private suspend fun uploadTipoIVA(db: AppDatabase, headers: MutableMap<String?, String?>) {
+        val dao = db.tipoIvaDao()
+        try {
+            val unsyncedItems = dao.getUnsynced()
+            if (unsyncedItems.isEmpty()) {
+                return
+            }
+            Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Tipos de IVA] ---")
+
+            for (entity in unsyncedItems) {
+                try {
+                    when (entity.syncStatus) {
+                        SyncStatus.CREATED -> {
+                            // 1. Convertir la entidad a su DTO de subida.
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            Log.d(TAG, "[TIPO_IVA] Petición POST a /api/tipos_iva. Body: ${gson.toJson(uploadRequest)}")
+
+                            // 2. Realizar la petición POST.
+                            val response = apiRequest<TipoIVA>(
+                                method = HttpMethod.POST,
+                                url = "/api/tipos_iva",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<TipoIVA>() {}.type
+                            )
+
+                            // 3. Actualizar la entidad local con el ID del servidor.
+                            dao.updateServerIdAndStatus(entity.id, response.id)
+                            Log.i(TAG, "[TIPO_IVA] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
+                        }
+                        SyncStatus.UPDATED -> {
+                            // 1. Convertir la entidad a su DTO de subida.
+                            val uploadRequest = entity.toDomainModel().toUploadRequest()
+                            Log.d(TAG, "[TIPO_IVA] Petición PUT a /api/tipos_iva/${entity.serverId}. Body: ${gson.toJson(uploadRequest)}")
+
+                            // 2. Realizar la petición PUT.
+                            apiRequest<Unit>(
+                                method = HttpMethod.PUT,
+                                url = "/api/tipos_iva/${entity.serverId}",
+                                headers = headers,
+                                body = uploadRequest,
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
+
+                            // 3. Marcar la entidad local como sincronizada.
+                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
+                            Log.i(TAG, "[TIPO_IVA] Éxito PUT: ServerID=${entity.serverId} actualizado.")
+                        }
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "[TIPO_IVA] Falló subida para LocalID ${entity.id} (ServerID: ${entity.serverId}). Error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error general en uploadTiposDeIVA: ${e.message}", e)
+        }
+    }
     private suspend fun <T> apiRequest(
         method: HttpMethod,
         url: String,
         headers: MutableMap<String?, String?>,
         body: Any? = null,
-        responseType: Type
+        responseType: Type = object : TypeToken<T>() {}.type
     ): T = suspendCancellableCoroutine { continuation ->
         ApiClient.request(method, url, headers, body, responseType, object : ApiCallback<T?> {
             override fun onSuccess(statusCode: Int, responseHeaders: Headers?, payload: T?) {

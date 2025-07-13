@@ -49,11 +49,11 @@ fun TipoDocumentoScreen(
                 entityInScreen = tipo
                 showEditScreen = true
             },
-            onDelete = { tipo ->
+             onAttemptDelete  = { tipo ->
                 viewModel.delete(tipo.toEntity())
                 NotificationManager.show("Tipo de Documento '${tipo.nombre}' eliminado.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id }
+            itemKey = { it.localId }
         )
 
         if (showEditScreen && entityInScreen != null) {

@@ -57,11 +57,11 @@ fun ProveedorScreen(
                 entityInScreen = proveedor
                 showEditScreen = true
             },
-            onDelete = { proveedor ->
+             onAttemptDelete  = { proveedor ->
                 proveedorViewModel.delete(proveedor.toEntity())
                 NotificationManager.show("Proveedor '${proveedor.razonSocial}' eliminado.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id }
+            itemKey = { it.localId }
         )
 
         if (showEditScreen && entityInScreen != null) {

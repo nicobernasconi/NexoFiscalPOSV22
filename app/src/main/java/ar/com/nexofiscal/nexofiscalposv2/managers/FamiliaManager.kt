@@ -26,7 +26,7 @@ object FamiliaManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).familiaDao()
                 val entities = allItems.toFamiliaEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} familias guardadas/actualizadas en la BD.")
 
                 withContext(Dispatchers.Main) {

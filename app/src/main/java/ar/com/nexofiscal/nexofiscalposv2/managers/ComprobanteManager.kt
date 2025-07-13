@@ -3,8 +3,11 @@ package ar.com.nexofiscal.nexofiscalposv2.managers
 import android.content.Context
 import android.util.Log
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobantePagoEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobantePromocionEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.RenglonComprobanteEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toComprobanteEntityList
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toEntity
 import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
 import ar.com.nexofiscal.nexofiscalposv2.models.RenglonComprobante
 import ar.com.nexofiscal.nexofiscalposv2.network.ApiCallback
@@ -15,7 +18,6 @@ import kotlinx.coroutines.*
 import okhttp3.Headers
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-
 
 object ComprobanteManager {
     private const val TAG = "ComprobanteManager"
@@ -59,43 +61,88 @@ object ComprobanteManager {
                 val finalComprobanteIds = finalComprobantes.map { it.id }.toSet()
                 val finalRenglones = allRenglones.filter { it.comprobanteId in finalComprobanteIds }
 
-                // ================== INICIO DE LA MODIFICACIÓN ==================
-
+                // ================== LÓGICA DE GUARDADO CORREGIDA ==================
                 val db = AppDatabase.getInstance(context.applicationContext)
                 val comprobanteDao = db.comprobanteDao()
                 val renglonDao = db.renglonComprobanteDao()
+                val pagoDao = db.comprobantePagoDao()
+                val promocionDao = db.comprobantePromocionDao()
                 val gson = Gson()
 
-                // 1. Guardar los comprobantes y crear un mapa de [serverId -> localId]
-                // Se insertan uno por uno para obtener el ID local que Room genera.
-                val serverToLocalIdMap = mutableMapOf<Int, Long>()
-                val comprobanteEntities = finalComprobantes.toComprobanteEntityList()
-                comprobanteEntities.forEach { entity ->
-                    val localId = comprobanteDao.insert(entity)
-                    entity.serverId?.let { serverId ->
-                        serverToLocalIdMap[serverId] = localId
+                // 1. Agrupar los renglones descargados por el ID de su comprobante padre
+                val renglonesByComprobanteId = finalRenglones.groupBy { it.comprobanteId }
+
+
+
+                // 2. Usar una única transacción para todo el proceso de guardado
+                db.runInTransaction {
+                    finalComprobantes.forEach { comprobante ->
+                        val comprobanteEntity = comprobante.toEntity()
+                        val existente = comprobanteEntity.serverId?.let { comprobanteDao.getByServerId(it) }
+
+                        val idFinalParaRenglones: Int
+
+                        if (existente != null) {
+                            // --- LÓGICA DE ACTUALIZACIÓN ---
+                            idFinalParaRenglones = existente.id
+                            renglonDao.deleteByComprobanteId(idFinalParaRenglones)
+                            pagoDao.deletePromocionesForComprobante(idFinalParaRenglones) // <-- AÑADIDO
+                            promocionDao.deletePromocionesForComprobante(idFinalParaRenglones) // <-- AÑADIDO
+                            val entidadParaActualizar = comprobanteEntity.copy(id = idFinalParaRenglones)
+                            comprobanteDao.insert(entidadParaActualizar)
+                        } else {
+                            // --- LÓGICA DE INSERCIÓN ---
+                            val nuevoIdLargo = comprobanteDao.insert(comprobanteEntity)
+                            idFinalParaRenglones = nuevoIdLargo.toInt()
+                        }
+
+
+                        val nuevosRenglones = renglonesByComprobanteId[comprobante.id] ?: emptyList()
+                        val nuevosPagos = comprobante.formas_de_pago ?: emptyList() // <-- AÑADIDO
+                        val nuevasPromociones = comprobante.promociones ?: emptyList() // <-- AÑADIDO
+
+                        // --- INICIO DE LA NUEVA CORRECCIÓN ---
+                        // Filtramos la lista de renglones nuevos para procesar solo los únicos,
+                        // basándonos en su ID único que viene del servidor.
+                        val renglonesUnicos = nuevosRenglones.distinctBy { it.id }
+                        // --- FIN DE LA NUEVA CORRECCIÓN ---
+
+                        if (renglonesUnicos.isNotEmpty()) {
+                            val renglonEntities = renglonesUnicos.map { renglon ->
+                                RenglonComprobanteEntity(
+                                    comprobanteLocalId = idFinalParaRenglones,
+                                    data = gson.toJson(renglon)
+                                )
+                            }
+                            renglonDao.insertAll(renglonEntities)
+                        }
+
+                        // Guardar pagos <-- AÑADIDO
+                        if (nuevosPagos.isNotEmpty()) {
+                            val pagoEntities = nuevosPagos.map { pago ->
+                                ComprobantePagoEntity(
+                                    comprobanteLocalId = idFinalParaRenglones.toLong(),
+                                    formaPagoId = pago.formaPago.id,
+                                    importe = pago.monto.toDouble(),
+                                    syncStatus = SyncStatus.SYNCED
+                                )
+                            }
+                            pagoDao.insertAll(pagoEntities)
+                        }
+
+                        // Guardar promociones <-- AÑADIDO
+                        if (nuevasPromociones.isNotEmpty()) {
+                            val promocionEntities = nuevasPromociones.map { promocion ->
+                                ComprobantePromocionEntity(
+                                    comprobanteLocalId = idFinalParaRenglones.toLong(),
+                                    promocionId = promocion.id
+                                )
+                            }
+                            promocionDao.insertAll(promocionEntities)
+                        }
                     }
                 }
-
-                // 2. Guardar los renglones usando el mapa para asignar el ID local correcto del comprobante.
-                val renglonEntities = finalRenglones.mapNotNull { renglon ->
-                    val localParentId = serverToLocalIdMap[renglon.comprobanteId]
-                    if (localParentId != null) {
-                        // Se crea la entidad RenglonComprobanteEntity manualmente
-                        RenglonComprobanteEntity(
-                            comprobanteLocalId = localParentId.toInt(),
-                            data = gson.toJson(renglon)
-                        )
-                    } else {
-                        Log.w(TAG, "No se encontró el comprobante padre local para el renglón con serverId ${renglon.id}")
-                        null
-                    }
-                }
-                renglonEntities.forEach { entity -> renglonDao.insert(entity) }
-
-                // =================== FIN DE LA MODIFICACIÓN ====================
-
-                Log.d(TAG, "${comprobanteEntities.size} comprobantes y ${renglonEntities.size} renglones guardados.")
+                Log.d(TAG, "${finalComprobantes.size} comprobantes y ${finalRenglones.size} renglones procesados.")
 
                 withContext(Dispatchers.Main) {
                     callback.onSuccess(finalComprobantes.toMutableList())

@@ -26,7 +26,7 @@ object ProveedorManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).proveedorDao()
                 val entities = allItems.toProveedorEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} proveedores guardados/actualizados en la BD.")
 
                 withContext(Dispatchers.Main) {

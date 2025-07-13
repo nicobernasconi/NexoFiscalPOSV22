@@ -2,16 +2,13 @@ package ar.com.nexofiscal.nexofiscalposv2.models
 
 class Familia {
     var id: Int = 0
+    var localId: Int = 0
     var numero: Int? = null
     var nombre: String? = null
 
     constructor()
 
-    constructor(id: Int, numero: Int?, nombre: String?) {
-        this.id = id
-        this.numero = numero
-        this.nombre = nombre
-    }
+
 
     override fun toString(): String {
         return "Familia{" +
@@ -20,7 +17,17 @@ class Familia {
                 ", nombre='" + nombre + '\'' +
                 '}'
     }
-    fun copy(id: Int = this.id, numero: Int? = this.numero, nombre: String? = this.nombre): Familia {
-        return Familia(id, numero, nombre)
+    fun copy(
+        localId: Int = this.localId,
+        id: Int = this.id,
+        numero: Int? = this.numero,
+        nombre: String? = this.nombre
+    ): Familia {
+        val familia = Familia()
+        familia.localId = localId
+        familia.id = id
+        familia.numero = numero
+        familia.nombre = nombre
+        return familia
     }
 }

@@ -49,7 +49,7 @@ fun VendedorScreen(
                 entityInScreen = item
                 showEditScreen = true
             },
-            onDelete = { item ->
+             onAttemptDelete  = { item ->
                 viewModel.delete(item.toEntity())
                 NotificationManager.show("Vendedor '${item.nombre}' eliminado.", NotificationType.SUCCESS)
             },

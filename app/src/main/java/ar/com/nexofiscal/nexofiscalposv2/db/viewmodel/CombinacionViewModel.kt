@@ -7,6 +7,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CombinacionEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.CombinacionRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -29,6 +30,7 @@ class CombinacionViewModel(application: Application) : AndroidViewModel(applicat
                 c.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(c)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

@@ -22,18 +22,26 @@ import ar.com.nexofiscal.nexofiscalposv2.models.Cliente
 import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoComprobante
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.ComprobanteRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Promocion
 import ar.com.nexofiscal.nexofiscalposv2.models.RenglonComprobante
+import ar.com.nexofiscal.nexofiscalposv2.models.Vendedor
 import ar.com.nexofiscal.nexofiscalposv2.screens.Pago
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.collections.isNotEmpty
 
 data class ComprobanteConDetalle(
     val comprobante: Comprobante,
     val cliente: Cliente?,
-    val tipoComprobante: TipoComprobante?
+    val tipoComprobante: TipoComprobante?,
+    val vendedor: Vendedor? // Asumiendo que también tienes un vendedor relacionado
 )
 
 class ComprobanteViewModel(application: Application) : AndroidViewModel(application) {
@@ -89,6 +97,7 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
         db.runInTransaction {
             // 1. Guardar la entidad principal del comprobante y obtener su nuevo ID local
             val comprobanteEntity = comprobante.toEntity()
+            comprobanteEntity.syncStatus = SyncStatus.CREATED
             newComprobanteId = comprobanteDao.insert(comprobanteEntity)
 
             // 2. Preparar y guardar las entidades de renglones
@@ -113,6 +122,7 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 }
                 comprobantePagoDao.insertAll(pagoEntities)
+
             }
 
             // 4. Preparar y guardar las entidades de promoción
@@ -124,9 +134,30 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 }
                 comprobantePromocionDao.insertAll(promocionEntities)
+
             }
         }
+        UploadManager.triggerImmediateUpload(getApplication())
         return newComprobanteId
+    }
+
+    fun anularComprobante(comprobante: Comprobante) {
+        viewModelScope.launch {
+            // Obtenemos la entidad de la base de datos usando el ID local del modelo de dominio.
+            val comprobanteEntity = comprobanteRepo.porId(comprobante.localId)
+            if (comprobanteEntity != null) {
+                // Asignamos la fecha y hora actual como fecha de baja.
+                comprobanteEntity.fechaBaja = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                // Marcamos la entidad como actualizada para que se suba al servidor.
+                comprobanteEntity.syncStatus = SyncStatus.UPDATED
+                // Guardamos los cambios en la base de datos.
+                comprobanteRepo.actualizar(comprobanteEntity)
+                UploadManager.triggerImmediateUpload(getApplication())
+                NotificationManager.show("Comprobante anulado correctamente.", NotificationType.SUCCESS)
+            } else {
+                NotificationManager.show("Error: No se encontró el comprobante para anular.", NotificationType.ERROR)
+            }
+        }
     }
 
     fun delete(c: ComprobanteEntity) {

@@ -49,7 +49,7 @@ fun TasaIvaScreen(
                 entityInScreen = tasaIva
                 showEditScreen = true
             },
-            onDelete = { tasaIva ->
+             onAttemptDelete  = { tasaIva ->
                 viewModel.delete(tasaIva.toEntity())
                 NotificationManager.show("Tasa de IVA '${tasaIva.nombre}' eliminada.", NotificationType.SUCCESS)
             },

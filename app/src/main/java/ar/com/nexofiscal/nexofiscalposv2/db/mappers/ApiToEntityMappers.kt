@@ -3,31 +3,14 @@ package ar.com.nexofiscal.nexofiscalposv2.db.mappers
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.*
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.ComprobanteConDetalle
 import ar.com.nexofiscal.nexofiscalposv2.models.*
+import ar.com.nexofiscal.nexofiscalposv2.screens.Pago
 import com.google.gson.Gson
 
 // MAPPERS DE ENTIDAD A MODELO DE DOMINIO (API)
 // Nota: Se han corregido los mappers para que solo asignen los campos que realmente existen en el modelo de dominio.
 
-fun AgrupacionEntity.toDomainModel(): Agrupacion {
-    return Agrupacion(
-        id = this.serverId ?: this.id, // Prioriza serverId si existe
-        numero = this.numero,
-        nombre = this.nombre,
-        color = this.color,
-        icono = this.icono
-    )
-}
-
 fun List<AgrupacionEntity>.toAgrupacionDomainModelList(): List<Agrupacion> {
     return this.map { it.toDomainModel() }
-}
-
-fun CategoriaEntity.toDomainModel(): Categoria {
-    val domain = Categoria()
-    domain.id = this.serverId ?: this.id
-    domain.nombre = this.nombre
-    domain.seImprime = this.seImprime
-    return domain
 }
 
 fun List<CategoriaEntity>.toCategoriaDomainModelList(): List<Categoria> {
@@ -54,6 +37,7 @@ fun List<CierreCajaEntity>.toCierreCajaDomainModelList(): List<CierreCaja> {
 fun ClienteEntity.toDomainModel(): Cliente {
     val domain = Cliente()
     domain.id = this.serverId ?: this.id
+    domain.localId = this.id
     domain.nroCliente = this.nroCliente
     domain.nombre = this.nombre
     domain.cuit = this.cuit
@@ -77,7 +61,10 @@ fun ClienteEntity.toDomainModel(): Cliente {
     domain.fechaUltimoPago = this.fechaUltimoPago
     domain.percepcionIibb = this.percepcionIibb
     domain.desactivado = this.desactivado
-    this.tipoIvaId?.let { domain.tipoIva = TipoIVA().apply { id = it } }
+    this.tipoIvaId?.let {
+        domain.tipoIva = TipoIVA().apply { id = it }
+        domain.tipoIvaId = it
+    }
     this.provinciaId?.let { domain.provincia = Provincia().apply { id = it } }
     return domain
 }
@@ -101,8 +88,8 @@ fun List<CombinacionEntity>.toCombinacionDomainModelList(): List<Combinacion> {
 
 fun ComprobanteEntity.toDomainModel(): Comprobante {
     return Comprobante(
-        localId = this.id, // CAMBIO: Se asigna el ID local de la entidad
-        id = this.serverId ?: this.id, // El ID de dominio sigue siendo el del servidor (o el local como fallback)
+        localId = this.id,
+        id = this.serverId ?: 0,
         serverId = this.serverId,
         numero = this.numero,
         cuotas = this.cuotas,
@@ -193,11 +180,17 @@ fun ComprobanteEntity.toDomainModel(): Comprobante {
         sucursalId = this.sucursalId,
         descuentoTotal = this.descuentoTotal,
         incrementoTotal = this.incrementoTotal,
-        cliente = Cliente().apply { id = this@toDomainModel.clienteId },
-        vendedor = this.vendedorId?.let { Vendedor().apply { id = it } },
-        provincia = this.provinciaId?.let { Provincia().apply { id = it } },
-        tipoComprobante = this.tipoComprobanteId?.let { TipoComprobante().apply { id = it } },
+        // Los objetos relacionados aquí son null por diseño, se poblarán en el siguiente paso.
+        cliente = null,
+        vendedor = null,
+        provincia = null,
+        tipoComprobante = null,
+        formas_de_pago = emptyList(), // Inicializar como lista vacía
+        promociones = null,
         tipoComprobanteId = this.tipoComprobanteId,
+
+
+
 
     )
 }
@@ -207,24 +200,18 @@ fun List<ComprobanteEntity>.toComprobanteDomainModelList(): List<Comprobante> {
 }
 
 fun FamiliaEntity.toDomainModel(): Familia {
-    return Familia(
-        id = this.serverId ?: this.id,
-        numero = this.numero,
-        nombre = this.nombre
-    )
+    val domain = Familia()
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId ?: 0
+    domain.numero = this.numero
+    domain.nombre = this.nombre
+    return domain
 }
+
+
 
 fun List<FamiliaEntity>.toFamiliaDomainModelList(): List<Familia> {
     return this.map { it.toDomainModel() }
-}
-
-fun FormaPagoEntity.toDomainModel(): FormaPago {
-    val domain = FormaPago()
-    domain.id = this.serverId ?: this.id
-    domain.nombre = this.nombre
-    domain.porcentaje = this.porcentaje
-    this.tipoFormaPagoId?.let { domain.tipoFormaPago = TipoFormaPago().apply { id = it } }
-    return domain
 }
 
 fun List<FormaPagoEntity>.toFormaPagoDomainModelList(): List<FormaPago> {
@@ -244,14 +231,6 @@ fun List<LocalidadEntity>.toLocalidadDomainModelList(): List<Localidad> {
     return this.map { it.toDomainModel() }
 }
 
-fun MonedaEntity.toDomainModel(): Moneda {
-    val domain = Moneda()
-    domain.id = this.serverId ?: this.id
-    domain.simbolo = this.simbolo
-    domain.nombre = this.nombre
-    domain.cotizacion = this.cotizacion
-    return domain
-}
 
 fun List<MonedaEntity>.toMonedaDomainModelList(): List<Moneda> {
     return this.map { it.toDomainModel() }
@@ -270,7 +249,7 @@ fun List<PaisEntity>.toPaisDomainModelList(): List<Pais> {
 
 fun ProductoEntity.toDomainModel(): Producto {
     val domain = Producto()
-    domain.localId = this.id // <-- CAMBIO: AÑADIR ESTA LÍNEA para asignar el ID local de la entidad
+    domain.localId = this.id
     domain.id = this.serverId ?: this.id
     domain.codigo = this.codigo
     domain.descripcion = this.descripcion
@@ -311,18 +290,24 @@ fun ProductoEntity.toDomainModel(): Producto {
     return domain
 }
 
+fun ProductoConDetalles.toDomainModel(): Producto {
+    // Esta función ya usa ProductoEntity.toDomainModel(), así que heredará la corrección.
+    val domainProducto = this.producto.toDomainModel()
+    domainProducto.moneda = this.moneda?.toDomainModel()
+    domainProducto.tasaIva = this.tasaIva?.toDomainModel()
+    domainProducto.familia = this.familia?.toDomainModel()
+    domainProducto.agrupacion = this.agrupacion?.toDomainModel()
+    domainProducto.proveedor = this.proveedor?.toDomainModel()
+    domainProducto.tipo = this.tipo?.toDomainModel()
+    domainProducto.unidad = this.unidad?.toDomainModel()
+    return domainProducto
+}
+
 fun List<ProductoEntity>.toProductoDomainModelList(): List<Producto> {
     return this.map { it.toDomainModel() }
 }
 
-fun PromocionEntity.toDomainModel(): Promocion {
-    val domain = Promocion()
-    domain.id = this.serverId ?: this.id
-    domain.nombre = this.nombre
-    domain.descripcion = this.descripcion
-    domain.porcentaje = this.porcentaje
-    return domain
-}
+
 
 fun List<PromocionEntity>.toPromocionDomainModelList(): List<Promocion> {
     return this.map { it.toDomainModel() }
@@ -330,20 +315,39 @@ fun List<PromocionEntity>.toPromocionDomainModelList(): List<Promocion> {
 
 fun ProveedorEntity.toDomainModel(): Proveedor {
     val domain = Proveedor()
-    domain.id = this.serverId ?: this.id
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId ?: 0
     domain.razonSocial = this.razonSocial
     domain.direccion = this.direccion
-    this.localidadId?.let { domain.localidad = Localidad().apply { id = it } }
     domain.telefono = this.telefono
     domain.email = this.email
-    this.tipoIvaId?.let { domain.tipoIva = TipoIVA().apply { id = it } }
     domain.cuit = this.cuit
-    this.categoriaId?.let { domain.categoria = Categoria().apply { id = it } }
-    this.subcategoriaId?.let { domain.subcategoria = Categoria().apply { id = it } }
     domain.fechaUltimaCompra = this.fechaUltimaCompra
     domain.fechaUltimoPago = this.fechaUltimoPago
     domain.saldoActual = this.saldoActual
+    // Las entidades relacionadas se cargan en el ViewModel
     return domain
+}
+
+// Mapper de Modelo de Dominio (UI) a Entidad de DB
+fun Proveedor.toEntity(): ProveedorEntity {
+    return ProveedorEntity(
+        id = this.localId, // <-- ¡CORRECCIÓN CLAVE! Usa el ID local guardado.
+        serverId = this.id,
+        syncStatus = SyncStatus.SYNCED, // El ViewModel lo ajustará.
+        razonSocial = this.razonSocial,
+        direccion = this.direccion,
+        localidadId = this.localidad?.id,
+        telefono = this.telefono,
+        email = this.email,
+        tipoIvaId = this.tipoIva?.id,
+        cuit = this.cuit,
+        categoriaId = this.categoria?.id,
+        subcategoriaId = this.subcategoria?.id,
+        fechaUltimaCompra = this.fechaUltimaCompra,
+        fechaUltimoPago = this.fechaUltimoPago,
+        saldoActual = this.saldoActual
+    )
 }
 
 fun List<ProveedorEntity>.toProveedorDomainModelList(): List<Proveedor> {
@@ -463,13 +467,6 @@ fun List<TipoComprobanteEntity>.toTipoComprobanteDomainModelList(): List<TipoCom
     return this.map { it.toDomainModel() }
 }
 
-fun TipoDocumentoEntity.toDomainModel(): TipoDocumento {
-    val domain = TipoDocumento()
-    domain.id = this.serverId ?: this.id
-    domain.nombre = this.nombre
-    return domain
-}
-
 fun List<TipoDocumentoEntity>.toTipoDocumentoDomainModelList(): List<TipoDocumento> {
     return this.map { it.toDomainModel() }
 }
@@ -494,31 +491,43 @@ fun TipoFormaPagoEntity.toDomainModel(): TipoFormaPago {
     return domain
 }
 
+fun FormaPagoConDetalles.toDomainModel(): FormaPago {
+    // 1. Convierte la parte principal (FormaPagoEntity) al modelo de dominio.
+    val domainModel = this.formaPago.toDomainModel()
+
+    // 2. Convierte la parte relacionada (TipoFormaPagoEntity) y la asigna.
+    domainModel.tipoFormaPago = this.tipoFormaPago?.toDomainModel()
+
+    return domainModel
+}
+
+
 fun List<TipoFormaPagoEntity>.toTipoFormaPagoDomainModelList(): List<TipoFormaPago> {
     return this.map { it.toDomainModel() }
 }
 
 fun TipoIvaEntity.toDomainModel(): TipoIVA {
     val domain = TipoIVA()
-    domain.id = this.serverId ?: this.id
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId ?: 0
     domain.nombre = this.nombre
-    // CAMBIO: Faltaban campos que no existen en la entidad.
-    // domain.letraFactura = this.letraFactura
-    // domain.porcentaje = this.porcentaje
+    // Los campos 'letraFactura' y 'porcentaje' no están en la entidad, se mantendrán null
     return domain
+}
+
+// Mapper de Modelo de Dominio (UI) a Entidad de DB
+fun TipoIVA.toEntity(): TipoIvaEntity {
+    return TipoIvaEntity(
+        id = this.localId, // <-- ¡CORRECCIÓN CLAVE! Usa el ID local guardado.
+        serverId = this.id,
+        syncStatus = SyncStatus.SYNCED, // El ViewModel lo ajustará.
+        nombre = this.nombre,
+        descripcion = null // La entidad tiene un campo 'descripcion' que el modelo no, se asigna null.
+    )
 }
 
 fun List<TipoIvaEntity>.toTipoIvaDomainModelList(): List<TipoIVA> {
     return this.map { it.toDomainModel() }
-}
-
-fun UnidadEntity.toDomainModel(): Unidad {
-    val domain = Unidad()
-    domain.id = this.serverId ?: this.id
-    domain.nombre = this.nombre
-    // CAMBIO: El campo 'simbolo' no existe en UnidadEntity
-    // domain.simbolo = this.simbolo
-    return domain
 }
 
 fun List<UnidadEntity>.toUnidadDomainModelList(): List<Unidad> {
@@ -563,12 +572,23 @@ fun List<VendedorEntity>.toVendedorDomainModelList(): List<Vendedor> {
 
 // MAPPERS DE MODELO DE DOMINIO (API) A ENTIDAD
 // Nota: Se han corregido todos los mappers para asignar `serverId`, `id` local y `syncStatus`.
+fun AgrupacionEntity.toDomainModel(): Agrupacion {
+    val domain = Agrupacion()
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId ?: 0
+    domain.numero = this.numero
+    domain.nombre = this.nombre
+    domain.color = this.color
+    domain.icono = this.icono
+    return domain
+}
 
+// Mapper de Modelo de Dominio (UI) a Entidad de DB
 fun Agrupacion.toEntity(): AgrupacionEntity {
     return AgrupacionEntity(
-        id = 0,
+        id = this.localId, // <-- ¡CORRECCIÓN CLAVE! Usa el ID local guardado.
         serverId = this.id,
-        syncStatus = SyncStatus.SYNCED,
+        syncStatus = SyncStatus.SYNCED, // El ViewModel lo ajustará.
         numero = this.numero,
         nombre = this.nombre,
         color = this.color,
@@ -577,11 +597,21 @@ fun Agrupacion.toEntity(): AgrupacionEntity {
 }
 fun List<Agrupacion?>.toAgrupacionEntityList(): List<AgrupacionEntity> = this.mapNotNull { it?.toEntity() }
 
+fun CategoriaEntity.toDomainModel(): Categoria {
+    val domain = Categoria()
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId
+    domain.nombre = this.nombre
+    domain.seImprime = this.seImprime
+    return domain
+}
+
+// Mapper de Modelo de Dominio (UI) a Entidad de DB
 fun Categoria.toEntity(): CategoriaEntity {
     return CategoriaEntity(
-        id = 0,
+        id = this.localId, // <-- ¡CORRECCIÓN CLAVE! Usa el ID local guardado.
         serverId = this.id,
-        syncStatus = SyncStatus.SYNCED,
+        syncStatus = SyncStatus.SYNCED, // El ViewModel lo ajustará.
         nombre = this.nombre,
         seImprime = this.seImprime
     )
@@ -606,7 +636,7 @@ fun List<CierreCaja?>.toCierreCajaEntityList(): List<CierreCajaEntity> = this.ma
 
 fun Cliente.toEntity(): ClienteEntity {
     return ClienteEntity(
-        id = 0,
+        id = this.localId,
         serverId = this.id,
         syncStatus = SyncStatus.SYNCED,
         nroCliente = this.nroCliente,
@@ -745,14 +775,13 @@ fun Comprobante.toEntity(): ComprobanteEntity {
         descuentoTotal = this.descuentoTotal,
         incrementoTotal = this.incrementoTotal,
         tipoComprobanteId = this.tipoComprobante?.id,
-
     )
 }
 fun List<Comprobante?>.toComprobanteEntityList(): List<ComprobanteEntity> = this.mapNotNull { it?.toEntity() }
 
 fun Familia.toEntity(): FamiliaEntity {
     return FamiliaEntity(
-        id = 0,
+        id = this.localId,
         serverId = this.id,
         syncStatus = SyncStatus.SYNCED,
         numero = this.numero,
@@ -761,11 +790,22 @@ fun Familia.toEntity(): FamiliaEntity {
 }
 fun List<Familia?>.toFamiliaEntityList(): List<FamiliaEntity> = this.mapNotNull { it?.toEntity() }
 
+fun FormaPagoEntity.toDomainModel(): FormaPago {
+    val domain = FormaPago()
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId ?: 0
+    domain.nombre = this.nombre
+    domain.porcentaje = this.porcentaje
+    // La lógica para cargar `tipoFormaPago` se mantiene en el ViewModel.
+    return domain
+}
+
+// Mapper de Modelo de Dominio a Entidad
 fun FormaPago.toEntity(): FormaPagoEntity {
     return FormaPagoEntity(
-        id = 0,
+        id = this.localId, // <-- ¡CORRECCIÓN CLAVE! Usa el ID local guardado.
         serverId = this.id,
-        syncStatus = SyncStatus.SYNCED,
+        syncStatus = SyncStatus.SYNCED, // El ViewModel lo ajustará
         nombre = this.nombre,
         porcentaje = this.porcentaje,
         tipoFormaPagoId = this.tipoFormaPago?.id
@@ -785,9 +825,20 @@ fun Localidad.toEntity(): LocalidadEntity {
 }
 fun List<Localidad?>.toLocalidadEntityList(): List<LocalidadEntity> = this.mapNotNull { it?.toEntity() }
 
+fun MonedaEntity.toDomainModel(): Moneda {
+    val domain = Moneda()
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId ?: 0
+    domain.simbolo = this.simbolo
+    domain.nombre = this.nombre
+    domain.cotizacion = this.cotizacion
+    return domain
+}
+
+// Mapper de Modelo de Dominio a Entidad
 fun Moneda.toEntity(): MonedaEntity {
     return MonedaEntity(
-        id = 0,
+        id = this.localId, // <-- ¡CORRECCIÓN CLAVE! Usa el ID local guardado.
         serverId = this.id,
         syncStatus = SyncStatus.SYNCED,
         simbolo = this.simbolo,
@@ -809,7 +860,7 @@ fun List<Pais?>.toPaisEntityList(): List<PaisEntity> = this.mapNotNull { it?.toE
 
 fun Producto.toEntity(): ProductoEntity {
     return ProductoEntity(
-        id = 0,
+        id = this.localId,
         serverId = this.id,
         syncStatus = SyncStatus.SYNCED,
         codigo = this.codigo,
@@ -852,11 +903,22 @@ fun Producto.toEntity(): ProductoEntity {
 }
 fun List<Producto?>.toProductoEntityList(): List<ProductoEntity> = this.mapNotNull { it?.toEntity() }
 
+fun PromocionEntity.toDomainModel(): Promocion {
+    val domain = Promocion()
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId ?: 0
+    domain.nombre = this.nombre
+    domain.descripcion = this.descripcion
+    domain.porcentaje = this.porcentaje
+    return domain
+}
+
+// Mapper de Modelo de Dominio (UI) a Entidad de DB
 fun Promocion.toEntity(): PromocionEntity {
     return PromocionEntity(
-        id = 0,
+        id = this.localId, // <-- ¡CORRECCIÓN CLAVE! Usa el ID local guardado.
         serverId = this.id,
-        syncStatus = SyncStatus.SYNCED,
+        syncStatus = SyncStatus.SYNCED, // El ViewModel lo ajustará.
         nombre = this.nombre,
         descripcion = this.descripcion,
         porcentaje = this.porcentaje
@@ -864,25 +926,6 @@ fun Promocion.toEntity(): PromocionEntity {
 }
 fun List<Promocion?>.toPromocionEntityList(): List<PromocionEntity> = this.mapNotNull { it?.toEntity() }
 
-fun Proveedor.toEntity(): ProveedorEntity {
-    return ProveedorEntity(
-        id = 0,
-        serverId = this.id,
-        syncStatus = SyncStatus.SYNCED,
-        razonSocial = this.razonSocial,
-        direccion = this.direccion,
-        localidadId = this.localidad?.id,
-        telefono = this.telefono,
-        email = this.email,
-        tipoIvaId = this.tipoIva?.id,
-        cuit = this.cuit,
-        categoriaId = this.categoria?.id,
-        subcategoriaId = this.subcategoria?.id,
-        fechaUltimaCompra = this.fechaUltimaCompra,
-        fechaUltimoPago = this.fechaUltimoPago,
-        saldoActual = this.saldoActual
-    )
-}
 fun List<Proveedor?>.toProveedorEntityList(): List<ProveedorEntity> = this.mapNotNull { it?.toEntity() }
 
 fun Provincia.toEntity(): ProvinciaEntity {
@@ -988,13 +1031,22 @@ fun TipoComprobante.toEntity(): TipoComprobanteEntity {
 }
 fun List<TipoComprobante?>.toTipoComprobanteEntityList(): List<TipoComprobanteEntity> = this.mapNotNull { it?.toEntity() }
 
+fun TipoDocumentoEntity.toDomainModel(): TipoDocumento {
+    val domain = TipoDocumento()
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId ?: 0
+    domain.nombre = this.nombre
+    return domain
+}
+
+// Mapper de Modelo de Dominio (UI) a Entidad de DB
 fun TipoDocumento.toEntity(): TipoDocumentoEntity {
     return TipoDocumentoEntity(
-        id = 0,
+        id = this.localId, // <-- ¡CORRECCIÓN CLAVE! Usa el ID local guardado.
         serverId = this.id,
-        syncStatus = SyncStatus.SYNCED,
+        syncStatus = SyncStatus.SYNCED, // El ViewModel lo ajustará.
         nombre = this.nombre,
-        abrev = null, // CAMBIO: El modelo no tiene estos campos, se asigna null.
+        abrev = null, // Asumimos que estos campos no se gestionan desde la app
         descripcion = null
     )
 }
@@ -1010,23 +1062,27 @@ fun TipoFormaPago.toEntity(): TipoFormaPagoEntity {
 }
 fun List<TipoFormaPago?>.toTipoFormaPagoEntityList(): List<TipoFormaPagoEntity> = this.mapNotNull { it?.toEntity() }
 
-fun TipoIVA.toEntity(): TipoIvaEntity {
-    return TipoIvaEntity(
-        id = 0,
-        serverId = this.id,
-        syncStatus = SyncStatus.SYNCED,
-        nombre = this.nombre,
-        descripcion = null // CAMBIO: El modelo no tiene `descripcion`, se asigna null.
-    )
-}
 fun List<TipoIVA?>.toTipoIvaEntityList(): List<TipoIvaEntity> = this.mapNotNull { it?.toEntity() }
 
+fun UnidadEntity.toDomainModel(): Unidad {
+    val domain = Unidad()
+    domain.localId = this.id // <-- ¡CORRECCIÓN CLAVE! Asigna el ID local.
+    domain.id = this.serverId ?: 0
+    domain.nombre = this.nombre
+    domain.simbolo = this.simbolo
+    // El campo 'simbolo' no existe en UnidadEntity, por lo que se mantiene la lógica actual.
+    return domain
+}
+
+// Mapper de Modelo de Dominio (UI) a Entidad de DB
 fun Unidad.toEntity(): UnidadEntity {
     return UnidadEntity(
-        id = 0,
+        id = this.localId, // <-- ¡CORRECCIÓN CLAVE! Usa el ID local guardado.
         serverId = this.id,
-        syncStatus = SyncStatus.SYNCED,
-        nombre = this.nombre
+        syncStatus = SyncStatus.SYNCED, // El ViewModel lo ajustará.
+        nombre = this.nombre,
+        simbolo = this.simbolo ?: "", // Asignamos un valor por defecto si es null.
+        // El campo 'simbolo' no existe en UnidadEntity.
     )
 }
 fun List<Unidad?>.toUnidadEntityList(): List<UnidadEntity> = this.mapNotNull { it?.toEntity() }
@@ -1057,25 +1113,23 @@ fun Vendedor.toEntity(): VendedorEntity {
 }
 fun List<Vendedor?>.toVendedorEntityList(): List<VendedorEntity> = this.mapNotNull { it?.toEntity() }
 
-fun ProductoConDetalles.toDomainModel(): Producto {
-    val domainProducto = this.producto.toDomainModel()
-    domainProducto.moneda = this.moneda?.toDomainModel()
-    domainProducto.tasaIva = this.tasaIva?.toDomainModel()
-    domainProducto.familia = this.familia?.toDomainModel()
-    domainProducto.agrupacion = this.agrupacion?.toDomainModel()
-    domainProducto.proveedor = this.proveedor?.toDomainModel()
-    domainProducto.tipo = this.tipo?.toDomainModel()
-    domainProducto.unidad = this.unidad?.toDomainModel()
-    return domainProducto
-}
+fun ComprobanteConDetalles.toComprobanteConDetalle(): ComprobanteConDetalle {
+    // 1. Convierte la parte principal (ComprobanteEntity) al modelo de dominio.
+    val domainComprobante = this.comprobante.toDomainModel()
 
-fun ComprobanteConDetallesEntity.toComprobanteConDetalle(): ComprobanteConDetalle {
+    // 2. Convierte y asigna las entidades relacionadas.
+    val domainCliente = this.cliente?.toDomainModel()
+    val domainVendedor = this.vendedor?.toDomainModel()
+    val domainTipoComprobante = this.tipoComprobante?.toDomainModel() // <-- ¡AQUÍ SE CARGA EL TIPO!
+
     return ComprobanteConDetalle(
-        comprobante = this.comprobante.toDomainModel(),
-        cliente = this.cliente?.toDomainModel(),
-        tipoComprobante = this.tipoComprobante?.toDomainModel()
+        comprobante = domainComprobante,
+        cliente = domainCliente,
+        vendedor = domainVendedor,
+        tipoComprobante = domainTipoComprobante
     )
 }
+
 
 fun ProvinciaConDetalles.toDomainModel(): Provincia {
     val provinciaModel = this.provincia.toDomainModel()
@@ -1092,6 +1146,9 @@ fun UsuarioConDetalles.toDomainModel(): Usuario {
 }
 
 fun Comprobante.toUploadRequest(): ComprobanteUploadRequest {
+    // --- LÓGICA DE MAPEO AÑADIDA ---
+    val promocionesRequest = this.promociones?.map { PromocionRequest(id = it.id) }
+    val pagosRequest = this.formas_de_pago?.map { FormaPagoRequest(id = it.formaPago.id, importe = it.monto?: 0.0) }
 
     return ComprobanteUploadRequest(
         numero = this.numero,
@@ -1183,7 +1240,9 @@ fun Comprobante.toUploadRequest(): ComprobanteUploadRequest {
         descuentoTotal = this.descuentoTotal,
         incrementoTotal = this.incrementoTotal,
         tipoComprobanteId = this.tipoComprobanteId,
-
+        // --- CAMPOS MAPEADOS ---
+        promociones = promocionesRequest,
+        formas_de_pago = pagosRequest
     )
 }
 
@@ -1199,4 +1258,106 @@ fun RenglonComprobante.toUploadRequest(comprobanteServerId: Int): RenglonUploadR
     )
 }
 
+fun ClienteConDetalles.toDomainModel(): Cliente {
+    val domainModel = this.cliente.toDomainModel()
+    domainModel.localId = this.cliente.id
+    domainModel.tipoDocumento = this.tipoDocumento?.toDomainModel()
+    domainModel.tipoIva = this.tipoIva?.toDomainModel()
+    domainModel.localidad = this.localidad?.toDomainModel()
+    // Si la localidad tiene una provincia, también la mapeamos
+    this.localidad?.provinciaId?.let { provId ->
+        // Este es un caso especial. Asumimos que la provincia ya está en el objeto Localidad
+        // o la cargamos aquí si es necesario, aunque lo ideal es que la relación anidada funcione.
+        // El mapper de LocalidadConDetalles debería encargarse de esto.
+        // Por simplicidad, asumimos que el modelo de dominio de Localidad ya tiene la Provincia.
+    }
+    domainModel.provincia = this.provincia?.toDomainModel()
+    domainModel.categoria = this.categoria?.toDomainModel()
+    domainModel.vendedores = this.vendedor?.toDomainModel()
+    return domainModel
+}
 
+fun Cliente.toUploadRequest(): ClienteUploadRequest {
+    return ClienteUploadRequest(
+
+        nombre = this.nombre,
+        cuit = this.cuit,
+        tipoDocumentoId = this.tipoDocumento?.id,
+        numeroDocumento = this.numeroDocumento,
+        direccionComercial = this.direccionComercial,
+        direccionEntrega = this.direccionEntrega,
+        localidadId = this.localidad?.id,
+        telefono = this.telefono,
+        celular = this.celular,
+        email = this.email,
+        contacto = this.contacto,
+        telefonoContacto = this.telefonoContacto,
+        categoriaId = this.categoria?.id,
+        vendedoresId = this.vendedores?.id,
+        porcentajeDescuento = this.porcentajeDescuento,
+        limiteCredito = this.limiteCredito,
+        saldoInicial = this.saldoInicial,
+        saldoActual = this.saldoActual,
+        fechaUltimaCompra = this.fechaUltimaCompra,
+        fechaUltimoPago = this.fechaUltimoPago,
+        percepcionIibb = this.percepcionIibb,
+        desactivado = this.desactivado,
+        tipoIvaId = this.tipoIva?.id,
+        provinciaId = this.provincia?.id
+    )
+}
+
+fun Agrupacion.toUploadRequest(): AgrupacionUploadRequest = AgrupacionUploadRequest(numero, nombre, color, icono)
+fun Categoria.toUploadRequest(): CategoriaUploadRequest = CategoriaUploadRequest(nombre, seImprime)
+fun CierreCaja.toUploadRequest(): CierreCajaUploadRequest = CierreCajaUploadRequest(fecha, totalVentas, totalGastos, efectivoInicial, efectivoFinal, tipoCajaId, usuario?.id)
+fun Familia.toUploadRequest(): FamiliaUploadRequest = FamiliaUploadRequest(numero.toString(), nombre)
+fun FormaPago.toUploadRequest(): FormaPagoUploadRequest = FormaPagoUploadRequest(nombre, porcentaje,activa, tipoFormaPago?.id)
+fun Localidad.toUploadRequest(): LocalidadUploadRequest = LocalidadUploadRequest(nombre, codigoPostal, provincia?.id)
+fun Moneda.toUploadRequest(): MonedaUploadRequest = MonedaUploadRequest(simbolo, nombre, cotizacion)
+fun Pais.toUploadRequest(): PaisUploadRequest = PaisUploadRequest(nombre)
+fun Producto.toUploadRequest(): ProductoUploadRequest = ProductoUploadRequest(codigo, descripcion, descripcionAmpliada, stock, stockMinimo, stockPedido, codigoBarra, articuloActivado, productoBalanza, precio1, precio2, precio3,  moneda?.id, tasaIva?.id, incluyeIva, impuestoInterno, tipoImpuestoInterno, precioCosto, fraccionado, rg5329_23, activo, textoPanel, iibb, codigoBarra2, oferta, margenGanancia, favorito, familia?.id, agrupacion?.id, proveedor?.id, tipo?.id, unidad?.id)
+fun Promocion.toUploadRequest(): PromocionUploadRequest = PromocionUploadRequest(nombre, descripcion, porcentaje)
+fun Provincia.toUploadRequest(): ProvinciaUploadRequest = ProvinciaUploadRequest(nombre, pais?.id)
+fun Rol.toUploadRequest(): RolUploadRequest = RolUploadRequest(nombre, descripcion)
+fun Sucursal.toUploadRequest(): SucursalUploadRequest = SucursalUploadRequest(nombre, direccion)
+fun TasaIva.toUploadRequest(): TasaIvaUploadRequest = TasaIvaUploadRequest(nombre, tasa)
+fun TipoComprobante.toUploadRequest(): TipoComprobanteUploadRequest = TipoComprobanteUploadRequest(nombre, numero)
+fun TipoDocumento.toUploadRequest(): TipoDocumentoUploadRequest = TipoDocumentoUploadRequest(nombre, null) // Asumiendo que 'abrev' no se gestiona en la app
+fun TipoFormaPago.toUploadRequest(): TipoFormaPagoUploadRequest = TipoFormaPagoUploadRequest(nombre)
+
+fun Tipo.toUploadRequest(): TipoUploadRequest = TipoUploadRequest(nombre, numero)
+fun Unidad.toUploadRequest(): UnidadUploadRequest = UnidadUploadRequest(nombre, simbolo)
+fun Usuario.toUploadRequest(): UsuarioUploadRequest = UsuarioUploadRequest(nombreUsuario, null, nombreCompleto, activo, rol?.id, sucursal?.id, vendedor?.id) // Se envía null en password para no cambiarlo
+fun Vendedor.toUploadRequest(): VendedorUploadRequest = VendedorUploadRequest(nombre, direccion, telefono, porcentajeComision, fechaIngreso)
+fun Proveedor.toUploadRequest(): ProveedorUploadRequest {
+    return ProveedorUploadRequest(
+        razonSocial = this.razonSocial,
+        direccion = this.direccion,
+        localidadId = this.localidad?.id,
+        telefono = this.telefono,
+        email = this.email,
+        tipoIvaId = this.tipoIva?.id,
+        cuit = this.cuit,
+        categoriaId = this.categoria?.id,
+        subcategoriaId = this.subcategoria?.id,
+        fechaUltimaCompra = this.fechaUltimaCompra,
+        fechaUltimoPago = this.fechaUltimoPago,
+        saldoActual = this.saldoActual
+    )
+}
+
+fun TipoIVA.toUploadRequest(): TipoIvaUploadRequest {
+    return TipoIvaUploadRequest(
+        nombre = this.nombre,
+
+    )
+}
+
+fun Pago.toEntity(comprobanteLocalId: Long): ComprobantePagoEntity {
+    return ComprobantePagoEntity(
+        comprobanteLocalId = comprobanteLocalId,
+        formaPagoId = this.formaPago.id,
+        importe = this.monto,
+        syncStatus = SyncStatus.CREATED // Los pagos siempre se crean localmente primero
+    )
+}

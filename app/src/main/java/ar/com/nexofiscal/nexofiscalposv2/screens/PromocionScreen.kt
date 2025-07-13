@@ -49,11 +49,11 @@ fun PromocionScreen(
                 entityInScreen = promocion
                 showEditScreen = true
             },
-            onDelete = { promocion ->
+             onAttemptDelete  = { promocion ->
                 viewModel.delete(promocion.toEntity())
                 NotificationManager.show("Promoción '${promocion.nombre}' eliminada.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id }
+            itemKey = { it.localId }
         )
 
         if (showEditScreen && entityInScreen != null) {

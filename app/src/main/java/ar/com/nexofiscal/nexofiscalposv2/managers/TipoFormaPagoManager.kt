@@ -26,7 +26,7 @@ object TipoFormaPagoManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).tipoFormaPagoDao()
                 val entities = allItems.toTipoFormaPagoEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} tipos de forma de pago guardados.")
 
                 withContext(Dispatchers.Main) {

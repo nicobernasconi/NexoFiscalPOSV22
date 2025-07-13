@@ -26,7 +26,7 @@ object TipoIvaManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).tipoIvaDao()
                 val entities = allItems.toTipoIvaEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} tipos de IVA guardados/actualizados en la BD.")
 
                 withContext(Dispatchers.Main) {

@@ -1,42 +1,41 @@
 package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import ar.com.nexofiscal.nexofiscalposv2.models.Familia
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.FieldDescriptor
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
 
 fun getFamiliaFieldDescriptors(): List<FieldDescriptor<Familia>> {
-    return listOf(
-        FieldDescriptor(
-            id = "id",
-            label = "ID",
-            editorContent = { entity, _, _, _ ->
-                OutlinedTextField(
-                    value = entity.id.toString(),
-                    onValueChange = {},
-                    label = { Text("ID") },
-                    readOnly = true,
-                    modifier = Modifier
-                )
-            },
-            isReadOnly = { true }
-        ),
+    return listOf(FieldDescriptor(
+        id = "numero",
+        label = "Número",
+        editorContent = { entity, onUpdate, isReadOnly, error ->
+            // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+            SelectAllTextField(
+                value = entity.numero?.toString() ?: "",
+                // CAMBIO: Se utiliza la lambda de actualización atómica.
+                onValueChange = { newValue -> onUpdate { it.copy(numero = newValue.toIntOrNull()) } },
+                label = "Número",
+                isReadOnly = isReadOnly,
+                error = error,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+        }
+    ),
         FieldDescriptor(
             id = "nombre",
             label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.nombre ?: "",
-                    onValueChange = { onUpdate(entity.copy(nombre = it)) },
-                    label = { Text("Nombre de la Familia") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
-                    modifier = Modifier
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue) } },
+                    label = "Nombre de la Familia",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = { entity ->
@@ -45,23 +44,13 @@ fun getFamiliaFieldDescriptors(): List<FieldDescriptor<Familia>> {
                 } else {
                     ValidationResult.Valid
                 }
-            }
-        ),
-        FieldDescriptor(
-            id = "numero",
-            label = "Número",
-            editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
-                    value = entity.numero?.toString() ?: "",
-                    onValueChange = { onUpdate(entity.copy(numero = it.toIntOrNull())) },
-                    label = { Text("Número (opcional)") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier
-                )
+                if (entity.numero == null) {
+                    ValidationResult.Invalid("El número es obligatorio.")
+                } else {
+                    ValidationResult.Valid
+                }
             }
         )
+
     )
 }

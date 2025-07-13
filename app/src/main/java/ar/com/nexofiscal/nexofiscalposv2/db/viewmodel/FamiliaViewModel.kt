@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.Familia
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.FamiliaRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -43,12 +44,13 @@ class FamiliaViewModel(application: Application) : AndroidViewModel(application)
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun guardar(entity: FamiliaEntity) {
         viewModelScope.launch {
-            if (entity.serverId == null) {
+            if (entity.serverId == null || entity.serverId == 0) {
                 entity.syncStatus = SyncStatus.CREATED
             } else {
                 entity.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(entity)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

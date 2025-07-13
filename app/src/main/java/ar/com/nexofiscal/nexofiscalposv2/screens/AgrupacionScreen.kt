@@ -50,11 +50,12 @@ fun AgrupacionScreen(
                 entityInScreen = agrupacion
                 showEditScreen = true
             },
-            onDelete = { agrupacion ->
+            onAttemptDelete  = { agrupacion ->
                 viewModel.remove(agrupacion.toEntity())
                 NotificationManager.show("Agrupación '${agrupacion.nombre}' eliminada.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id }
+
+        itemKey = { it.localId }
         )
 
         if (showEditScreen && entityInScreen != null) {

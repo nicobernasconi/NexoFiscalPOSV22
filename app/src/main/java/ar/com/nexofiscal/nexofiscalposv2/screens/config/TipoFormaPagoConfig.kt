@@ -1,11 +1,9 @@
-// main/java/ar/com/nexofiscal/nexofiscalposv2/screens/config/TipoFormaPagoConfig.kt
 package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoFormaPago
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.FieldDescriptor
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
 
 fun getTipoFormaPagoFieldDescriptors(): List<FieldDescriptor<TipoFormaPago>> {
     return listOf(
@@ -13,13 +11,14 @@ fun getTipoFormaPagoFieldDescriptors(): List<FieldDescriptor<TipoFormaPago>> {
             id = "nombre",
             label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.nombre ?: "",
-                    onValueChange = { onUpdate(entity.copy(nombre = it)) },
-                    label = { Text("Nombre del Tipo de Forma de Pago") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue) } },
+                    label = "Nombre del Tipo de Forma de Pago",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = {

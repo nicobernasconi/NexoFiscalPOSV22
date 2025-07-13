@@ -33,6 +33,34 @@ interface UsuarioDao {
     @Query("DELETE FROM usuarios WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM usuarios WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): UsuarioEntity?
+
+    /**
+     * Inserta o actualiza una lista de usuarios. Si un usuario ya existe
+     * (mismo serverId), lo actualiza. Si no, lo inserta como nuevo.
+     */
+    @Transaction
+    suspend fun upsertAll(usuarios: List<UsuarioEntity>) {
+        usuarios.forEach { usuario ->
+            val existente = usuario.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                usuario.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                usuario
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
+    @Transaction
+    @Query("SELECT * FROM usuarios WHERE id = :id")
+    suspend fun getConDetallesById(id: Int): UsuarioConDetalles?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(usuario: UsuarioEntity)
 

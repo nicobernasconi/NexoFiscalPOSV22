@@ -49,7 +49,7 @@ fun TipoScreen(
                 entityInScreen = item
                 showEditScreen = true
             },
-            onDelete = { item ->
+             onAttemptDelete  = { item ->
                 viewModel.delete(item.toEntity())
                 NotificationManager.show("Tipo '${item.nombre}' eliminado.", NotificationType.SUCCESS)
             },

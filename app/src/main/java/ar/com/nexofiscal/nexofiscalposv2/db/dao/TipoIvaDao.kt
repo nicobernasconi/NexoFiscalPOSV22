@@ -31,6 +31,30 @@ interface TipoIvaDao {
     @Query("DELETE FROM tipos_iva WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM tipos_iva WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): TipoIvaEntity?
+
+    /**
+     * Inserta o actualiza una lista de tipos de IVA. Si uno ya existe
+     * (mismo serverId), lo actualiza. Si no, lo inserta como nuevo.
+     */
+    @Transaction
+    suspend fun upsertAll(tiposIva: List<TipoIvaEntity>) {
+        tiposIva.forEach { tipoIva ->
+            val existente = tipoIva.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                tipoIva.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                tipoIva
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

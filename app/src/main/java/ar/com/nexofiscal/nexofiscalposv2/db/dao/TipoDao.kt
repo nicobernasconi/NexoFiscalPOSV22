@@ -31,6 +31,30 @@ interface TipoDao {
     @Query("DELETE FROM tipos WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM tipos WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): TipoEntity?
+
+    /**
+     * Inserta o actualiza una lista de tipos. Si un tipo ya existe
+     * (mismo serverId), lo actualiza. Si no, lo inserta como nuevo.
+     */
+    @Transaction
+    suspend fun upsertAll(tipos: List<TipoEntity>) {
+        tipos.forEach { tipo ->
+            val existente = tipo.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                tipo.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                tipo
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

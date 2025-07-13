@@ -49,7 +49,7 @@ fun PaisScreen(
                 entityInScreen = pais
                 showEditScreen = true
             },
-            onDelete = { pais ->
+             onAttemptDelete  = { pais ->
                 viewModel.delete(pais.toEntity())
                 NotificationManager.show("País '${pais.nombre}' eliminado.", NotificationType.SUCCESS)
             },

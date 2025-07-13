@@ -36,6 +36,31 @@ interface ProvinciaDao {
     @Query("DELETE FROM provincias WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM provincias WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): ProvinciaEntity?
+
+    /**
+     * Inserta o actualiza una lista de provincias. Si una provincia ya existe
+     * (mismo serverId), la actualiza. Si no, la inserta como nueva.
+     */
+    @Transaction
+    suspend fun upsertAll(provincias: List<ProvinciaEntity>) {
+        provincias.forEach { provincia ->
+            val existente = provincia.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                provincia.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                provincia
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

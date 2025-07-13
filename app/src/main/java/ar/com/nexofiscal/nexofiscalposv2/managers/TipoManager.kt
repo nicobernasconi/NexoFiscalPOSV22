@@ -44,9 +44,7 @@ object TipoManager {
                             try {
                                 val tipoDao = AppDatabase.getInstance(context.applicationContext).tipoDao()
                                 val tipoEntities = listaTipos.toTipoEntityList()
-                                tipoEntities.forEach { entity ->
-                                    tipoDao.insert(entity)
-                                }
+                                tipoDao.upsertAll(tipoEntities)
                                 Log.d(TAG, "${tipoEntities.size} tipos guardados/actualizados en la BD.")
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error al guardar tipos en la BD: ${e.message}", e)

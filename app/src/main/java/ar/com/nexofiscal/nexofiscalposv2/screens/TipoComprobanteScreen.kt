@@ -49,7 +49,7 @@ fun TipoComprobanteScreen(
                 entityInScreen = item
                 showEditScreen = true
             },
-            onDelete = { item ->
+             onAttemptDelete  = { item ->
                 viewModel.delete(item.toEntity())
                 NotificationManager.show("Tipo de Comprobante '${item.nombre}' eliminado.", NotificationType.SUCCESS)
             },

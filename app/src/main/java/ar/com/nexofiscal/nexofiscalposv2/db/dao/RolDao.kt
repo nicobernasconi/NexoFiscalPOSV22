@@ -31,6 +31,31 @@ interface RolDao {
     @Query("DELETE FROM roles WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM roles WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): RolEntity?
+
+    /**
+     * Inserta o actualiza una lista de roles. Si un rol ya existe
+     * (mismo serverId), lo actualiza. Si no, lo inserta como nuevo.
+     */
+    @Transaction
+    suspend fun upsertAll(roles: List<RolEntity>) {
+        roles.forEach { rol ->
+            val existente = rol.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                rol.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                rol
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

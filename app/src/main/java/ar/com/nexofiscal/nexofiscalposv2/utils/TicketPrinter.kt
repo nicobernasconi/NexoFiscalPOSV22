@@ -90,7 +90,7 @@ class TicketPrinter {
             printDivider()
 
             format.apply { textSize = 42; style = BOLD }
-            val tipoTexto = when (comprobante.tipoComprobante?.id) {
+            val tipoTexto = when (comprobante.tipoComprobanteId) {
                 1 -> "FACTURA B"; 3 -> "PEDIDO X"; 2 -> "PRESUPUESTO X"; 4 -> "NOTA DE CREDITO X";5->"COMPROBANTE DE CAJA";6->"ACOPIO X";7->"DESACOPIO X" else -> "TICKET"
             }
             printer!!.setPrintAppendString(tipoTexto, format)
@@ -124,7 +124,7 @@ class TicketPrinter {
             printer!!.setPrintAppendString(String.format("%-16s%16s", "TOTAL:", String.format("$%.2f", total)), format)
             val cae = comprobante.cae ?: ""
             format.apply { textSize = 30; style = NORMAL; ali = Layout.Alignment.ALIGN_CENTER }
-            if (!comprobante.qr.isNullOrBlank() && comprobante.tipoComprobante?.id == 1) {
+            if (!comprobante.qr.isNullOrBlank() && comprobante.tipoComprobanteId == 1) {
                 printer!!.setPrintAppendString("\n\n", format)
                 printer!!.setPrintAppendString("CAE: $cae", format)
                 printer!!.setPrintAppendString("Vencimiento: ${comprobante.fechaVencimiento ?: ""}", format)
@@ -138,6 +138,8 @@ class TicketPrinter {
                 }
                 format.apply { style = BOLD; textSize = 23 }
                 printer!!.setPrintAppendString("Régimen de Transparencia Fiscal al Consumidor Ley 27.743", format)
+            }else {
+                printer!!.setPrintAppendString("Este comprobante no tiena validez fiscal", format)
             }
 
 

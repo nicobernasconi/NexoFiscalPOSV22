@@ -2,6 +2,7 @@ package ar.com.nexofiscal.nexofiscalposv2.db.dao
 
 import androidx.paging.PagingSource
 import androidx.room.*
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.FormaPagoConDetalles
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.FormaPagoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +35,39 @@ interface FormaPagoDao {
 
     @Query("DELETE FROM formas_pago WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
+
+    @Query("SELECT * FROM formas_pago WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): FormaPagoEntity?
+
+    @Transaction
+    @Query("SELECT * FROM formas_pago WHERE tipoFormaPagoId = :tipoId LIMIT 1")
+    suspend fun getFirstByTipoId(tipoId: Int): FormaPagoConDetalles?
+
+    @Transaction
+    @Query("SELECT * FROM formas_pago")
+    suspend fun getAllWithDetails(): List<FormaPagoConDetalles>
+
+    /**
+     * Inserta o actualiza una lista de formas de pago. Si una ya existe
+     * (mismo serverId), la actualiza. Si no, la inserta como nueva.
+     */
+    @Transaction
+    suspend fun upsertAll(formasPago: List<FormaPagoEntity>) {
+        formasPago.forEach { formaPago ->
+            val existente = formaPago.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                formaPago.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                formaPago
+            }
+
+            insert(entidadParaInsertar)
+        }
+    }
+
 
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 

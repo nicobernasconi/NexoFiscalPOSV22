@@ -2,6 +2,7 @@ package ar.com.nexofiscal.nexofiscalposv2.db.dao
 
 import androidx.paging.PagingSource
 import androidx.room.*
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ClienteConDetalles
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ClienteEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 
@@ -20,6 +21,19 @@ interface ClienteDao {
     @Query("SELECT * FROM clientes WHERE serverId = :serverId LIMIT 1")
     suspend fun getByServerId(serverId: Int): ClienteEntity?
 
+    @Transaction
+    @Query("SELECT * FROM clientes WHERE syncStatus != :statusDeleted ORDER BY nombre ASC")
+    fun getPagingSourceWithDetails(statusDeleted: SyncStatus = SyncStatus.DELETED): PagingSource<Int, ClienteConDetalles>
+
+    @Transaction
+    @Query("SELECT * FROM clientes WHERE (nombre LIKE :query OR cuit LIKE :query) AND syncStatus != :statusDeleted ORDER BY nombre ASC")
+    fun searchPagingSourceWithDetails(query: String, statusDeleted: SyncStatus = SyncStatus.DELETED): PagingSource<Int, ClienteConDetalles>
+
+    // Añade este nuevo método para obtener una entidad única con todos sus detalles
+    @Transaction
+    @Query("SELECT * FROM clientes WHERE id = :localId")
+    suspend fun getConDetallesById(localId: Int): ClienteConDetalles?
+
 
     // --- FUNCIONES NUEVAS PARA SINCRONIZACIÓN ---
 
@@ -35,8 +49,26 @@ interface ClienteDao {
     @Query("DELETE FROM clientes WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
-    @Query("SELECT * FROM clientes WHERE serverId = :serverId LIMIT 1")
-    suspend fun findByServerId(serverId: Int): ClienteEntity?
+
+    @Transaction
+    suspend fun upsert(cliente: ClienteEntity) {
+        // Busca si ya existe un cliente con el mismo serverId.
+        val existente = cliente.serverId?.let { getByServerId(it) }
+
+        if (existente != null) {
+            // Si existe, actualiza el registro existente preservando su ID local autogenerado.
+            // Se usa el método `update` de Room.
+            update(cliente.copy(id = existente.id))
+        } else {
+            // Si no existe, inserta un nuevo registro.
+            insert(cliente)
+        }
+    }
+
+    @Transaction
+    suspend fun upsertAll(clientes: List<ClienteEntity>) {
+        clientes.forEach { upsert(it) }
+    }
 
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 

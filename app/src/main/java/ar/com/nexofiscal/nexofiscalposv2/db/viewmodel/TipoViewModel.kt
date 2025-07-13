@@ -11,6 +11,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Tipo
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -41,12 +42,13 @@ class TipoViewModel(application: Application) : AndroidViewModel(application) {
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(t: TipoEntity) {
         viewModelScope.launch {
-            if (t.serverId == null) {
+            if (t.serverId == null || t.serverId == 0) {
                 t.syncStatus = SyncStatus.CREATED
             } else {
                 t.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(t)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

@@ -11,6 +11,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoDocumentoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoDocumentoRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoDocumento
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -30,7 +31,11 @@ class TipoDocumentoViewModel(application: Application) : AndroidViewModel(applic
             repo.getTiposDocumentoPaginated(query)
         }
         .map { pagingData ->
-            pagingData.map { entity -> entity.toDomainModel() }
+            pagingData.map { entity ->
+                // Este mapeo es esencial para convertir la entidad de la BD
+                // al objeto que la UI entiende.
+                entity.toDomainModel()
+            }
         }
         .cachedIn(viewModelScope)
 
@@ -41,12 +46,13 @@ class TipoDocumentoViewModel(application: Application) : AndroidViewModel(applic
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(td: TipoDocumentoEntity) {
         viewModelScope.launch {
-            if (td.serverId == null) {
+            if (td.serverId == null || td.serverId == 0) {
                 td.syncStatus = SyncStatus.CREATED
             } else {
                 td.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(td)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

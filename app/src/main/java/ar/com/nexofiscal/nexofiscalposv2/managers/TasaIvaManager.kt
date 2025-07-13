@@ -26,7 +26,7 @@ object TasaIvaManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).tasaIvaDao()
                 val entities = allItems.toTasaIvaEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} tasas de IVA guardadas/actualizadas en la BD.")
 
                 withContext(Dispatchers.Main) {

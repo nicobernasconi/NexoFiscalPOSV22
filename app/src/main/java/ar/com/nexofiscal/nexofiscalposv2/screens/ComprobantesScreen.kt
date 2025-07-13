@@ -3,6 +3,7 @@ package ar.com.nexofiscal.nexofiscalposv2.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -12,14 +13,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.paging.compose.collectAsLazyPagingItems
 import ar.com.nexofiscal.nexofiscalposv2.R
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.*
+import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
 import ar.com.nexofiscal.nexofiscalposv2.models.RenglonComprobante
+import ar.com.nexofiscal.nexofiscalposv2.ui.PrintingUiManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.GrisClaro
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.RojoError
+import ar.com.nexofiscal.nexofiscalposv2.utils.PrintingException
 import ar.com.nexofiscal.nexofiscalposv2.utils.PrintingManager
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -66,19 +72,35 @@ fun ComprobantesScreen(
     var selectedComprobanteConDetalle by remember { mutableStateOf<ComprobanteConDetalle?>(null) }
     var selectedRenglones by remember { mutableStateOf<List<RenglonComprobante>>(emptyList()) }
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    var showAnularDialog by remember { mutableStateOf(false) }
+    var comprobanteParaAnular by remember { mutableStateOf<Comprobante?>(null) }
+    // --- FIN DE LA MODIFICACIÓN ---
+
+
+
     CrudListScreen(
         title = "Comprobantes Guardados",
         items = pagedComprobantes,
         itemContent = { item ->
             val comprobante = item.comprobante
             val fechaFormateada = rememberFormattedDate(comprobante.fecha)
+            val isAnulado = !comprobante.fechaBaja.isNullOrBlank()
+            val textStyle = if (isAnulado) {
+                MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.LineThrough, color = Color.Gray)
+            } else {
+                MaterialTheme.typography.bodyMedium
+            }
 
             Column {
-                Text(text = item.tipoComprobante?.nombre?.uppercase() ?: "COMPROBANTE", style = MaterialTheme.typography.bodySmall)
-                Text(text = "Nº: ${comprobante.numeroFactura ?: comprobante.numero ?: comprobante.id}", fontWeight = FontWeight.Bold)
-                Text(text = "Fecha: $fechaFormateada", style = MaterialTheme.typography.bodyMedium)
-                Text(text = "Cliente: ${item.cliente?.nombre ?: comprobante.nombreCliente ?: "Consumidor Final"}", style = MaterialTheme.typography.bodyMedium)
-                Text(text = "Monto: $${comprobante.total ?: "0.00"}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                if (isAnulado) {
+                    Text("ANULADO", color = RojoError, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                }
+                Text(text = item.tipoComprobante?.nombre?.uppercase() ?: "COMPROBANTE", style = MaterialTheme.typography.bodySmall.copy(color = if (isAnulado) Color.Gray else Color.Unspecified))
+                Text(text = "Nº: ${comprobante.numeroFactura ?: comprobante.numero ?: comprobante.id}", fontWeight = FontWeight.Bold, style = textStyle)
+                Text(text = "Fecha: $fechaFormateada", style = textStyle)
+                Text(text = "Cliente: ${item.cliente?.nombre ?: comprobante.nombreCliente ?: "Consumidor Final"}", style = textStyle)
+                Text(text = "Monto: $${comprobante.total ?: "0.00"}", style = textStyle, fontWeight = FontWeight.SemiBold)
             }
         },
         onSearchQueryChanged = { query ->
@@ -86,36 +108,86 @@ fun ComprobantesScreen(
         },
         onSelect = { item ->
             scope.launch {
-                // CAMBIO: Usamos item.comprobante.localId en lugar de item.comprobante.id
                 selectedRenglones = renglonComprobanteViewModel.getRenglonesByComprobanteId(item.comprobante.localId)
                 selectedComprobanteConDetalle = item
                 showDetailDialog = true
             }
         },
-        // --- CAMBIO PRINCIPAL: Lógica de reimpresión actualizada ---
-        onAttemptEdit = { item ->
+        // onAttemptEdit (Imprimir) ahora no tiene condición. Se puede imprimir siempre.
+        onAttemptEdit = { item -> // Esta es la acción de "Reimprimir"
             scope.launch {
-                // --- CORRECCIÓN ---
-                // Cambia item.comprobante.id por item.comprobante.localId
-                val renglonesCompletos = renglonComprobanteViewModel.getRenglonesByComprobanteId(item.comprobante.localId)
-
-                PrintingManager.print(
-                    context = context,
-                    comprobante = item.comprobante,
-                    renglones = renglonesCompletos
-                )
+                // 1. Inicia el diálogo de carga
+                PrintingUiManager.startPrinting()
+                try {
+                    // 2. Intenta obtener los renglones y luego imprimir
+                    val renglonesCompletos = renglonComprobanteViewModel.getRenglonesByComprobanteId(item.comprobante.localId)
+                    PrintingManager.print(
+                        context = context,
+                        comprobante = item.comprobante,
+                        renglones = renglonesCompletos
+                    )
+                    // 3. Si todo va bien, cierra el diálogo de carga
+                    PrintingUiManager.finishPrinting()
+                } catch (e: PrintingException) {
+                    // 4. Si algo falla, muestra el diálogo de error
+                    PrintingUiManager.showError(e.message ?: "Error de impresión desconocido")
+                } catch (e: Exception) {
+                    // Captura cualquier otro error inesperado
+                    PrintingUiManager.showError("Ocurrió un error inesperado al preparar la impresión.")
+                }
             }
         },
-        screenMode = CrudScreenMode.EDIT_DELETE_EDIT_PRINT,
-        itemKey = { item ->
-            // Usa el ID local del comprobante, que es la clave primaria en la base de datos
-            // y se garantiza que sea única para cada fila.
-            "comprobante_${item.comprobante.localId}"
+        // onDelete (Anular) ahora abre el diálogo de confirmación.
+        onAttemptDelete = { item -> // Usamos el nuevo nombre del parámetro
+            comprobanteParaAnular = item.comprobante
+            showAnularDialog = true // Activamos nuestro diálogo personalizado
         },
-        onDelete = null,
+        useInternalDeleteDialog = false,
+        // La acción de anular solo está habilitada si el comprobante no ha sido anulado previamente.
+        isActionEnabled = { item ->
+            item.comprobante.fechaBaja.isNullOrBlank()
+        },
+        screenMode = CrudScreenMode.EDIT_DELETE_EDIT_PRINT,
+        itemKey = { "comprobante_${it.comprobante.localId}" },
         searchHint = stringResource(R.string.search_items),
         onDismiss = onDismiss
     )
+
+    // --- INICIO DE LA MODIFICACIÓN: DIÁLOGO DE CONFIRMACIÓN ---
+    if (showAnularDialog && comprobanteParaAnular != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showAnularDialog = false
+                comprobanteParaAnular = null
+            },
+            title = { Text("Anular Comprobante") },
+            text = { Text("¿Estás seguro de que deseas anular este comprobante? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        comprobanteParaAnular?.let {
+                            comprobanteViewModel.anularComprobante(it)
+                        }
+                        showAnularDialog = false
+                        comprobanteParaAnular = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RojoError),
+                    shape = RoundedCornerShape(5.dp)
+                ) {
+                    Text("Anular")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAnularDialog = false
+                    comprobanteParaAnular = null
+                }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (showDetailDialog && selectedComprobanteConDetalle != null) {
         ComprobanteDetailDialog(

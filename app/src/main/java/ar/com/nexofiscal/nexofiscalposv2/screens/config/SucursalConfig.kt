@@ -1,13 +1,11 @@
-// main/java/ar/com/nexofiscal/nexofiscalposv2/screens/config/SucursalConfig.kt
 package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.ui.text.input.KeyboardType
 import ar.com.nexofiscal.nexofiscalposv2.models.Sucursal
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.FieldDescriptor
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
 
 fun getSucursalFieldDescriptors(): List<FieldDescriptor<Sucursal>> {
     return listOf(
@@ -15,13 +13,14 @@ fun getSucursalFieldDescriptors(): List<FieldDescriptor<Sucursal>> {
             id = "nombre",
             label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.nombre ?: "",
-                    onValueChange = { onUpdate(entity.copy(nombre = it)) },
-                    label = { Text("Nombre de la Sucursal") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue) } },
+                    label = "Nombre de la Sucursal",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = {
@@ -32,24 +31,30 @@ fun getSucursalFieldDescriptors(): List<FieldDescriptor<Sucursal>> {
         FieldDescriptor(
             id = "direccion",
             label = "Dirección",
-            editorContent = { entity, onUpdate, isReadOnly, _ ->
-                OutlinedTextField(
+            editorContent = { entity, onUpdate, isReadOnly, error ->
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.direccion ?: "",
-                    onValueChange = { onUpdate(entity.copy(direccion = it)) },
-                    label = { Text("Dirección") },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(direccion = newValue) } },
+                    label = "Dirección",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             }
         ),
         FieldDescriptor(
             id = "telefono",
             label = "Teléfono",
-            editorContent = { entity, onUpdate, isReadOnly, _ ->
-                OutlinedTextField(
+            editorContent = { entity, onUpdate, isReadOnly, error ->
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.telefono ?: "",
-                    onValueChange = { onUpdate(entity.copy(telefono = it)) },
-                    label = { Text("Teléfono") },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(telefono = newValue) } },
+                    label = "Teléfono",
+                    isReadOnly = isReadOnly,
+                    error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                 )
             }
@@ -57,12 +62,15 @@ fun getSucursalFieldDescriptors(): List<FieldDescriptor<Sucursal>> {
         FieldDescriptor(
             id = "email",
             label = "Email",
-            editorContent = { entity, onUpdate, isReadOnly, _ ->
-                OutlinedTextField(
+            editorContent = { entity, onUpdate, isReadOnly, error ->
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.email ?: "",
-                    onValueChange = { onUpdate(entity.copy(email = it)) },
-                    label = { Text("Email") },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(email = newValue) } },
+                    label = "Email",
+                    isReadOnly = isReadOnly,
+                    error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                 )
             }

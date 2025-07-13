@@ -1,70 +1,34 @@
 package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.paging.compose.collectAsLazyPagingItems
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.TipoFormaPagoViewModel
 import ar.com.nexofiscal.nexofiscalposv2.models.FormaPago
-import ar.com.nexofiscal.nexofiscalposv2.models.TipoFormaPago
-import ar.com.nexofiscal.nexofiscalposv2.screens.PagedSelectionDialog
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.FieldDescriptor
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
-
-// Componente genérico para un campo de texto que abre un diálogo de selección
-@Composable
-fun DropdownSelectionField(
-    label: String,
-    currentValue: String,
-    isReadOnly: Boolean,
-    error: String?,
-    onClick: () -> Unit
-) {
-    OutlinedTextField(
-        value = currentValue,
-        onValueChange = {},
-        modifier = Modifier.clickable(enabled = !isReadOnly, onClick = onClick),
-        label = { Text(label) },
-        readOnly = true,
-        isError = error != null,
-        supportingText = { if (error != null) Text(error) }
-    )
-}
-
-// Se elimina la función privada y obsoleta SelectionDialog
+import ar.com.nexofiscal.nexofiscalposv2.ui.EntitySelectionButton
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectionModal
 
 fun getFormaPagoFieldDescriptors(
     tipoFormaPagoViewModel: TipoFormaPagoViewModel
 ): List<FieldDescriptor<FormaPago>> {
     return listOf(
         FieldDescriptor(
-            id = "id",
-            label = "ID",
-            editorContent = { entity, _, _, _ ->
-                OutlinedTextField(
-                    value = entity.id.toString(),
-                    onValueChange = {},
-                    label = { Text("ID") },
-                    readOnly = true
-                )
-            },
-            isReadOnly = { true }
-        ),
-        FieldDescriptor(
             id = "nombre",
             label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.nombre ?: "",
-                    onValueChange = { onUpdate(entity.copy(nombre = it)) },
-                    label = { Text("Nombre de la Forma de Pago") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue) } },
+                    label = "Nombre de la Forma de Pago",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = { if (it.nombre.isNullOrBlank()) ValidationResult.Invalid("El nombre es obligatorio.") else ValidationResult.Valid }
@@ -73,13 +37,14 @@ fun getFormaPagoFieldDescriptors(
             id = "porcentaje",
             label = "Porcentaje",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.porcentaje.toString(),
-                    onValueChange = { onUpdate(entity.copy(porcentaje = it.toIntOrNull() ?: 0)) },
-                    label = { Text("Porcentaje Recargo/Descuento") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(porcentaje = newValue.toIntOrNull() ?: 0) } },
+                    label = "Porcentaje Recargo/Descuento",
+                    isReadOnly = isReadOnly,
+                    error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }
@@ -89,30 +54,32 @@ fun getFormaPagoFieldDescriptors(
             label = "Tipo de Forma de Pago",
             editorContent = { entity, onUpdate, isReadOnly, error ->
                 var showDialog by remember { mutableStateOf(false) }
-                // CORRECCIÓN: Usar el flujo paginado
-                val pagedItems = tipoFormaPagoViewModel.pagedTiposFormaPago.collectAsLazyPagingItems()
 
-                DropdownSelectionField(
+                // CAMBIO: Se reemplaza DropdownSelectionField por el control personalizado.
+                EntitySelectionButton(
                     label = "Tipo de Forma de Pago",
-                    currentValue = entity.tipoFormaPago?.nombre ?: "Seleccionar...",
+                    selectedValue = entity.tipoFormaPago?.nombre,
                     isReadOnly = isReadOnly,
                     error = error,
                     onClick = { if (!isReadOnly) showDialog = true }
                 )
 
-                // CORRECCIÓN: Usar el nuevo diálogo paginado
-                PagedSelectionDialog(
-                    showDialog = showDialog,
-                    onDismiss = { showDialog = false },
-                    title = "Seleccionar Tipo",
-                    items = pagedItems,
-                    itemContent = { item -> Text(item.nombre ?: "") },
-                    onSearch = { query -> tipoFormaPagoViewModel.search(query) },
-                    onSelect = {
-                        onUpdate(entity.copy(tipoFormaPago = it))
-                        showDialog = false
-                    }
-                )
+                if (showDialog) {
+                    val pagedItems = tipoFormaPagoViewModel.pagedTiposFormaPago.collectAsLazyPagingItems()
+                    // CAMBIO: Se utiliza el SelectionModal genérico.
+                    SelectionModal(
+                        title = "Seleccionar Tipo",
+                        pagedItems = pagedItems,
+                        itemContent = { item -> Text(item.nombre ?: "") },
+                        onSearch = { query -> tipoFormaPagoViewModel.search(query) },
+                        onSelect = { seleccion ->
+                            // CAMBIO: Se utiliza la lambda de actualización atómica.
+                            onUpdate { it.copy(tipoFormaPago = seleccion) }
+                            showDialog = false
+                        },
+                        onDismiss = { showDialog = false }
+                    )
+                }
             },
             validator = { if (it.tipoFormaPago == null) ValidationResult.Invalid("Debe seleccionar un tipo.") else ValidationResult.Valid }
         )

@@ -1,11 +1,9 @@
-// main/java/ar/com/nexofiscal/nexofiscalposv2/screens/config/RolConfig.kt
 package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import ar.com.nexofiscal.nexofiscalposv2.models.Rol
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.FieldDescriptor
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
 
 fun getRolFieldDescriptors(): List<FieldDescriptor<Rol>> {
     return listOf(
@@ -13,13 +11,14 @@ fun getRolFieldDescriptors(): List<FieldDescriptor<Rol>> {
             id = "nombre",
             label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.nombre ?: "",
-                    onValueChange = { onUpdate(entity.copy(nombre = it)) },
-                    label = { Text("Nombre del Rol") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue) } },
+                    label = "Nombre del Rol",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = {
@@ -30,12 +29,15 @@ fun getRolFieldDescriptors(): List<FieldDescriptor<Rol>> {
         FieldDescriptor(
             id = "descripcion",
             label = "Descripción",
-            editorContent = { entity, onUpdate, isReadOnly, _ ->
-                OutlinedTextField(
+            editorContent = { entity, onUpdate, isReadOnly, error ->
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.descripcion ?: "",
-                    onValueChange = { onUpdate(entity.copy(descripcion = it)) },
-                    label = { Text("Descripción") },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(descripcion = newValue) } },
+                    label = "Descripción",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             }
         )

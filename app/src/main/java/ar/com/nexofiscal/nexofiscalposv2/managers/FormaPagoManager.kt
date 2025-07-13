@@ -26,7 +26,7 @@ object FormaPagoManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).formaPagoDao()
                 val entities = allItems.toFormaPagoEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} formas de pago guardadas/actualizadas en la BD.")
 
                 withContext(Dispatchers.Main) {

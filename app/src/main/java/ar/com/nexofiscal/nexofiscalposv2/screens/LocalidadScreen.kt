@@ -50,7 +50,7 @@ fun LocalidadScreen(
                 entityInScreen = localidad
                 showEditScreen = true
             },
-            onDelete = { localidad ->
+             onAttemptDelete  = { localidad ->
                 localidadViewModel.delete(localidad.toEntity())
                 NotificationManager.show("Localidad '${localidad.nombre}' eliminada.", NotificationType.SUCCESS)
             },

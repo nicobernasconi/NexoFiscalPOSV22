@@ -43,7 +43,9 @@ val menuItems = listOf(
     )),
     MenuItemModel(R.drawable.ic_pos, "Ventas", listOf(
         MenuItemModel(R.drawable.ic_list, "Listar Ventas"),
+        MenuItemModel(R.drawable.ic_list, "Informe de Ventas"),
         MenuItemModel(R.drawable.ic_list, "Cierres de Caja"),
+
     )),
     MenuItemModel(R.drawable.ic_shipping, "Proveedores", listOf(
         MenuItemModel(R.drawable.ic_add, "Crear Proveedor"),
@@ -54,19 +56,17 @@ val menuItems = listOf(
         MenuItemModel(R.drawable.ic_list, "Listar Promociones"),
     )),
     MenuItemModel(R.drawable.ic_settings, "Configuración", listOf(
-        MenuItemModel(R.drawable.ic_inventory, "Sincronizar Datos"),
-        MenuItemModel(R.drawable.ic_inventory, "Subir Cambios"), // <-- NUEVA OPCIÓN AÑADIDA
-        MenuItemModel(R.drawable.ic_user, "Usuarios"),
-        MenuItemModel(R.drawable.ic_pos, "Sucursales"),
+        MenuItemModel(R.drawable.ic_download, "Descargar Datos"),
+        MenuItemModel(R.drawable.ic_upload, "Subir Cambios"),
         MenuItemModel(R.drawable.ic_settings, "Agrupaciones"),
         MenuItemModel(R.drawable.ic_category, "Categorias"),
         MenuItemModel(R.drawable.ic_family, "Familias"),
         MenuItemModel(R.drawable.ic_payment, "Formas de Pago"),
-        MenuItemModel(R.drawable.ic_payment, "Tipos de Forma de Pago"),
         MenuItemModel(R.drawable.ic_document, "Tipos de Documento"),
         MenuItemModel(R.drawable.ic_tax, "Tipos de IVA"),
         MenuItemModel(R.drawable.ic_units, "Unidades"),
-        MenuItemModel(R.drawable.ic_lock, "Modo Kiosco")
+        MenuItemModel(R.drawable.ic_lock, "Modo Kiosco"),
+        MenuItemModel(R.drawable.ic_settings, "Configuración General")
 
     )),
     MenuItemModel(R.drawable.ic_exit, "Salir")

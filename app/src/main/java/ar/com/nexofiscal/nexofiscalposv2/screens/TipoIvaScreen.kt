@@ -49,11 +49,11 @@ fun TipoIvaScreen(
                 entityInScreen = item
                 showEditScreen = true
             },
-            onDelete = { item ->
+             onAttemptDelete  = { item ->
                 viewModel.delete(item.toEntity())
                 NotificationManager.show("Tipo de IVA '${item.nombre}' eliminado.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id }
+            itemKey = { it.localId }
         )
 
         if (showEditScreen && entityInScreen != null) {

@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.Agrupacion
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.AgrupacionRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -41,12 +42,13 @@ class AgrupacionViewModel(application: Application) : AndroidViewModel(applicati
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun addOrUpdate(agrup: AgrupacionEntity) {
         viewModelScope.launch {
-            if (agrup.serverId == null) { // Si no tiene ID de servidor, es nuevo.
+            if (agrup.serverId == null || agrup.serverId == 0) {
                 agrup.syncStatus = SyncStatus.CREATED
             } else { // Si ya tiene ID de servidor, es una modificación.
                 agrup.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(agrup)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

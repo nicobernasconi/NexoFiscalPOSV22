@@ -26,7 +26,7 @@ object MonedaManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).monedaDao()
                 val entities = allItems.toMonedaEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} monedas guardadas/actualizadas en la BD.")
 
                 withContext(Dispatchers.Main) {

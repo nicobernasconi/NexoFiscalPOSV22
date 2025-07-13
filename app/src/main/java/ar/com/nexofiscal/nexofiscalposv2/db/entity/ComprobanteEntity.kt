@@ -23,7 +23,7 @@ data class ComprobanteEntity(
     val persona: String?,
     val provinciaId: Int?,
     val fecha: String?,
-    val fechaBaja: String?,
+    var fechaBaja: String?,
     val motivoBaja: String?,
     val hora: String?,
     val fechaProceso: String?,
@@ -107,4 +107,4 @@ data class ComprobanteEntity(
     val incrementoTotal: String?,
     val tipoComprobanteId: Int?,
 
-)
+    )

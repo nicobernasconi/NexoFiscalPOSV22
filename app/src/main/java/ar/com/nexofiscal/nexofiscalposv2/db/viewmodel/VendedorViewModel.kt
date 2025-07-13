@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.Vendedor
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.VendedorRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -41,12 +42,13 @@ class VendedorViewModel(application: Application) : AndroidViewModel(application
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(v: VendedorEntity) {
         viewModelScope.launch {
-            if (v.serverId == null) {
+            if (v.serverId == null || v.serverId == 0) {
                 v.syncStatus = SyncStatus.CREATED
             } else {
                 v.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(v)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

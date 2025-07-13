@@ -11,5 +11,6 @@ data class UnidadEntity(
     var serverId: Int?,
     var syncStatus: SyncStatus,
 
-    val nombre: String?
+    val nombre: String?,
+    val simbolo: String?,
 )

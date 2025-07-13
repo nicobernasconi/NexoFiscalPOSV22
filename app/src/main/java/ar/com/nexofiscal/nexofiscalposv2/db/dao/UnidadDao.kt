@@ -31,6 +31,32 @@ interface UnidadDao {
     @Query("DELETE FROM unidades WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+
+    @Query("SELECT * FROM unidades WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): UnidadEntity?
+
+    /**
+     * Inserta o actualiza una lista de unidades. Si una unidad ya existe
+     * (mismo serverId), la actualiza. Si no, la inserta como nueva.
+     */
+    @Transaction
+    suspend fun upsertAll(unidades: List<UnidadEntity>) {
+        unidades.forEach { unidad ->
+            val existente = unidad.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                unidad.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                unidad
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

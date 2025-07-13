@@ -1,6 +1,7 @@
 package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
@@ -10,9 +11,27 @@ import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
-import ar.com.nexofiscal.nexofiscalposv2.db.repository.*
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.AgrupacionRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.FamiliaRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.MonedaRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.ProductoRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.ProveedorRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.TasaIvaRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoRepository
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.UnidadRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Producto
-import kotlinx.coroutines.flow.*
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class ProductoViewModel(application: Application) : AndroidViewModel(application) {
@@ -26,6 +45,9 @@ class ProductoViewModel(application: Application) : AndroidViewModel(application
     private val tipoRepo: TipoRepository
     private val unidadRepo: UnidadRepository
     private val _searchQuery = MutableStateFlow("")
+
+    private val _productoParaEditar = MutableStateFlow<Producto?>(null)
+    val productoParaEditar: StateFlow<Producto?> = _productoParaEditar.asStateFlow()
 
     init {
         val db = AppDatabase.getInstance(application)
@@ -54,11 +76,31 @@ class ProductoViewModel(application: Application) : AndroidViewModel(application
         _searchQuery.value = query
     }
 
+    fun cargarProductoParaEdicion(productoLocalId: Int) {
+        viewModelScope.launch {
+            Log.d("EditFlow", "1. ViewModel: Solicitado cargar producto con ID local $productoLocalId")
+            val productoConDetalles = repo.getConDetallesById(productoLocalId)
+            if (productoConDetalles != null) {
+                val productoCompleto = productoConDetalles.toDomainModel()
+                _productoParaEditar.value = productoCompleto
+                Log.d("EditFlow", "2. ViewModel: Producto cargado y emitido al StateFlow. Familia: ${productoCompleto.familia?.nombre}")
+            } else {
+                NotificationManager.show("Error: No se pudo cargar el producto para editar.", NotificationType.ERROR)
+                _productoParaEditar.value = null
+            }
+        }
+    }
+
+    fun limpiarProductoParaEdicion() {
+        _productoParaEditar.value = null
+        Log.d("EditFlow", "5. ViewModel: Estado de edición limpiado.")
+    }
+
     suspend fun findByBarcode(barcode: String): Producto? {
         val entity = repo.findByBarcode(barcode) ?: return null
-        val domainModel = entity.toDomainModel()
-        // ... (lógica de enriquecimiento del modelo)
-        return domainModel
+        // Al encontrar por código de barras, también necesitamos cargar los detalles
+        val fullDetails = repo.getConDetallesById(entity.id)
+        return fullDetails?.toDomainModel()
     }
 
     val favoritos: StateFlow<List<Producto>> = repo.getFavoritosWithDetails()
@@ -71,23 +113,24 @@ class ProductoViewModel(application: Application) : AndroidViewModel(application
         return repo.getConDetallesById(id)?.toDomainModel()
     }
 
-    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
-    fun save(p: ProductoEntity) {
+    fun save(p: Producto) { // Recibe el modelo de dominio
         viewModelScope.launch {
-            if (p.serverId == null) {
-                p.syncStatus = SyncStatus.CREATED
+            val entity = p.toEntity() // Esta llamada ahora preserva el localId
+            if (entity.serverId == null || entity.serverId == 0) {
+                entity.syncStatus = SyncStatus.CREATED
             } else {
-                p.syncStatus = SyncStatus.UPDATED
+                entity.syncStatus = SyncStatus.UPDATED
             }
-            repo.guardar(p)
+            repo.guardar(entity)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 
-    // --- CAMBIO: El borrado ahora es un "soft delete" ---
-    fun delete(p: ProductoEntity) {
+    fun delete(p: Producto) { // Recibimos el modelo de dominio
         viewModelScope.launch {
-            p.syncStatus = SyncStatus.DELETED
-            repo.actualizar(p)
+            val entity = p.toEntity() // Mapeamos al modelo de entidad
+            entity.syncStatus = SyncStatus.DELETED
+            repo.actualizar(entity)
         }
     }
 }

@@ -1,22 +1,60 @@
 package ar.com.nexofiscal.nexofiscalposv2.screens
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.util.Base64
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -25,7 +63,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -35,35 +72,77 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.paging.compose.collectAsLazyPagingItems
 import ar.com.nexofiscal.nexofiscalposv2.R
-import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
+import ar.com.nexofiscal.nexofiscalposv2.SyncService
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.*
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.AgrupacionViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.CategoriaViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.CierreCajaViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.ClienteViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.ComprobanteViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.ConfiguracionViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.FamiliaViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.FormaPagoViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.LocalidadViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.MonedaViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.PaisViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.ProductoViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.PromocionViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.ProveedorViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.ProvinciaViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.RenglonComprobanteViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.RolViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.SucursalViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.TasaIvaViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.TipoComprobanteViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.TipoDocumentoViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.TipoFormaPagoViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.TipoIvaViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.TipoViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.UnidadViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.UsuarioViewModel
+import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.VendedorViewModel
 import ar.com.nexofiscal.nexofiscalposv2.managers.LogoutManager
 import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
 import ar.com.nexofiscal.nexofiscalposv2.managers.SyncManager
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Cliente
 import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
 import ar.com.nexofiscal.nexofiscalposv2.models.Producto
+import ar.com.nexofiscal.nexofiscalposv2.models.Promocion
+import ar.com.nexofiscal.nexofiscalposv2.models.Proveedor
 import ar.com.nexofiscal.nexofiscalposv2.models.RenglonComprobante
-import ar.com.nexofiscal.nexofiscalposv2.screens.config.*
+import ar.com.nexofiscal.nexofiscalposv2.screens.config.AgrupacionScreen
+import ar.com.nexofiscal.nexofiscalposv2.screens.config.getMainClientFieldDescriptors
+import ar.com.nexofiscal.nexofiscalposv2.screens.config.getMainProductFieldDescriptors
+import ar.com.nexofiscal.nexofiscalposv2.screens.config.getPromocionFieldDescriptors
+import ar.com.nexofiscal.nexofiscalposv2.screens.config.getProveedorFieldDescriptors
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.EntityEditScreen
+import ar.com.nexofiscal.nexofiscalposv2.ui.LoadingManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.LogoutConfirmationDialog
 import ar.com.nexofiscal.nexofiscalposv2.ui.MenuDialog
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationHost
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
+import ar.com.nexofiscal.nexofiscalposv2.ui.PrintingStatusDialog
+import ar.com.nexofiscal.nexofiscalposv2.ui.PrintingUiManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.menuItems
-import ar.com.nexofiscal.nexofiscalposv2.ui.theme.*
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.Blanco
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.BordeSuave
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.CC
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.GrisClaro
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.NegroNexo
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.RojoError
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.TextoGrisOscuro
 import ar.com.nexofiscal.nexofiscalposv2.utils.PrintingManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.text.SimpleDateFormat
-import java.util.*
-import android.util.Base64
-import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
-import ar.com.nexofiscal.nexofiscalposv2.ui.LoadingManager
+import java.util.Date
+import java.util.Locale
 
 class SaleItem(val producto: Producto) {
     var cantidad by mutableStateOf(1.0)
@@ -106,10 +185,12 @@ fun MainScreen(
     provinciaViewModel: ProvinciaViewModel,
     rolViewModel: RolViewModel,
     sucursalViewModel: SucursalViewModel,
+    configuracionViewModel: ConfiguracionViewModel,
     usuarioViewModel: UsuarioViewModel,
     vendedorViewModel: VendedorViewModel,
     cierreCajaViewModel: CierreCajaViewModel,
-    tipoComprobanteViewModel: TipoComprobanteViewModel
+    tipoComprobanteViewModel: TipoComprobanteViewModel,
+    monedaViewModel: MonedaViewModel
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -139,9 +220,7 @@ fun MainScreen(
     var showVendedorScreen by remember { mutableStateOf(false) }
     var showFullScreenProductSearch by remember { mutableStateOf(false) }
     var showProductEditScreen by remember { mutableStateOf(false) }
-    var productInScreen by remember { mutableStateOf<Producto?>(null) }
     var isProductCreateMode by remember { mutableStateOf(false) }
-    var clientInScreen by remember { mutableStateOf<Cliente?>(null) }
     var isClientCreateMode by remember { mutableStateOf(false) }
     var productScreenMode by remember { mutableStateOf(CrudScreenMode.EDIT_DELETE) }
     var clientListMode by remember { mutableStateOf(CrudScreenMode.VIEW_SELECT) }
@@ -149,21 +228,44 @@ fun MainScreen(
     var showCobrarScreen by remember { mutableStateOf(false) }
     var showBarcodeScanner by remember { mutableStateOf(false) }
     var showKioskConfigScreen by remember { mutableStateOf(false) }
-
-    // --- CAMBIO: Variable de estado para saber qué tipo de comprobante se está creando ---
+    var showConfiguracionScreen by remember { mutableStateOf(false) }
     var tipoComprobanteActual by remember { mutableStateOf(1) }
-
-
     val context = LocalContext.current
     val saleItems = remember { mutableStateListOf<SaleItem>() }
     var clienteSeleccionado by remember { mutableStateOf<Cliente?>(null) }
     val total by remember { derivedStateOf { saleItems.sumOf { it.subtotal } } }
     val userName = SessionManager.nombreCompleto ?: ""
-    val productDescriptors = remember { getMainProductFieldDescriptors(tipoViewModel, familiaViewModel, tasaIvaViewModel, unidadViewModel, proveedorViewModel, agrupacionViewModel) }
-    val clientDescriptors = remember { getMainClientFieldDescriptors() }
+    val productDescriptors = remember { getMainProductFieldDescriptors(tipoViewModel, familiaViewModel, tasaIvaViewModel, unidadViewModel, proveedorViewModel, agrupacionViewModel,monedaViewModel) }
+    val clientDescriptors = remember { getMainClientFieldDescriptors(tipoDocumentoViewModel, tipoIvaViewModel, localidadViewModel, provinciaViewModel, categoriaViewModel, vendedorViewModel) }
     val scope = rememberCoroutineScope()
     var showSyncStatus by remember { mutableStateOf(false) }
+    var showInformeDeVentas by remember { mutableStateOf(false) }
+    var showPromocionEditScreen by remember { mutableStateOf(false) }
+    var isPromocionCreateMode by remember { mutableStateOf(false) }
+    var promocionInScreen by remember { mutableStateOf<Promocion?>(null) }
+    var showProveedorEditScreen by remember { mutableStateOf(false) }
+    var isProveedorCreateMode by remember { mutableStateOf(false) }
+    var proveedorInScreen by remember { mutableStateOf<Proveedor?>(null) }
     LaunchedEffect(total) { onTotalUpdated(total) }
+
+    // --- Lógica de Edición y Carga ---
+    val clientInScreen by clienteViewModel.clienteParaEditar.collectAsState()
+    val productInScreen by productoViewModel.productoParaEditar.collectAsState()
+
+    LaunchedEffect(clientInScreen) {
+        if (clientInScreen != null && !isClientCreateMode) {
+            showClienteListDialog = false
+            showClienteEditScreen = true
+        }
+    }
+
+    LaunchedEffect(productInScreen) {
+        if (productInScreen != null && !isProductCreateMode) {
+            showFullScreenProductSearch = false
+            showProductEditScreen = true
+        }
+    }
+
 
     suspend fun finalizarVenta(tipoComprobanteId: Int, resultado: ResultadoCobro, imprimir: Boolean) {
         if (saleItems.isEmpty()) {
@@ -182,7 +284,7 @@ fun MainScreen(
             numeroDeComprobante = comprobanteViewModel.getNextNumeroForTipo(tipoComprobanteId)
         }
         if (tipoComprobanteId == 1) { // Si es una Venta
-            numeroDeComprobante = null
+            numeroDeComprobante = null // El número lo asigna el servidor o AFIP
         }
         val ahora = Date()
         val fechaStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(ahora)
@@ -202,42 +304,46 @@ fun MainScreen(
         val totalFinal = totalOriginal - montoDescuento
         val tipoComprobanteDomain = tipoComprobanteViewModel.getById(tipoComprobanteId)
 
+        // CORRECCIÓN: Se asignan las promociones y formas de pago directamente.
         var comprobanteParaGestionar = Comprobante(
-            id = 0, serverId = 0, cliente = clienteSeleccionado, clienteId = clienteSeleccionado?.id ?: 1,
+            id = 0, serverId = null, cliente = clienteSeleccionado, clienteId = clienteSeleccionado?.id ?: 1,
             tipoComprobante = tipoComprobanteDomain,
-            tipoComprobanteId = tipoComprobanteDomain?.id ?: 3,
+            tipoComprobanteId = tipoComprobanteDomain?.id,
             fecha = fechaStr, hora = horaStr,
             total = totalFinal.toString(), totalPagado = resultado.pagos.sumOf { it.monto },
-
-            descuentoTotal = montoDescuento.toString(),
-            importeIva = renglonesDeVenta.sumOf { (it.totalLinea.toDouble() / (1 + it.tasaIva)) * it.tasaIva },
-            numeroFactura =numeroDeFactura,
+            descuentoTotal = montoDescuento.toString(), // Guardamos el monto del descuento
+            importeIva = renglonesDeVenta.sumOf { (it.totalLinea.toDoubleOrNull() ?: 0.0) / (1 + it.tasaIva) * it.tasaIva },
+            numeroFactura = numeroDeFactura,
             puntoVenta = SessionManager.puntoVentaNumero,
             empresaId = SessionManager.empresaId,
             sucursalId = SessionManager.sucursalId,
-            numero=numeroDeComprobante, cuotas=null, remito=null, persona=null, provinciaId=null, fechaBaja=null, motivoBaja=null,
-            fechaProceso=null, letra=null, prefijoFactura=null, operacionNegocioId=null, retencionIva=null,
-            retencionIibb=null, retencionGanancias=null, porcentajeGanancias=null, porcentajeIibb=null, porcentajeIva=null,
-            noGravado=null, condicionVentaId=null, descripcionFlete=null, vendedorId=null, recibo=null,
-            observaciones1=null, observaciones2=null, observaciones3=null, observaciones4=null, descuento=null,
-            descuento1=null, descuento2=null, descuento3=null, descuento4=null, iva2=null, impresa=false, cancelado=false,
-            nombreCliente=null, direccionCliente=null, localidadCliente=null, garantia=null, concepto=null, notas=null,
-            lineaPagoUltima=null, relacionTk=null, totalIibb=null, importeIibb=null, provinciaCategoriaIibbId=null,
-            importeRetenciones=null, provinciaIvaProveedorId=null, gananciasProveedorId=null, importeGanancias=null,
-            numeroIibb=null, numeroGanancias=null, gananciasProveedor=null, cae=null, fechaVencimiento=null,
-            remitoCliente=null, textoDolares=null, comprobanteFinal=null, numeroGuia1=null, numeroGuia2=null,
-            numeroGuia3=null, tipoAlicuota1=null, tipoAlicuota2=null, tipoAlicuota3=null, importeIva105=null,
-            importeIva21=null, importeIva0=null, noGravadoIva105=null, noGravadoIva21=null, noGravadoIva0=null,
-            direccionEntrega=null, fechaEntrega=null, horaEntrega=null, tipoFactura=null, tipoDocumento=null,
-            qr=null, comprobanteIdBaja=null, incrementoTotal=null, numeroDeDocumento=null,
-            vendedor=null, provincia=null, localId = 0
+            numero = numeroDeComprobante,
+            vendedorId =null, // Asignamos el vendedor de la sesión
+            // --- ASIGNACIÓN CORREGIDA ---
+            promociones = resultado.promociones,
+            formas_de_pago = resultado.pagos,
+            // --- RESTO DE CAMPOS ---
+            cuotas = null, remito = null, persona = null, provinciaId = null, fechaBaja = null, motivoBaja = null,
+            fechaProceso = null, letra = null, prefijoFactura = null, operacionNegocioId = null, retencionIva = null,
+            retencionIibb = null, retencionGanancias = null, porcentajeGanancias = null, porcentajeIibb = null, porcentajeIva = null,
+            noGravado = null, condicionVentaId = null, descripcionFlete = null, recibo = null,
+            observaciones1 = null, observaciones2 = null, observaciones3 = null, observaciones4 = null, descuento = null,
+            descuento1 = null, descuento2 = null, descuento3 = null, descuento4 = null, iva2 = null, impresa = false, cancelado = false,
+            nombreCliente = null, direccionCliente = null, localidadCliente = null, garantia = null, concepto = null, notas = null,
+            lineaPagoUltima = null, relacionTk = null, totalIibb = null, importeIibb = null, provinciaCategoriaIibbId = null,
+            importeRetenciones = null, provinciaIvaProveedorId = null, gananciasProveedorId = null, importeGanancias = null,
+            numeroIibb = null, numeroGanancias = null, gananciasProveedor = null, cae = null, fechaVencimiento = null,
+            remitoCliente = null, textoDolares = null, comprobanteFinal = null, numeroGuia1 = null, numeroGuia2 = null,
+            numeroGuia3 = null, tipoAlicuota1 = null, tipoAlicuota2 = null, tipoAlicuota3 = null, importeIva105 = null,
+            importeIva21 = null, importeIva0 = null, noGravadoIva105 = null, noGravadoIva21 = null, noGravadoIva0 = null,
+            direccionEntrega = null, fechaEntrega = null, horaEntrega = null, tipoFactura = null, tipoDocumento = null,
+            qr = null, comprobanteIdBaja = null, incrementoTotal = null, numeroDeDocumento = null,
+            vendedor = null, provincia = null, localId = 0
         )
 
-        // ================== INICIO DE LA MODIFICACIÓN ==================
+
         if (tipoComprobanteId == 1) {
             try {
-                // NOTA: Se asume que campos como 'numeroFactura' y 'cae' se obtienen antes de este punto
-                // desde un servicio fiscal. Aquí se usarán los valores disponibles.
                 val afipJson = JSONObject().apply {
                     put("ver", 1)
                     put("fecha", fechaStr)
@@ -245,7 +351,8 @@ fun MainScreen(
                     put("ptoVta", SessionManager.puntoVentaNumero)
                     put("tipoCmp", tipoComprobanteDomain?.numero ?: 1)
                     put("nroCmp", comprobanteParaGestionar.numeroFactura ?: 0)
-                    put("importe", totalFinal)
+                    // CORRECCIÓN: Manejo de total nulo
+                    put("importe", comprobanteParaGestionar.total?.toDoubleOrNull() ?: 0.0)
                     put("moneda", "PES")
                     put("ctz", 1)
                     put("tipoDocRec", clienteSeleccionado?.tipoDocumento?.id ?: 99)
@@ -265,11 +372,20 @@ fun MainScreen(
                 NotificationManager.show("Error generando QR", NotificationType.ERROR)
             }
         }
-        // =================== FIN DE LA MODIFICACIÓN ====================
 
 
         if (imprimir) {
-            PrintingManager.print(context, comprobanteParaGestionar, renglonesDeVenta)
+            try {
+                // Inicia el diálogo de "Imprimiendo..."
+                PrintingUiManager.startPrinting()
+                // Intenta imprimir
+                PrintingManager.print(context, comprobanteParaGestionar, renglonesDeVenta)
+                // Si no hay errores, cierra el diálogo
+                PrintingUiManager.finishPrinting()
+            } catch (e: Exception) {
+                // Si hay un error de impresión, muestra el diálogo de error.
+                PrintingUiManager.showError(e.message ?: "Ocurrió un error desconocido.")
+            }
         }
 
         scope.launch(Dispatchers.IO) {
@@ -280,7 +396,6 @@ fun MainScreen(
                 promociones = resultado.promociones
             )
 
-            // La lógica para limpiar la pantalla y notificar al usuario se mantiene
             if (nuevoId > 0) {
                 launch(Dispatchers.Main) {
                     saleItems.clear()
@@ -297,21 +412,47 @@ fun MainScreen(
     }
 
 
+    var syncState by remember { mutableStateOf(SyncService.SyncState.IDLE) }
+
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val stateName = intent?.getStringExtra(SyncService.EXTRA_SYNC_STATE)
+                syncState = stateName?.let { SyncService.SyncState.valueOf(it) } ?: SyncService.SyncState.IDLE
+            }
+        }
+        LocalBroadcastManager.getInstance(context).registerReceiver(receiver, IntentFilter(SyncService.SYNC_STATE_ACTION))
+        onDispose {
+            LocalBroadcastManager.getInstance(context).unregisterReceiver(receiver)
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(Blanco)) {
             HeaderSection { showMenu = true }
+            NotificationHost()
+            PrintingStatusDialog()
 
             ClientInfoSection(
                 cliente = clienteSeleccionado,
                 onListClients = { clientListMode = CrudScreenMode.VIEW_SELECT; showClienteListDialog = true },
-                onAddClient = { isClientCreateMode = true; clientInScreen = Cliente(); showClienteEditScreen = true },
+                onAddClient = {
+                    isClientCreateMode = true
+                    clienteViewModel.limpiarClienteParaEdicion()
+                    showClienteEditScreen = true
+                },
                 onClearClient = { clienteSeleccionado = null }
             )
             ActionButtonsSection(
                 onSearchProducts = { productScreenMode = CrudScreenMode.VIEW_SELECT; showFullScreenProductSearch = true },
                 onScanBarcode = { showBarcodeScanner = true },
                 onEdit = { productScreenMode = CrudScreenMode.EDIT_DELETE; showFullScreenProductSearch = true },
-                onAdd = { isProductCreateMode = true; productInScreen = Producto(); showProductEditScreen = true }
+                onAdd = {
+                    isProductCreateMode = true
+                    productoViewModel.limpiarProductoParaEdicion()
+                    showProductEditScreen = true
+                }
             )
             SaleItemsList(saleItems, { saleItems.remove(it) }, Modifier.weight(1f))
             TotalSection(total)
@@ -319,7 +460,6 @@ fun MainScreen(
             ActionButtonsBottom(
                 onCobrar = {
                     if (saleItems.isNotEmpty()) {
-                        // --- CAMBIO: Se establece el tipo ANTES de mostrar la pantalla ---
                         tipoComprobanteActual = 1
                         showCobrarScreen = true
                     } else {
@@ -328,7 +468,6 @@ fun MainScreen(
                 },
                 onPedido = {
                     if (saleItems.isNotEmpty()) {
-                        // --- CAMBIO: Se establece el tipo ANTES de mostrar la pantalla ---
                         tipoComprobanteActual = 3
                         showCobrarScreen = true
                     } else {
@@ -337,7 +476,6 @@ fun MainScreen(
                 },
                 onPresupuesto = {
                     if (saleItems.isNotEmpty()) {
-                        // --- CAMBIO: Se establece el tipo ANTES de mostrar la pantalla ---
                         tipoComprobanteActual = 2
                         showCobrarScreen = true
                     } else {
@@ -353,18 +491,27 @@ fun MainScreen(
             when (title) {
                 "Salir" -> showLogoutDialog = true
                 "Listar Clientes" -> { clientListMode = CrudScreenMode.EDIT_DELETE; showClienteListDialog = true }
-                "Crear Cliente" -> { isClientCreateMode = true; clientInScreen = Cliente(); showClienteEditScreen = true }
+                "Crear Cliente" -> { isClientCreateMode = true; clienteViewModel.limpiarClienteParaEdicion(); showClienteEditScreen = true }
                 "Listar Productos" -> { productScreenMode = CrudScreenMode.EDIT_DELETE; showFullScreenProductSearch = true }
-                "Crear Producto" -> { isProductCreateMode = true; productInScreen = Producto(); showProductEditScreen = true }
-                "Sincronizar Datos" -> {
-                    showSyncStatus = true
+                "Crear Producto" -> { isProductCreateMode = true; productoViewModel.limpiarProductoParaEdicion(); showProductEditScreen = true }
+                "Informe de Ventas" -> {showInformeDeVentas = true}
+                "Descargar Datos" -> {
                     scope.launch {
-                        val token = SessionManager.token ?: ""
-                        if (token.isNotBlank()) {
+                        val token = SessionManager.token
+                        if (token.isNullOrBlank()) {
+                            NotificationManager.show("Error: No se puede sincronizar. Inicie sesión nuevamente.", NotificationType.ERROR)
+                            return@launch
+                        }
+                        NotificationManager.show("Iniciando descarga de datos...", NotificationType.INFO)
+                        LoadingManager.show()
+                        try {
                             SyncManager.startFullSync(context, token)
-                        } else {
-                            NotificationManager.show("Error: Token no encontrado. No se puede sincronizar.", NotificationType.ERROR)
-                            showSyncStatus = false
+                            NotificationManager.show("Sincronización de datos completada.", NotificationType.SUCCESS)
+                        } catch (e: Exception) {
+                            Log.e("SyncTrigger", "Error durante la sincronización manual", e)
+                            NotificationManager.show("Ocurrió un error durante la sincronización.", NotificationType.ERROR)
+                        } finally {
+                            LoadingManager.hide()
                         }
                     }
                 }
@@ -376,7 +523,7 @@ fun MainScreen(
                             return@launch
                         }
                         NotificationManager.show("Iniciando subida de cambios locales...", NotificationType.INFO)
-                        LoadingManager.show() // Muestra el diálogo de carga
+                        LoadingManager.show()
                         try {
                             UploadManager.uploadLocalChanges(context, token)
                             NotificationManager.show("La subida de cambios ha finalizado.", NotificationType.SUCCESS)
@@ -384,7 +531,7 @@ fun MainScreen(
                             Log.e("UploadTrigger", "Error durante la subida manual", e)
                             NotificationManager.show("Ocurrió un error durante la subida.", NotificationType.ERROR)
                         } finally {
-                            LoadingManager.hide() // Oculta el diálogo de carga
+                            LoadingManager.hide()
                         }
                     }
                 }
@@ -396,7 +543,17 @@ fun MainScreen(
                 "Localidades" -> showLocalidadScreen = true
                 "Países" -> showPaisScreen = true
                 "Listar Promociones" -> showPromocionScreen = true
+                "Crear Promoción" -> {
+                    isPromocionCreateMode = true
+                    promocionInScreen = Promocion() // Creamos una instancia vacía para el formulario
+                    showPromocionEditScreen = true
+                }
                 "Listar Proveedores" -> showProveedorScreen = true
+                "Crear Proveedor" -> {
+                    isProveedorCreateMode = true
+                    proveedorInScreen = Proveedor() // Creamos una instancia vacía para el formulario
+                    showProveedorEditScreen = true
+                }
                 "Provincias" -> showProvinciaScreen = true
                 "Roles" -> showRolScreen = true
                 "Sucursales" -> showSucursalScreen = true
@@ -409,6 +566,7 @@ fun MainScreen(
                 "Unidades" -> showUnidadScreen = true
                 "Usuarios" -> showUsuarioScreen = true
                 "Modo Kiosco" -> showKioskConfigScreen = true
+                "Configuración General" -> showConfiguracionScreen = true
             }
         }
 
@@ -416,22 +574,41 @@ fun MainScreen(
             ClientListDialog(clienteViewModel, clientListMode,
                 onClientSelected = { cliente -> clienteSeleccionado = cliente; showClienteListDialog = false; NotificationManager.show("Seleccionado ${cliente.nombre}", NotificationType.SUCCESS) },
                 onDismiss = { showClienteListDialog = false },
-                onAttemptEdit = { cliente -> isClientCreateMode = false; clientInScreen = cliente; showClienteListDialog = false; showClienteEditScreen = true },
-                onDelete = { cliente -> clienteViewModel.delete(cliente.toEntity()); NotificationManager.show("Cliente '${cliente.nombre}' eliminado.", NotificationType.SUCCESS) }
+                onAttemptEdit = { cliente ->
+                    isClientCreateMode = false
+                    clienteViewModel.cargarClienteParaEdicion(cliente.localId)
+                },
+
+                 onDelete  = { cliente ->
+                    // Convertimos el modelo 'Cliente' a 'ClienteEntity' antes de borrar.
+                    clienteViewModel.delete(cliente.toEntity())
+                }
+
             )
         }
 
-        if (showClienteEditScreen && clientInScreen != null) {
-            val title = if (isClientCreateMode) "Crear Cliente" else "Editar Cliente: ${clientInScreen!!.nombre}"
-            Surface(modifier = Modifier.fillMaxSize()) {
-                EntityEditScreen(title, clientInScreen!!, clientDescriptors,
-                    onSave = { updatedClient ->
-                        clienteViewModel.save(updatedClient.toEntity()); showClienteEditScreen = false
-                        val action = if (isClientCreateMode) "creado" else "actualizado"
-                        NotificationManager.show("Cliente '${updatedClient.nombre}' $action.", NotificationType.SUCCESS)
-                    },
-                    onCancel = { showClienteEditScreen = false }
-                )
+        if (showClienteEditScreen) {
+            val entityToEdit = if (isClientCreateMode) remember { Cliente() } else clientInScreen
+            if (entityToEdit != null) {
+                val title = if (isClientCreateMode) "Crear Cliente" else "Editar Cliente: ${entityToEdit.nombre}"
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    EntityEditScreen(title, entityToEdit, clientDescriptors,
+                        onSave = { updatedClient ->
+
+                            clienteViewModel.save(updatedClient)
+                            showClienteEditScreen = false
+                            clienteViewModel.limpiarClienteParaEdicion()
+                            isClientCreateMode = false
+                            val action = if (isClientCreateMode) "creado" else "actualizado"
+                            NotificationManager.show("Cliente '${updatedClient.nombre}' $action.", NotificationType.SUCCESS)
+                        },
+                        onCancel = {
+                            showClienteEditScreen = false
+                            clienteViewModel.limpiarClienteParaEdicion()
+                            isClientCreateMode = false
+                        }
+                    )
+                }
             }
         }
 
@@ -444,29 +621,39 @@ fun MainScreen(
                     onDismiss = { showFullScreenProductSearch = false },
                     onAttemptCreate = {
                         isProductCreateMode = true
-                        productInScreen = Producto()
+                        productoViewModel.limpiarProductoParaEdicion()
                         showProductEditScreen = true
                     },
-                    onAttemptEdit = {
+                    onAttemptEdit = { producto ->
                         isProductCreateMode = false
-                        productInScreen = it
-                        showProductEditScreen = true
-                    }
+                        productoViewModel.cargarProductoParaEdicion(producto.localId)
+                    },
+                     onDelete  = {producto -> productoViewModel.delete(producto)}
                 )
             }
         }
 
-        if (showProductEditScreen && productInScreen != null) {
-            val title = if (isProductCreateMode) "Crear Producto" else "Editar Producto: ${productInScreen!!.descripcion ?: ""}"
-            Surface(modifier = Modifier.fillMaxSize()) {
-                EntityEditScreen(title, productInScreen!!, productDescriptors,
-                    onSave = { updatedProduct ->
-                        productoViewModel.save(updatedProduct.toEntity()); showProductEditScreen = false
-                        val action = if (isProductCreateMode) "creado" else "actualizado"
-                        NotificationManager.show("Producto '${updatedProduct.descripcion}' $action.", NotificationType.SUCCESS)
-                    },
-                    onCancel = { showProductEditScreen = false }
-                )
+        if (showProductEditScreen) {
+            val entityToEdit = if (isProductCreateMode) remember { Producto() } else productInScreen
+            if (entityToEdit != null) {
+                val title = if (isProductCreateMode) "Crear Producto" else "Editar: ${entityToEdit.descripcion ?: ""}"
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    EntityEditScreen(title, entityToEdit, productDescriptors,
+                        onSave = { updatedProduct ->
+                            productoViewModel.save(updatedProduct)
+                            showProductEditScreen = false
+                            productoViewModel.limpiarProductoParaEdicion()
+                            isProductCreateMode = false
+                            val action = if (isProductCreateMode) "creado" else "actualizado"
+                            NotificationManager.show("Producto '${updatedProduct.descripcion}' $action.", NotificationType.SUCCESS)
+                        },
+                        onCancel = {
+                            showProductEditScreen = false
+                            productoViewModel.limpiarProductoParaEdicion()
+                            isProductCreateMode = false
+                        }
+                    )
+                }
             }
         }
 
@@ -527,7 +714,6 @@ fun MainScreen(
                     formaPagoViewModel = formaPagoViewModel,
                     promocionViewModel = promocionViewModel,
                     onDismiss = { showCobrarScreen = false },
-                    // --- CAMBIO: La lógica ahora usa la variable de estado `tipoComprobanteActual` ---
                     onGuardar = { resultado ->
                         scope.launch {
                             finalizarVenta(tipoComprobanteActual, resultado, imprimir = false)
@@ -548,6 +734,76 @@ fun MainScreen(
                 KioskConfigScreen { showKioskConfigScreen = false }
             }
         }
+
+        if (showInformeDeVentas) {
+            Surface(modifier = Modifier.fillMaxSize()) {
+                InformeDeVentasScreen(
+                    onDismiss = { showInformeDeVentas = false },
+                    clienteViewModel = clienteViewModel,
+                    tipoComprobanteViewModel = tipoComprobanteViewModel,
+                    usuarioViewModel = usuarioViewModel,
+                    vendedorViewModel = vendedorViewModel
+                )
+            }
+        }
+        if (showConfiguracionScreen) {
+            Surface(Modifier.fillMaxSize()) {
+                ConfiguracionScreen(viewModel = configuracionViewModel) { showConfiguracionScreen = false }
+            }
+        }
+
+        if (showPromocionEditScreen && promocionInScreen != null) {
+            val fieldDescriptors = remember { getPromocionFieldDescriptors() }
+            val title = if (isPromocionCreateMode) "Crear Promoción" else "Editar Promoción: ${promocionInScreen!!.nombre}"
+
+            Surface(modifier = Modifier.fillMaxSize()) {
+                EntityEditScreen(
+                    title = title,
+                    initialEntity = promocionInScreen!!,
+                    fieldDescriptors = fieldDescriptors,
+                    onSave = { updatedPromocion ->
+                        // Guardamos usando el ViewModel correspondiente
+                        promocionViewModel.save(updatedPromocion.toEntity())
+                        showPromocionEditScreen = false
+                        val action = if (isPromocionCreateMode) "creada" else "actualizada"
+                        NotificationManager.show("Promoción '${updatedPromocion.nombre}' $action.", NotificationType.SUCCESS)
+                    },
+                    onCancel = { showPromocionEditScreen = false }
+                )
+            }
+        }
+        if (showProveedorEditScreen && proveedorInScreen != null) {
+            val fieldDescriptors = remember { getProveedorFieldDescriptors(localidadViewModel, tipoIvaViewModel, categoriaViewModel) }
+            val title = if (isProveedorCreateMode) "Crear Proveedor" else "Editar Proveedor: ${proveedorInScreen!!.razonSocial}"
+
+            Surface(modifier = Modifier.fillMaxSize()) {
+                EntityEditScreen(
+                    title = title,
+                    initialEntity = proveedorInScreen!!,
+                    fieldDescriptors = fieldDescriptors,
+                    onSave = { updatedProveedor ->
+                        // Guardamos usando el ViewModel correspondiente
+                        proveedorViewModel.save(updatedProveedor.toEntity())
+                        showProveedorEditScreen = false
+                        val action = if (isProveedorCreateMode) "creado" else "actualizado"
+                        NotificationManager.show("Proveedor '${updatedProveedor.razonSocial}' $action.", NotificationType.SUCCESS)
+                    },
+                    onCancel = { showProveedorEditScreen = false }
+                )
+            }
+        }
+
+        // Si la pantalla de listar proveedores ya existe, esta se encarga de la edición.
+        // Si no existe, podemos añadir la lógica de edición aquí también.
+        if (showProveedorScreen) {
+            ProveedorScreen(
+                proveedorViewModel = proveedorViewModel,
+                localidadViewModel = localidadViewModel,
+                tipoIvaViewModel = tipoIvaViewModel,
+                categoriaViewModel = categoriaViewModel,
+                onDismiss = { showProveedorScreen = false }
+            )
+        }
         if (showFamiliaScreen) { Surface(Modifier.fillMaxSize()) { FamiliaScreen(familiaViewModel) { showFamiliaScreen = false } } }
         if (showFormaPagoScreen) { Surface(Modifier.fillMaxSize()) { FormaPagoScreen(formaPagoViewModel, tipoFormaPagoViewModel) { showFormaPagoScreen = false } } }
         if (showLocalidadScreen) { Surface(Modifier.fillMaxSize()) { LocalidadScreen(localidadViewModel, provinciaViewModel) { showLocalidadScreen = false } } }
@@ -567,6 +823,13 @@ fun MainScreen(
         if (showUsuarioScreen) { Surface(Modifier.fillMaxSize()) { UsuarioScreen(usuarioViewModel, rolViewModel, sucursalViewModel, vendedorViewModel) { showUsuarioScreen = false } } }
         if (showVendedorScreen) { Surface(Modifier.fillMaxSize()) { VendedorScreen(vendedorViewModel) { showVendedorScreen = false } } }
     }
+
+    SyncStatusIcon(
+        state = syncState,
+        modifier = Modifier
+
+            .padding(start = 12.dp, top = 12.dp)
+    )
 }
 
 
@@ -608,7 +871,6 @@ private fun ClientInfoSection(
             .padding(8.dp)
     ) {
         if (cliente == null) {
-            // --- Vista por defecto cuando no hay cliente seleccionado ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -632,7 +894,6 @@ private fun ClientInfoSection(
                 }
             }
         } else {
-            // --- Vista cuando hay un cliente seleccionado ---
             Row(
                 modifier = Modifier.fillMaxWidth().background( NegroNexo).padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1004,7 +1265,7 @@ private fun ClientListDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            tonalElevation = AlertDialogDefaults.TonalElevation,
+            tonalElevation = androidx.compose.material3.AlertDialogDefaults.TonalElevation,
             shape = MaterialTheme.shapes.large,
             modifier = Modifier
                 .fillMaxWidth(0.9f)
@@ -1032,10 +1293,8 @@ private fun ClientListContent(
     onAttemptEdit: (Cliente) -> Unit,
     onDelete: (Cliente) -> Unit
 ) {
-    // 1. Obtenemos los items paginados desde el ViewModel
     val pagedClientes = clienteViewModel.pagedClientes.collectAsLazyPagingItems()
 
-    // 2. Pasamos los datos y callbacks a la pantalla de lista genérica
     CrudListScreen(
         title = "Clientes",
         items = pagedClientes,
@@ -1056,7 +1315,7 @@ private fun ClientListContent(
         },
         onDismiss = onDismiss,
         onAttemptEdit = onAttemptEdit,
-        onDelete = onDelete,
+        onAttemptDelete  = onDelete,
         screenMode = screenMode,
         itemKey = { it.id }
     )
@@ -1069,16 +1328,14 @@ private fun ProductListContent(
     screenMode: CrudScreenMode,
     onDismiss: () -> Unit,
     onAttemptCreate: () -> Unit,
-    onAttemptEdit: (Producto) -> Unit
+    onAttemptEdit: (Producto) -> Unit,
+    onDelete: (Producto) -> Unit
 ) {
-    // 1. Se obtienen los items paginados desde el ViewModel.
-    //    collectAsLazyPagingItems se encarga de observar el Flow y reaccionar a los cambios.
     val pagedProductos = productoViewModel.pagedProductos.collectAsLazyPagingItems()
 
-    // 2. Se llama a la pantalla de lista genérica, que ahora maneja toda la UI.
     CrudListScreen(
         title = "Productos",
-        items = pagedProductos, // Se pasan los datos paginados
+        items = pagedProductos,
         itemContent = { producto ->
             val label = buildString {
                 append(producto.descripcion ?: "Sin descripción")
@@ -1087,26 +1344,48 @@ private fun ProductListContent(
             Text(label)
         },
         onSearchQueryChanged = { query ->
-            // La acción de búsqueda se delega al ViewModel
             productoViewModel.search(query)
         },
         onSelect = { producto ->
-            // La acción de selección solo se ejecuta en modo de venta
             if (screenMode == CrudScreenMode.VIEW_SELECT) {
                 onProductSelected(producto)
             }
         },
         onDismiss = onDismiss,
-        // El botón de crear (+) solo aparece en modo de gestión
         onCreate = if (screenMode == CrudScreenMode.EDIT_DELETE) onAttemptCreate else null,
         onAttemptEdit = onAttemptEdit,
-        onDelete = { producto ->
-            productoViewModel.delete(producto.toEntity())
-            NotificationManager.show("Producto '${producto.descripcion}' eliminado.", NotificationType.SUCCESS)
-        },
+        onAttemptDelete  = onDelete,
         screenMode = screenMode,
         itemKey = { producto ->
-            "producto_${producto.id}_${producto.codigo}"
+            "producto_${producto.localId}"
         }
     )
+}
+
+@Composable
+fun SyncStatusIcon(state: SyncService.SyncState, modifier: Modifier = Modifier) {
+    AnimatedVisibility(
+        visible = state != SyncService.SyncState.IDLE,
+        enter = fadeIn(),
+        exit = fadeOut(),
+        modifier = modifier
+    ) {
+        val iconRes = when (state) {
+            SyncService.SyncState.DOWNLOADING -> R.drawable.ic_download
+            SyncService.SyncState.UPLOADING -> R.drawable.ic_upload
+            else -> null
+        }
+
+        if (iconRes != null) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = "Estado de Sincronización",
+                tint = Blanco,
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.3f), shape = CircleShape)
+                    .padding(4.dp)
+                    .size(20.dp)
+            )
+        }
+    }
 }

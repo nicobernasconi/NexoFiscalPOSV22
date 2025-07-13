@@ -18,7 +18,7 @@ interface RenglonComprobanteDao {
 
     // --- CAMBIO: Se añade un método para borrar todos los renglones de un comprobante ---
     @Query("DELETE FROM renglones_comprobante WHERE comprobanteLocalId = :compId")
-    suspend fun deleteByComprobanteId(compId: Int)
+     fun deleteByComprobanteId(compId: Int)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: RenglonComprobanteEntity)

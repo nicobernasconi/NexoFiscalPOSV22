@@ -26,7 +26,7 @@ object ProvinciaManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).provinciaDao()
                 val entities = allItems.toProvinciaEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} provincias guardadas/actualizadas en la BD.")
 
                 withContext(Dispatchers.Main) {

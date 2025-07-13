@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,6 +16,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +35,7 @@ import ar.com.nexofiscal.nexofiscalposv2.ui.theme.AzulNexo
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.Blanco
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.GrisClaro
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.NegroNexo
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.RojoError
 
 enum class CrudScreenMode {
     VIEW_SELECT,
@@ -48,22 +49,27 @@ enum class CrudScreenMode {
 fun <T: Any> CrudListScreen(
     title: String,
     items: LazyPagingItems<T>,
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se cambia itemLabel por itemContent para aceptar un @Composable
     itemContent: @Composable (T) -> Unit,
-    // --- FIN DE LA MODIFICACIÓN ---
     onSearchQueryChanged: (String) -> Unit,
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit,
     onAttemptEdit: ((T) -> Unit)? = null,
-    onDelete: ((T) -> Unit)? = null,
+    onAttemptDelete: ((T) -> Unit)? = null, // Renombrado de onDelete
+    useInternalDeleteDialog: Boolean = true,
     onCreate: (() -> Unit)? = null,
+    isActionEnabled: ((T) -> Boolean)? = null,
     screenMode: CrudScreenMode = CrudScreenMode.VIEW_SELECT,
     itemKey: ((T) -> Any)? = null,
     searchHint: String = stringResource(R.string.default_search_hint)
 ) {
+    LaunchedEffect(Unit) {
+        onSearchQueryChanged("")
+    }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     var searchText by remember { mutableStateOf("") }
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var itemToDelete by remember { mutableStateOf<T?>(null) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -85,8 +91,12 @@ fun <T: Any> CrudListScreen(
         },
         floatingActionButton = {
             if (onCreate != null && screenMode != CrudScreenMode.VIEW_SELECT && screenMode != CrudScreenMode.ONLY_VIEW) {
-                FloatingActionButton(onClick = onCreate) {
-                    Icon(Icons.Default.Add, stringResource(R.string.create_new_item))
+                FloatingActionButton(
+                    onClick = onCreate,
+                    containerColor = AzulNexo,
+                    contentColor = Blanco
+                ) {
+                    Icon(Icons.Default.Add, stringResource(R.string.create_new_item), tint = Blanco)
                 }
             }
         },
@@ -97,7 +107,7 @@ fun <T: Any> CrudListScreen(
                 value = searchText,
                 onValueChange = {
                     searchText = it
-                    onSearchQueryChanged(it) // Notifica al ViewModel sobre la búsqueda
+                    onSearchQueryChanged(it)
                 },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 placeholder = { Text(searchHint) },
@@ -142,16 +152,19 @@ fun <T: Any> CrudListScreen(
                                 if (item != null) {
                                     CrudListItem(
                                         item = item,
-                                        // --- INICIO DE LA MODIFICACIÓN ---
                                         itemContent = { itemContent(item) },
-                                        // --- FIN DE LA MODIFICACIÓN ---
                                         onSelect = { onSelect(item) },
-                                        onEdit = if (screenMode == CrudScreenMode.EDIT_DELETE || screenMode == CrudScreenMode.EDIT_DELETE_EDIT_PRINT) {
-                                            { onAttemptEdit?.invoke(item) }
-                                        } else null,
-                                        onDelete = if (screenMode == CrudScreenMode.EDIT_DELETE || screenMode == CrudScreenMode.EDIT_DELETE_EDIT_PRINT) {
-                                            { onDelete?.invoke(item) }
-                                        } else null,
+                                        onEdit = onAttemptEdit,
+                                         onDelete  = { selectedItem ->
+                                            if (useInternalDeleteDialog) {
+                                                itemToDelete = selectedItem
+                                                showDeleteDialog = true
+                                            } else {
+                                                // Si el diálogo interno está desactivado, llamamos directamente a la acción.
+                                                onAttemptDelete?.invoke(selectedItem)
+                                            }
+                                        },
+                                        isActionEnabled = isActionEnabled?.invoke(item) ?: true,
                                         showSelectActionIcon = screenMode == CrudScreenMode.VIEW_SELECT,
                                         screenMode = screenMode
                                     )
@@ -163,18 +176,55 @@ fun <T: Any> CrudListScreen(
             }
         }
     }
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+                itemToDelete = null
+            },
+            title = { Text("Confirmar Eliminación") },
+            text = { Text("¿Estás seguro de que deseas eliminar este elemento? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        itemToDelete?.let {
+                            onAttemptDelete?.invoke(it)
+                        }
+                        showDeleteDialog = false
+                        itemToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RojoError),
+                    shape = RoundedCornerShape(5.dp)
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    itemToDelete = null
+                }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
+// --- INICIO DE LA MODIFICACIÓN ---
 @Composable
 fun <T> CrudListItem(
     item: T,
     itemContent: @Composable () -> Unit,
     onSelect: () -> Unit,
-    onEdit: (() -> Unit)?,
-    onDelete: (() -> Unit)?,
+    onEdit: ((T) -> Unit)?,
+    onDelete: ((T) -> Unit)?,
+    isActionEnabled: Boolean,
     showSelectActionIcon: Boolean,
     screenMode: CrudScreenMode
 ) {
+    val backgroundColor = if (isActionEnabled) GrisClaro else GrisClaro.copy(alpha = 0.5f)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -183,7 +233,7 @@ fun <T> CrudListItem(
         shape = RoundedCornerShape(5.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(
-            containerColor = GrisClaro,
+            containerColor = backgroundColor,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
     ) {
@@ -194,11 +244,10 @@ fun <T> CrudListItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(modifier = Modifier.weight(1f)) {
-                // --- INICIO DE LA MODIFICACIÓN ---
                 itemContent()
-                // --- FIN DE LA MODIFICACIÓN ---
             }
             Spacer(Modifier.width(16.dp))
+
             if (showSelectActionIcon) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -206,44 +255,49 @@ fun <T> CrudListItem(
                     tint = MaterialTheme.colorScheme.primary
                 )
             } else {
-                if (onEdit != null) {
-                    IconButton(onClick = onEdit) {
-                        if (screenMode == CrudScreenMode.EDIT_DELETE_EDIT_PRINT) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_print),
-                                contentDescription = "Reimprimir",
-                                tint = NegroNexo
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = stringResource(R.string.edit_item),
-                                tint = NegroNexo
-                            )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // El botón de Editar/Imprimir ahora solo depende de si `onEdit` no es nulo.
+                    // Se mostrará siempre que la acción exista, sin importar `isActionEnabled`.
+                    if (onEdit != null) {
+                        IconButton(onClick = { onEdit(item) }) {
+                            if (screenMode == CrudScreenMode.EDIT_DELETE_EDIT_PRINT) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_print),
+                                    contentDescription = "Reimprimir",
+                                    tint = NegroNexo
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = stringResource(R.string.edit_item),
+                                    tint = NegroNexo
+                                )
+                            }
                         }
                     }
-                }
-                if (onDelete != null) {
-                    if (onEdit != null) Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = stringResource(R.string.delete_item),
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                    // El botón de Borrar/Anular ahora depende de `onDelete` Y de `isActionEnabled`.
+                    // Esto permite ocultarlo condicionalmente para ítems ya anulados.
+                    if (onDelete != null && isActionEnabled) {
+                        if (onEdit != null) Spacer(Modifier.width(8.dp))
+                        IconButton(onClick = { onDelete(item) }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = stringResource(R.string.delete_item),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
 @Composable
 fun EmptyStateOrNoResults(modifier: Modifier = Modifier, isSearchActive: Boolean) {
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = modifier.fillMaxSize().padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(

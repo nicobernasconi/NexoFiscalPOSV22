@@ -31,6 +31,30 @@ interface TasaIvaDao {
     @Query("DELETE FROM tasas_iva WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM tasas_iva WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): TasaIvaEntity?
+
+    /**
+     * Inserta o actualiza una lista de tasas de IVA. Si una ya existe
+     * (mismo serverId), la actualiza. Si no, la inserta como nueva.
+     */
+    @Transaction
+    suspend fun upsertAll(tasas: List<TasaIvaEntity>) {
+        tasas.forEach { tasa ->
+            val existente = tasa.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                tasa.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                tasa
+            }
+
+            insert(entidadParaInsertar)
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

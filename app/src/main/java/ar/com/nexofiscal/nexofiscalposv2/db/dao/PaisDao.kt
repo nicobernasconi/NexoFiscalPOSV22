@@ -31,6 +31,31 @@ interface PaisDao {
     @Query("DELETE FROM paises WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM paises WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): PaisEntity?
+
+    /**
+     * Inserta o actualiza una lista de paises. Si un país ya existe
+     * (mismo serverId), lo actualiza. Si no, lo inserta como nuevo.
+     */
+    @Transaction
+    suspend fun upsertAll(paises: List<PaisEntity>) {
+        paises.forEach { pais ->
+            val existente = pais.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                pais.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                pais
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

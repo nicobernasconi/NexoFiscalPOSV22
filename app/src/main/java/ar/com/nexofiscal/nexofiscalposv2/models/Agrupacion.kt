@@ -1,46 +1,39 @@
-// src/main/java/ar/com/nexofiscal/nexofiscalpos/models/Agrupacion.java
 package ar.com.nexofiscal.nexofiscalposv2.models
 
 import com.google.gson.annotations.SerializedName
 
 class Agrupacion {
-    // --- Getters & Setters ---
+    var localId: Int = 0 // <-- AÑADIDO
     @SerializedName("id")
     var id: Int = 0
-
     @SerializedName("numero")
-    var numero: Int? = null // puede ser null
-
+    var numero: Int? = null
     @SerializedName("nombre")
     var nombre: String? = null
-
     @SerializedName("color")
     var color: String? = null
-
     @SerializedName("icono")
     var icono: String? = null
 
-    constructor()
-
-    constructor(id: Int, numero: Int?, nombre: String?, color: String?, icono: String?) {
-        this.id = id
-        this.numero = numero
-        this.nombre = nombre
-        this.color = color
-        this.icono = icono
-    }
-
     override fun toString(): String {
-        return "Agrupacion{" +
-                "id=" + id +
-                ", numero=" + numero +
-                ", nombre='" + nombre + '\'' +
-                ", color='" + color + '\'' +
-                ", icono='" + icono + '\'' +
-                '}'
+        return "Agrupacion(id=$id, nombre='$nombre')"
     }
 
-    fun copy(id: Int = this.id, numero: Int? = this.numero, nombre: String? = this.nombre, color: String? = this.color, icono: String? = this.icono): Agrupacion {
-        return Agrupacion(id, numero, nombre, color, icono)
+    fun copy(
+        localId: Int = this.localId, // <-- AÑADIDO
+        id: Int = this.id,
+        numero: Int? = this.numero,
+        nombre: String? = this.nombre,
+        color: String? = this.color,
+        icono: String? = this.icono
+    ): Agrupacion {
+        val agrupacion = Agrupacion()
+        agrupacion.localId = localId // <-- AÑADIDO
+        agrupacion.id = id
+        agrupacion.numero = numero
+        agrupacion.nombre = nombre
+        agrupacion.color = color
+        agrupacion.icono = icono
+        return agrupacion
     }
 }

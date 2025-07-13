@@ -19,6 +19,8 @@ import ar.com.nexofiscal.nexofiscalposv2.screens.edit.EntityEditScreen
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 
+// main/java/ar/com/nexofiscal/nexofiscalposv2/screens/UsuarioScreen.kt
+
 @Composable
 fun UsuarioScreen(
     viewModel: UsuarioViewModel,
@@ -30,11 +32,23 @@ fun UsuarioScreen(
     val pagedItems = viewModel.pagedUsuarios.collectAsLazyPagingItems()
     val fieldDescriptors = remember { getUsuarioFieldDescriptors(rolViewModel, sucursalViewModel, vendedorViewModel) }
 
+    // --- INICIO DE LA MODIFICACIÓN ---
     var showEditScreen by remember { mutableStateOf(false) }
-    var entityInScreen by remember { mutableStateOf<Usuario?>(null) }
+    // Observamos el StateFlow del ViewModel
+    val entityInScreen by viewModel.usuarioParaEditar.collectAsState()
     var isCreateMode by remember { mutableStateOf(false) }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     val itemLabel: (Usuario) -> String = { "${it.nombreCompleto} (${it.nombreUsuario})" }
+
+    // El `LaunchedEffect` se asegura de que cuando `entityInScreen` se popule,
+    // se muestre el diálogo.
+    LaunchedEffect(entityInScreen) {
+        if (entityInScreen != null) {
+            isCreateMode = false
+            showEditScreen = true
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         CrudListScreen(
@@ -47,39 +61,51 @@ fun UsuarioScreen(
             screenMode = CrudScreenMode.EDIT_DELETE,
             onCreate = {
                 isCreateMode = true
-                entityInScreen = Usuario()
+                // Para la creación, podemos instanciar un objeto vacío directamente.
+                viewModel.limpiarUsuarioParaEdicion() // Limpiamos por si acaso
+                // No llamamos a cargarUsuarioParaEdicion, sino que preparamos un estado de creación
+                // Esto se podría manejar dentro del ViewModel si la lógica de creación es compleja.
+                // Por ahora, lo manejaremos en la pantalla de edición.
                 showEditScreen = true
             },
             onAttemptEdit = { item ->
-                isCreateMode = false
-                entityInScreen = item
-                showEditScreen = true
+                // En lugar de mostrar la pantalla directamente, le pedimos al ViewModel que cargue los datos.
+                viewModel.cargarUsuarioParaEdicion(item.id)
             },
-            onDelete = { item ->
+             onAttemptDelete  = { item ->
                 viewModel.delete(item.toEntity())
                 NotificationManager.show("Usuario '${item.nombreUsuario}' eliminado.", NotificationType.SUCCESS)
             },
             itemKey = { it.id }
         )
 
-        if (showEditScreen && entityInScreen != null) {
+        // El diálogo de edición ahora se muestra cuando `showEditScreen` es true
+        if (showEditScreen) {
             val titlePrefix = if (isCreateMode) "Crear" else "Editar"
-            val entityLabelText = if (isCreateMode) "" else itemLabel(entityInScreen!!)
-            val dialogTitle = if(entityLabelText.isNotBlank()) "$titlePrefix Usuario: $entityLabelText" else "$titlePrefix Usuario"
+            val entityToEdit = if (isCreateMode) remember { Usuario() } else entityInScreen
 
-            Surface(modifier = Modifier.fillMaxSize()) {
-                EntityEditScreen(
-                    title = dialogTitle,
-                    initialEntity = entityInScreen!!,
-                    fieldDescriptors = fieldDescriptors,
-                    onSave = { updatedEntity ->
-                        viewModel.save(updatedEntity.toEntity())
-                        showEditScreen = false
-                        val action = if (isCreateMode) "creado" else "guardado"
-                        NotificationManager.show("Usuario '${updatedEntity.nombreUsuario}' $action.", NotificationType.SUCCESS)
-                    },
-                    onCancel = { showEditScreen = false }
-                )
+            if (entityToEdit != null) {
+                val entityLabelText = if (isCreateMode) "" else itemLabel(entityToEdit)
+                val dialogTitle = if(entityLabelText.isNotBlank()) "$titlePrefix Usuario: $entityLabelText" else "$titlePrefix Usuario"
+
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    EntityEditScreen(
+                        title = dialogTitle,
+                        initialEntity = entityToEdit,
+                        fieldDescriptors = fieldDescriptors,
+                        onSave = { updatedEntity ->
+                            viewModel.save(updatedEntity.toEntity())
+                            showEditScreen = false
+                            viewModel.limpiarUsuarioParaEdicion() // Limpiar el estado
+                            val action = if (isCreateMode) "creado" else "guardado"
+                            NotificationManager.show("Usuario '${updatedEntity.nombreUsuario}' $action.", NotificationType.SUCCESS)
+                        },
+                        onCancel = {
+                            showEditScreen = false
+                            viewModel.limpiarUsuarioParaEdicion() // Limpiar el estado
+                        }
+                    )
+                }
             }
         }
     }

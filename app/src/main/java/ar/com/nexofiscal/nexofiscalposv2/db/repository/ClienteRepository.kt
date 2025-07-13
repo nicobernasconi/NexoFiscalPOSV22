@@ -6,28 +6,29 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ClienteDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ClienteConDetalles
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ClienteEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
 class ClienteRepository(private val dao: ClienteDao) {
 
-    fun getClientesPaginated(query: String): Flow<PagingData<ClienteEntity>> {
+    fun getClientesPaginated(query: String): Flow<PagingData<ClienteConDetalles>> {
         val normalizedQuery = "%${query.trim()}%"
         return Pager(
-            config = PagingConfig(
-                pageSize = 200,
-                enablePlaceholders = false
-            ),
+            config = PagingConfig(pageSize = 200, enablePlaceholders = false),
             pagingSourceFactory = {
                 if (query.isBlank()) {
-                    dao.getPagingSource()
+                    dao.getPagingSourceWithDetails()
                 } else {
-                    dao.searchPagingSource(normalizedQuery)
+                    dao.searchPagingSourceWithDetails(normalizedQuery)
                 }
             }
         ).flow
     }
+
+    // Añade el nuevo método
+    suspend fun getConDetallesById(id: Int): ClienteConDetalles? = dao.getConDetallesById(id)
 
     suspend fun porId(id: Int): ClienteEntity? = dao.getById(id)
 

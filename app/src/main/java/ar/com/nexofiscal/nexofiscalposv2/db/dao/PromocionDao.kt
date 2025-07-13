@@ -31,6 +31,30 @@ interface PromocionDao {
     @Query("DELETE FROM promociones WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM promociones WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): PromocionEntity?
+
+    /**
+     * Inserta o actualiza una lista de promociones. Si una promoción ya existe
+     * (mismo serverId), la actualiza. Si no, la inserta como nueva.
+     */
+    @Transaction
+    suspend fun upsertAll(promociones: List<PromocionEntity>) {
+        promociones.forEach { promocion ->
+            val existente = promocion.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                promocion.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                promocion
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

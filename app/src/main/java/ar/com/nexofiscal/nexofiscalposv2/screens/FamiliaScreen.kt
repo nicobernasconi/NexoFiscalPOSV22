@@ -49,11 +49,11 @@ fun FamiliaScreen(
                 entityInScreen = familia
                 showEditScreen = true
             },
-            onDelete = { familia ->
+             onAttemptDelete  = { familia ->
                 viewModel.eliminar(familia.toEntity())
                 NotificationManager.show("Familia '${familia.nombre}' eliminada.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id }
+            itemKey = { it.localId }
         )
 
         if (showEditScreen && entityInScreen != null) {

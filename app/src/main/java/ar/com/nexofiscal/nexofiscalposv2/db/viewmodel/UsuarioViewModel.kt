@@ -15,6 +15,9 @@ import ar.com.nexofiscal.nexofiscalposv2.db.repository.SucursalRepository
 import ar.com.nexofiscal.nexofiscalposv2.models.Usuario
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.UsuarioRepository
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.VendedorRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -57,12 +60,13 @@ class UsuarioViewModel(application: Application) : AndroidViewModel(application)
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(u: UsuarioEntity) {
         viewModelScope.launch {
-            if (u.serverId == null) {
+            if (u.serverId == null || u.serverId == 0) {
                 u.syncStatus = SyncStatus.CREATED
             } else {
                 u.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(u)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 
@@ -72,5 +76,36 @@ class UsuarioViewModel(application: Application) : AndroidViewModel(application)
             u.syncStatus = SyncStatus.DELETED
             repo.actualizar(u)
         }
+    }
+
+    private val _usuarioParaEditar = MutableStateFlow<Usuario?>(null)
+    val usuarioParaEditar: StateFlow<Usuario?> = _usuarioParaEditar.asStateFlow()
+
+    /**
+     * Carga un usuario y todas sus entidades relacionadas para la edición.
+     * El resultado se publica en el StateFlow `usuarioParaEditar`.
+     */
+    fun cargarUsuarioParaEdicion(usuarioId: Int) {
+        viewModelScope.launch {
+            // Obtenemos la entidad base y sus relaciones a través de `UsuarioConDetalles`
+            val usuarioConDetalles = repo.getConDetallesById(usuarioId) // Necesitarás añadir este método al repositorio y DAO
+
+            if (usuarioConDetalles != null) {
+                // Mapeamos el resultado a nuestro modelo de dominio completo
+                val usuarioCompleto = usuarioConDetalles.toDomainModel()
+                _usuarioParaEditar.value = usuarioCompleto
+            } else {
+                // Manejar el caso de que el usuario no se encuentre
+                NotificationManager.show("Error: No se pudo cargar el usuario para editar.", NotificationType.ERROR)
+                _usuarioParaEditar.value = null
+            }
+        }
+    }
+
+    /**
+     * Limpia el estado del usuario para editar, para ser llamado cuando se cierra el diálogo.
+     */
+    fun limpiarUsuarioParaEdicion() {
+        _usuarioParaEditar.value = null
     }
 }

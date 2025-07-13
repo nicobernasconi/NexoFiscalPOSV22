@@ -51,11 +51,11 @@ fun FormaPagoScreen(
                 entityInScreen = formaPago
                 showEditScreen = true
             },
-            onDelete = { formaPago ->
+             onAttemptDelete  = { formaPago ->
                 formaPagoViewModel.eliminar(formaPago.toEntity())
                 NotificationManager.show("Forma de Pago '${formaPago.nombre}' eliminada.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id }
+            itemKey = { it.localId }
         )
 
         if (showEditScreen && entityInScreen != null) {

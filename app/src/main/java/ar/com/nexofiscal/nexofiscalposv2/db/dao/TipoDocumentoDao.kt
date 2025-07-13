@@ -7,7 +7,6 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoDocumentoEntity
 
 @Dao
 interface TipoDocumentoDao {
-    // --- CAMBIO: Las consultas ahora excluyen los registros marcados para borrar ---
     @Query("SELECT * FROM tipos_documento WHERE syncStatus != :statusDeleted ORDER BY nombre ASC")
     fun getPagingSource(statusDeleted: SyncStatus = SyncStatus.DELETED): PagingSource<Int, TipoDocumentoEntity>
 
@@ -16,8 +15,6 @@ interface TipoDocumentoDao {
 
     @Query("SELECT * FROM tipos_documento WHERE id = :id")
     suspend fun getById(id: Int): TipoDocumentoEntity?
-
-    // --- FUNCIONES NUEVAS PARA SINCRONIZACIÓN ---
 
     @Query("SELECT * FROM tipos_documento WHERE syncStatus != :statusSynced")
     suspend fun getUnsynced(statusSynced: SyncStatus = SyncStatus.SYNCED): List<TipoDocumentoEntity>
@@ -31,8 +28,6 @@ interface TipoDocumentoDao {
     @Query("DELETE FROM tipos_documento WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
-    // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(tipo: TipoDocumentoEntity)
 
@@ -42,8 +37,23 @@ interface TipoDocumentoDao {
     @Update
     suspend fun update(tipo: TipoDocumentoEntity)
 
-    // El @Delete original se elimina, el borrado ahora es lógico.
-
     @Query("DELETE FROM tipos_documento")
     suspend fun clearAll()
+
+    // --- FUNCIONES CORREGIDAS/AÑADIDAS ---
+    @Query("SELECT * FROM tipos_documento WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): TipoDocumentoEntity?
+
+    @Transaction
+    suspend fun upsertAll(tipos: List<TipoDocumentoEntity>) {
+        tipos.forEach { tipo ->
+            val existente = tipo.serverId?.let { findByServerId(it) }
+            val entidadParaInsertar = if (existente != null) {
+                tipo.copy(id = existente.id)
+            } else {
+                tipo
+            }
+            insert(entidadParaInsertar)
+        }
+    }
 }

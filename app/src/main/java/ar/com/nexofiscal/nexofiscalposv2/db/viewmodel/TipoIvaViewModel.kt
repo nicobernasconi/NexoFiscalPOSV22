@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoIvaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoIVA
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoIvaRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -30,7 +31,10 @@ class TipoIvaViewModel(application: Application) : AndroidViewModel(application)
             repo.getTiposIvaPaginated(query)
         }
         .map { pagingData ->
-            pagingData.map { entity -> entity.toDomainModel() }
+            pagingData.map { entity ->
+                // Al igual que con TipoDocumento, este mapeo es crucial.
+                entity.toDomainModel()
+            }
         }
         .cachedIn(viewModelScope)
 
@@ -41,12 +45,13 @@ class TipoIvaViewModel(application: Application) : AndroidViewModel(application)
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(ti: TipoIvaEntity) {
         viewModelScope.launch {
-            if (ti.serverId == null) {
+            if (ti.serverId == null || ti.serverId == 0) {
                 ti.syncStatus = SyncStatus.CREATED
             } else {
                 ti.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(ti)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

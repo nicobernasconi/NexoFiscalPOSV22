@@ -10,8 +10,8 @@ data class FormaPagoEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     var serverId: Int?,
     var syncStatus: SyncStatus,
-
     val nombre: String?,
     val porcentaje: Int,
+    val activa: Int = 1,
     val tipoFormaPagoId: Int?
 )

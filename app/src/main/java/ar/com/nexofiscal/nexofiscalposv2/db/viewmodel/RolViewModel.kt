@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.Rol
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.RolRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -41,12 +42,13 @@ class RolViewModel(application: Application) : AndroidViewModel(application) {
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(r: RolEntity) {
         viewModelScope.launch {
-            if (r.serverId == null) {
+            if (r.serverId == null || r.serverId == 0) {
                 r.syncStatus = SyncStatus.CREATED
             } else {
                 r.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(r)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

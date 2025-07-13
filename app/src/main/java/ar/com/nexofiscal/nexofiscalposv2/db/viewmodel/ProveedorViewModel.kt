@@ -15,6 +15,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.repository.LocalidadRepository
 import ar.com.nexofiscal.nexofiscalposv2.models.Proveedor
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.ProveedorRepository
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoIvaRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -57,12 +58,13 @@ class ProveedorViewModel(application: Application) : AndroidViewModel(applicatio
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(p: ProveedorEntity) {
         viewModelScope.launch {
-            if (p.serverId == null) {
+            if (p.serverId == null || p.serverId == 0) {
                 p.syncStatus = SyncStatus.CREATED
             } else {
                 p.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(p)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

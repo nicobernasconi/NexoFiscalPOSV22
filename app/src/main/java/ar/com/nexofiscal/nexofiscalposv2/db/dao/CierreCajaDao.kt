@@ -32,6 +32,27 @@ interface CierreCajaDao {
     @Query("DELETE FROM cierres_caja WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM cierres_caja WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): CierreCajaEntity?
+
+    /**
+     * Inserta o actualiza una lista de cierres de caja.
+     */
+    @Transaction
+    suspend fun upsertAll(cierres: List<CierreCajaEntity>) {
+        cierres.forEach { cierre ->
+            val existente = cierre.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                cierre.copy(id = existente.id)
+            } else {
+                cierre
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -1,5 +1,6 @@
 package ar.com.nexofiscal.nexofiscalposv2
 
+import android.annotation.SuppressLint
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.pm.ActivityInfo
@@ -8,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler // --- CAMBIO: Import necesario ---
@@ -22,6 +24,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.*
 import ar.com.nexofiscal.nexofiscalposv2.devices.XmlPresentationScreen
+import ar.com.nexofiscal.nexofiscalposv2.managers.KeyEventManager
 import ar.com.nexofiscal.nexofiscalposv2.managers.SyncManager
 import ar.com.nexofiscal.nexofiscalposv2.screens.MainScreen
 import ar.com.nexofiscal.nexofiscalposv2.ui.LoadingDialog
@@ -67,6 +70,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var vendedorViewModel: VendedorViewModel
     private lateinit var cierreCajaViewModel: CierreCajaViewModel
     private lateinit var tipoComprobanteViewModel: TipoComprobanteViewModel
+    private lateinit var configuracionViewModel: ConfiguracionViewModel
+    private lateinit var monedaViewModel: MonedaViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,6 +117,9 @@ class MainActivity : ComponentActivity() {
         vendedorViewModel = ViewModelProvider(this)[VendedorViewModel::class.java]
         cierreCajaViewModel = ViewModelProvider(this)[CierreCajaViewModel::class.java]
         tipoComprobanteViewModel = ViewModelProvider(this)[TipoComprobanteViewModel::class.java]
+        configuracionViewModel = ViewModelProvider(this)[ConfiguracionViewModel::class.java]
+        monedaViewModel = ViewModelProvider(this)[MonedaViewModel::class.java]
+
 
 
         currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "AR")).apply {
@@ -143,8 +151,8 @@ class MainActivity : ComponentActivity() {
                             agrupacionViewModel, comprobanteViewModel, renglonComprobanteViewModel,
                             tipoDocumentoViewModel, tipoIvaViewModel, categoriaViewModel,
                             tipoFormaPagoViewModel, localidadViewModel, promocionViewModel,
-                            paisViewModel, provinciaViewModel, rolViewModel, sucursalViewModel,
-                            usuarioViewModel, vendedorViewModel, cierreCajaViewModel,tipoComprobanteViewModel
+                            paisViewModel, provinciaViewModel, rolViewModel, sucursalViewModel,configuracionViewModel,
+                            usuarioViewModel, vendedorViewModel, cierreCajaViewModel,tipoComprobanteViewModel,monedaViewModel,
 
                         )
                         NotificationHost()
@@ -205,5 +213,16 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         xmlPresentationScreen?.dismiss()
         xmlPresentationScreen = null
+    }
+
+    @SuppressLint("RestrictedApi")
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Pasamos el evento a nuestro gestor.
+        // Si el gestor lo consume, no lo propagamos más.
+        if (KeyEventManager.processKeyEvent(event)) {
+            return true
+        }
+        // Si no, dejamos que el sistema lo maneje de forma normal.
+        return super.dispatchKeyEvent(event)
     }
 }

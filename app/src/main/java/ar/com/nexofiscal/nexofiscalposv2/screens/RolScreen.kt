@@ -49,7 +49,7 @@ fun RolScreen(
                 entityInScreen = rol
                 showEditScreen = true
             },
-            onDelete = { rol ->
+             onAttemptDelete  = { rol ->
                 viewModel.delete(rol.toEntity())
                 NotificationManager.show("Rol '${rol.nombre}' eliminado.", NotificationType.SUCCESS)
             },

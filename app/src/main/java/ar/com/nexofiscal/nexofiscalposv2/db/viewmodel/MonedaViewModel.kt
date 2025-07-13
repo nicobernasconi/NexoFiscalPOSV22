@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.Moneda
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.MonedaRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -41,12 +42,13 @@ class MonedaViewModel(application: Application) : AndroidViewModel(application) 
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(m: MonedaEntity) {
         viewModelScope.launch {
-            if (m.serverId == null) {
+            if (m.serverId == null || m.serverId == 0) {
                 m.syncStatus = SyncStatus.CREATED
             } else {
                 m.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(m)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

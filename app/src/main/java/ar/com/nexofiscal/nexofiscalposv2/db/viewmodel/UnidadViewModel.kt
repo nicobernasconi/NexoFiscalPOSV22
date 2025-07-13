@@ -11,6 +11,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.UnidadEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.UnidadRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Unidad
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -41,12 +42,13 @@ class UnidadViewModel(application: Application) : AndroidViewModel(application) 
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(u: UnidadEntity) {
         viewModelScope.launch {
-            if (u.serverId == null) {
+            if (u.serverId == null || u.serverId == 0) {
                 u.syncStatus = SyncStatus.CREATED
             } else {
                 u.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(u)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

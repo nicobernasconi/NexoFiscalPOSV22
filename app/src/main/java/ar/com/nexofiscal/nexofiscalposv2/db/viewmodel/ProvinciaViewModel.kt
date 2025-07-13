@@ -13,6 +13,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.Provincia
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.PaisRepository
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.ProvinciaRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -48,12 +49,13 @@ class ProvinciaViewModel(application: Application) : AndroidViewModel(applicatio
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(p: ProvinciaEntity) {
         viewModelScope.launch {
-            if (p.serverId == null) {
+            if (p.serverId == null || p.serverId == 0) {
                 p.syncStatus = SyncStatus.CREATED
             } else {
                 p.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(p)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

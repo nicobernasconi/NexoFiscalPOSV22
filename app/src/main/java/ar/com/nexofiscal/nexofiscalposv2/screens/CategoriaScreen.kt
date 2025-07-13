@@ -49,11 +49,11 @@ fun CategoriaScreen(
                 entityInScreen = categoria
                 showEditScreen = true
             },
-            onDelete = { categoria ->
+             onAttemptDelete  = { categoria ->
                 viewModel.remove(categoria.toEntity())
                 NotificationManager.show("Categoría '${categoria.nombre}' eliminada.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id ?: 0 },
+            itemKey = { it.localId },
         )
 
         if (showEditScreen && entityInScreen != null) {

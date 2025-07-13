@@ -34,6 +34,23 @@ interface FamiliaDao {
     @Query("SELECT * FROM familias WHERE serverId = :serverId LIMIT 1")
     suspend fun findByServerId(serverId: Int): FamiliaEntity?
 
+    @Transaction
+    suspend fun upsertAll(familias: List<FamiliaEntity>) {
+        familias.forEach { familia ->
+            val existente = familia.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                familia.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                familia
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -20,6 +20,7 @@ import ar.com.nexofiscal.nexofiscalposv2.models.Provincia
 import ar.com.nexofiscal.nexofiscalposv2.models.Rol
 import ar.com.nexofiscal.nexofiscalposv2.models.Sucursal
 import ar.com.nexofiscal.nexofiscalposv2.models.TasaIva
+import ar.com.nexofiscal.nexofiscalposv2.models.Tipo
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoComprobante
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoDocumento
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoFormaPago
@@ -80,18 +81,28 @@ object SyncManager {
                     "/api/agrupaciones",
                     object : com.google.gson.reflect.TypeToken<List<Agrupacion>>() {}.type,
                     headers
-                ) { db.agrupacionDao().insertAll(it.map(Agrupacion::toEntity)) }
+                ) { db.agrupacionDao().upsertAll(it.map(Agrupacion::toEntity)) } // <-- CAMBIO AQUÍ
+            },
+            {
+                _progressState.update { it.copy(currentTaskName = "Tipos", currentTaskItemCount = 0) }
+                // Corregimos el tipo genérico de Agrupacion a Tipo
+                executeSyncTask<Tipo>(
+                    "Tipos",
+                    "/api/tipos",
+                    object : com.google.gson.reflect.TypeToken<List<Tipo>>() {}.type,
+                    headers
+                ) { db.tipoDao().upsertAll(it.map(Tipo::toEntity)) }
             },
             {
 
-                _progressState.update { it.copy(currentTaskName = "Categorías", currentTaskItemCount = 0) }
+                _progressState.update { it.copy(currentTaskName = "Tipos", currentTaskItemCount = 0) }
 
                 executeSyncTask<Categoria>(
                     "Categorías",
                     "/api/categorias",
                     object : com.google.gson.reflect.TypeToken<List<Categoria>>() {}.type,
                     headers
-                ) { db.categoriaDao().insertAll(it.map(Categoria::toEntity)) }
+                ) { db.categoriaDao().upsertAll(it.map(Categoria::toEntity)) } // <-- CAMBIO AQUÍ
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Clientes", currentTaskItemCount = 0) }
@@ -100,7 +111,7 @@ object SyncManager {
                     "/api/clientes",
                     object : com.google.gson.reflect.TypeToken<List<Cliente>>() {}.type,
                     headers
-                ) { db.clienteDao().insertAll(it.map(Cliente::toEntity)) }
+                ) { db.clienteDao().upsertAll(it.map(Cliente::toEntity)) } // <-- Usamos la nueva función upsertAll
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Formas de Pago", currentTaskItemCount = 0) }
@@ -109,7 +120,7 @@ object SyncManager {
                     "/api/formas_pagos",
                     object : com.google.gson.reflect.TypeToken<List<FormaPago>>() {}.type,
                     headers
-                ) { db.formaPagoDao().insertAll(it.map(FormaPago::toEntity)) }
+                ) { db.formaPagoDao().upsertAll(it.map(FormaPago::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Productos", currentTaskItemCount = 0) }
@@ -119,7 +130,7 @@ object SyncManager {
                     "/api/productos?activo=1",
                     object : com.google.gson.reflect.TypeToken<List<Producto>>() {}.type,
                     headers
-                ) { db.productoDao().insertAll(it.map(Producto::toEntity)) }
+                ) { db.productoDao().upsertAll(it.map(Producto::toEntity)) } // <-- CAMBIO AQUÍ
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Proveedores", currentTaskItemCount = 0) }
@@ -128,7 +139,7 @@ object SyncManager {
                     "/api/proveedores",
                     object : com.google.gson.reflect.TypeToken<List<Proveedor>>() {}.type,
                     headers
-                ) { db.proveedorDao().insertAll(it.map(Proveedor::toEntity)) }
+                ) { db.proveedorDao().upsertAll(it.map(Proveedor::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Promociones", currentTaskItemCount = 0) }
@@ -137,7 +148,7 @@ object SyncManager {
                     "/api/promociones",
                     object : com.google.gson.reflect.TypeToken<List<Promocion>>() {}.type,
                     headers
-                ) { db.promocionDao().insertAll(it.map(Promocion::toEntity)) }
+                ) { db.promocionDao().upsertAll(it.map(Promocion::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Vendedores", currentTaskItemCount = 0) }
@@ -146,7 +157,7 @@ object SyncManager {
                     "/api/usuarios",
                     object : com.google.gson.reflect.TypeToken<List<Usuario>>() {}.type,
                     headers
-                ) { db.usuarioDao().insertAll(it.map(Usuario::toEntity)) }
+                ) { db.usuarioDao().upsertAll(it.map(Usuario::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Vendedores", currentTaskItemCount = 0) }
@@ -155,7 +166,7 @@ object SyncManager {
                     "/api/vendedores",
                     object : com.google.gson.reflect.TypeToken<List<Vendedor>>() {}.type,
                     headers
-                ) { db.vendedorDao().insertAll(it.map(Vendedor::toEntity)) }
+                ) { db.vendedorDao().upsertAll(it.map(Vendedor::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Tipos de Comprobante", currentTaskItemCount = 0) }
@@ -164,7 +175,7 @@ object SyncManager {
                     "/api/tipos_comprobante",
                     object : com.google.gson.reflect.TypeToken<List<TipoComprobante>>() {}.type,
                     headers
-                ) { db.tipoComprobanteDao().insertAll(it.map(TipoComprobante::toEntity)) }
+                ) { db.tipoComprobanteDao().upsertAll(it.map(TipoComprobante::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Tipos de Documento", currentTaskItemCount = 0) }
@@ -173,7 +184,7 @@ object SyncManager {
                     "/api/tipos_documento",
                     object : com.google.gson.reflect.TypeToken<List<TipoDocumento>>() {}.type,
                     headers
-                ) { db.tipoDocumentoDao().insertAll(it.map(TipoDocumento::toEntity)) }
+                ) { db.tipoDocumentoDao().upsertAll(it.map(TipoDocumento::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Tipos de Forma de Pago", currentTaskItemCount = 0) }
@@ -182,7 +193,7 @@ object SyncManager {
                     "/api/tipos_forma_pago",
                     object : com.google.gson.reflect.TypeToken<List<TipoFormaPago>>() {}.type,
                     headers
-                ) { db.tipoFormaPagoDao().insertAll(it.map(TipoFormaPago::toEntity)) }
+                ) { db.tipoFormaPagoDao().upsertAll(it.map(TipoFormaPago::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Tipos de IVA", currentTaskItemCount = 0) }
@@ -191,7 +202,7 @@ object SyncManager {
                     "/api/tipos_iva",
                     object : com.google.gson.reflect.TypeToken<List<TipoIVA>>() {}.type,
                     headers
-                ) { db.tipoIvaDao().insertAll(it.map(TipoIVA::toEntity)) }
+                ) { db.tipoIvaDao().upsertAll(it.map(TipoIVA::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Unidades", currentTaskItemCount = 0) }
@@ -200,7 +211,7 @@ object SyncManager {
                     "/api/unidades",
                     object : com.google.gson.reflect.TypeToken<List<Unidad>>() {}.type,
                     headers
-                ) { db.unidadDao().insertAll(it.map(Unidad::toEntity)) }
+                ) { db.unidadDao().upsertAll(it.map(Unidad::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Monedas", currentTaskItemCount = 0) }
@@ -209,7 +220,7 @@ object SyncManager {
                     "/api/monedas",
                     object : com.google.gson.reflect.TypeToken<List<Moneda>>() {}.type,
                     headers
-                ) { db.monedaDao().insertAll(it.map(Moneda::toEntity)) }
+                ) { db.monedaDao().upsertAll(it.map(Moneda::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Países", currentTaskItemCount = 0) }
@@ -218,7 +229,7 @@ object SyncManager {
                     "/api/paises",
                     object : com.google.gson.reflect.TypeToken<List<Pais>>() {}.type,
                     headers
-                ) { db.paisDao().insertAll(it.map(Pais::toEntity)) }
+                ) { db.paisDao().upsertAll(it.map(Pais::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Provincias", currentTaskItemCount = 0) }
@@ -227,7 +238,7 @@ object SyncManager {
                     "/api/provincias",
                     object : com.google.gson.reflect.TypeToken<List<Provincia>>() {}.type,
                     headers
-                ) { db.provinciaDao().insertAll(it.map(Provincia::toEntity)) }
+                ) { db.provinciaDao().upsertAll(it.map(Provincia::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Localidades", currentTaskItemCount = 0) }
@@ -236,7 +247,7 @@ object SyncManager {
                     "/api/localidades",
                     object : com.google.gson.reflect.TypeToken<List<Localidad>>() {}.type,
                     headers
-                ) { db.localidadDao().insertAll(it.map(Localidad::toEntity)) }
+                ) { db.localidadDao().upsertAll(it.map(Localidad::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Roles", currentTaskItemCount = 0) }
@@ -245,7 +256,7 @@ object SyncManager {
                     "/api/roles",
                     object : com.google.gson.reflect.TypeToken<List<Rol>>() {}.type,
                     headers
-                ) { db.rolDao().insertAll(it.map(Rol::toEntity)) }
+                ) { db.rolDao().upsertAll(it.map(Rol::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Sucursales", currentTaskItemCount = 0) }
@@ -254,7 +265,7 @@ object SyncManager {
                     "/api/sucursales",
                     object : com.google.gson.reflect.TypeToken<List<Sucursal>>() {}.type,
                     headers
-                ) { db.sucursalDao().insertAll(it.map(Sucursal::toEntity)) }
+                ) { db.sucursalDao().upsertAll(it.map(Sucursal::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Familias", currentTaskItemCount = 0) }
@@ -263,7 +274,7 @@ object SyncManager {
                     "/api/familias",
                     object : com.google.gson.reflect.TypeToken<List<Familia>>() {}.type,
                     headers
-                ) { db.familiaDao().insertAll(it.map(Familia::toEntity)) }
+                ) { db.familiaDao().upsertAll(it.map(Familia::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Tasas de IVA", currentTaskItemCount = 0) }
@@ -272,7 +283,7 @@ object SyncManager {
                     "/api/tasa_iva",
                     object : com.google.gson.reflect.TypeToken<List<TasaIva>>() {}.type,
                     headers
-                ) { db.tasaIvaDao().insertAll(it.map(TasaIva::toEntity)) }
+                ) { db.tasaIvaDao().upsertAll(it.map(TasaIva::toEntity)) }
             },
             {
 

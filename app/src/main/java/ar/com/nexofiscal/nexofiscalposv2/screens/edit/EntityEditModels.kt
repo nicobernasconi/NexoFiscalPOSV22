@@ -1,28 +1,26 @@
+// main/java/ar/com/nexofiscal/nexofiscalposv2/screens/edit/EntityEditModels.kt
 package ar.com.nexofiscal.nexofiscalposv2.screens.edit
 
 import androidx.compose.runtime.Composable
 
-/**
- * Representa el resultado de una validación de campo.
- */
 sealed class ValidationResult {
     object Valid : ValidationResult()
     data class Invalid(val errorMessage: String) : ValidationResult()
 }
 
 /**
- * Describe un campo individual y cómo editarlo en la pantalla de edición genérica.
- * @param T El tipo de la entidad que se está editando.
+ * Describe un campo del formulario.
+ * @param onEntityUpdated Una función que recibe OTRA FUNCIÓN que describe el cambio.
+ * Esto asegura que la actualización se haga sobre el estado más reciente.
  */
 data class FieldDescriptor<T>(
-    val id: String, // Identificador único para el campo (usado como key y para errores)
-    val label: String, // Etiqueta que se muestra para el campo
-    // El Composable que renderiza el control de edición para este campo:
+    val id: String,
+    val label: String,
     val editorContent: @Composable (
         currentEntity: T,
-        onEntityUpdated: (updatedEntity: T) -> Unit, // Callback para notificar un cambio en la entidad
+        onEntityUpdated: (updateAction: (T) -> T) -> Unit,
         isReadOnly: Boolean,
-        error: String? // Mensaje de error actual para este campo, si existe
+        error: String?
     ) -> Unit,
     val validator: (entity: T) -> ValidationResult = { ValidationResult.Valid },
     val isReadOnly: (entity: T) -> Boolean = { false }

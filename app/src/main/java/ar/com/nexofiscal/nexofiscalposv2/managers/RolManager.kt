@@ -26,7 +26,7 @@ object RolManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).rolDao()
                 val entities = allItems.toRolEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} roles guardados/actualizados en la BD.")
 
                 withContext(Dispatchers.Main) {

@@ -105,7 +105,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
 
 
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 

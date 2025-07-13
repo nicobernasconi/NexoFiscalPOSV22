@@ -26,7 +26,7 @@ object TipoComprobanteManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).tipoComprobanteDao()
                 val entities = allItems.toTipoComprobanteEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} tipos de comprobante guardados/actualizados.")
 
                 withContext(Dispatchers.Main) {

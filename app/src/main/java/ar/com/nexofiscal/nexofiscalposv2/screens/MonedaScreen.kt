@@ -49,11 +49,11 @@ fun MonedaScreen(
                 entityInScreen = moneda
                 showEditScreen = true
             },
-            onDelete = { moneda ->
+             onAttemptDelete  = { moneda ->
                 viewModel.delete(moneda.toEntity())
                 NotificationManager.show("Moneda '${moneda.nombre}' eliminada.", NotificationType.SUCCESS)
             },
-            itemKey = { it.id }
+            itemKey = { it.localId }
         )
 
         if (showEditScreen && entityInScreen != null) {

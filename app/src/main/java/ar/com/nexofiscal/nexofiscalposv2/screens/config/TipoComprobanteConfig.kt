@@ -1,13 +1,11 @@
-// main/java/ar/com/nexofiscal/nexofiscalposv2/screens/config/TipoComprobanteConfig.kt
 package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.ui.text.input.KeyboardType
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoComprobante
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.FieldDescriptor
 import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
 
 fun getTipoComprobanteFieldDescriptors(): List<FieldDescriptor<TipoComprobante>> {
     return listOf(
@@ -15,13 +13,14 @@ fun getTipoComprobanteFieldDescriptors(): List<FieldDescriptor<TipoComprobante>>
             id = "nombre",
             label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                OutlinedTextField(
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.nombre ?: "",
-                    onValueChange = { onUpdate(entity.copy(nombre = it)) },
-                    label = { Text("Nombre del Tipo de Comprobante") },
-                    isError = error != null,
-                    supportingText = { if (error != null) Text(error) },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue) } },
+                    label = "Nombre del Tipo de Comprobante",
+                    isReadOnly = isReadOnly,
+                    error = error
                 )
             },
             validator = {
@@ -32,12 +31,15 @@ fun getTipoComprobanteFieldDescriptors(): List<FieldDescriptor<TipoComprobante>>
         FieldDescriptor(
             id = "numero",
             label = "Número",
-            editorContent = { entity, onUpdate, isReadOnly, _ ->
-                OutlinedTextField(
+            editorContent = { entity, onUpdate, isReadOnly, error ->
+                // CAMBIO: Se reemplaza OutlinedTextField por el control personalizado.
+                SelectAllTextField(
                     value = entity.numero?.toString() ?: "",
-                    onValueChange = { onUpdate(entity.copy(numero = it.toIntOrNull())) },
-                    label = { Text("Número de Comprobante") },
-                    readOnly = isReadOnly,
+                    // CAMBIO: Se utiliza la lambda de actualización atómica.
+                    onValueChange = { newValue -> onUpdate { it.copy(numero = newValue.toIntOrNull()) } },
+                    label = "Número de Comprobante",
+                    isReadOnly = isReadOnly,
+                    error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }

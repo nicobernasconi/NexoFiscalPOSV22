@@ -7,6 +7,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.StockProductoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.StockProductoRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -29,6 +30,7 @@ class StockProductoViewModel(application: Application) : AndroidViewModel(applic
                 item.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(item)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

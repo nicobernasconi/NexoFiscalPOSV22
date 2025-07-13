@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoFormaPagoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoFormaPago
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoFormaPagoRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -47,6 +48,7 @@ class TipoFormaPagoViewModel(application: Application) : AndroidViewModel(applic
                 tfp.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(tfp)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

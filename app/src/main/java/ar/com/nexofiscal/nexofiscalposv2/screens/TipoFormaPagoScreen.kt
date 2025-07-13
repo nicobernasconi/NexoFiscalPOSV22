@@ -49,7 +49,7 @@ fun TipoFormaPagoScreen(
                 entityInScreen = item
                 showEditScreen = true
             },
-            onDelete = { item ->
+             onAttemptDelete  = { item ->
                 viewModel.delete(item.toEntity())
                 NotificationManager.show("Tipo de Forma de Pago '${item.nombre}' eliminado.", NotificationType.SUCCESS)
             },

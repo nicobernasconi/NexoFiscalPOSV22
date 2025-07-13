@@ -6,16 +6,14 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "clientes", indices = [Index(value = ["serverId"], unique = true)]) // `unique = true` es una buena práctica
+@Entity(tableName = "clientes", indices = [Index(value = ["serverId"], unique = true)])
 data class ClienteEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0, // Clave local
-    var serverId: Int?, // <-- CAMBIO: AÑADIDO
-    var syncStatus: SyncStatus, // <-- CAMBIO: AÑADIDO
-
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    var serverId: Int?,
+    var syncStatus: SyncStatus,
     val nroCliente: Int,
     val nombre: String?,
     val cuit: String?,
-    // ... el resto de los campos permanece igual
     val tipoDocumentoId: Int?,
     val numeroDocumento: String?,
     val direccionComercial: String?,

@@ -39,6 +39,29 @@ interface ProductoDao {
     @Query("DELETE FROM productos WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM productos WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): ProductoEntity?
+
+    @Transaction
+    suspend fun upsertAll(productos: List<ProductoEntity>) {
+        productos.forEach { producto ->
+            val existente = producto.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si el producto ya existe, creamos una copia con los nuevos datos
+                // pero manteniendo el ID local del registro existente.
+                producto.copy(id = existente.id)
+            } else {
+                // Si es un producto nuevo, lo insertamos tal cual.
+                producto
+            }
+
+            // La estrategia OnConflictStrategy.REPLACE se encargará de actualizar la fila
+            // si el ID local ya existe, o de insertar una nueva si no.
+            insert(entidadParaInsertar)
+        }
+    }
+
     // --- MÉTODOS EXISTENTES ---
 
     @Query("SELECT * FROM productos WHERE id = :id")

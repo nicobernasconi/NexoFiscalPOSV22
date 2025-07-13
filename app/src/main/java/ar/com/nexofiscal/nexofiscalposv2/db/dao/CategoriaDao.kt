@@ -31,6 +31,30 @@ interface CategoriaDao {
     @Query("DELETE FROM categorias WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM categorias WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): CategoriaEntity?
+
+    /**
+     * Inserta una lista de categorias. Si una categoría ya existe (mismo serverId),
+     * la actualiza. Si no, la inserta como nueva.
+     */
+    @Transaction
+    suspend fun upsertAll(categorias: List<CategoriaEntity>) {
+        categorias.forEach { categoria ->
+            val existente = categoria.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                categoria.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                categoria
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

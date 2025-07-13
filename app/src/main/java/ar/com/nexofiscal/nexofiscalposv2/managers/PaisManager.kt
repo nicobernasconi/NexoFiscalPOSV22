@@ -26,7 +26,7 @@ object PaisManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).paisDao()
                 val entities = allItems.toPaisEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} países guardados/actualizados en la BD.")
 
                 withContext(Dispatchers.Main) {

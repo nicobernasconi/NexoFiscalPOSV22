@@ -7,6 +7,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SubcategoriaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.SubcategoriaRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,12 +24,13 @@ class SubcategoriaViewModel(application: Application) : AndroidViewModel(applica
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun save(item: SubcategoriaEntity) {
         viewModelScope.launch {
-            if (item.serverId == null) {
+            if (item.serverId == null || item.serverId == 0) {
                 item.syncStatus = SyncStatus.CREATED
             } else {
                 item.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(item)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 

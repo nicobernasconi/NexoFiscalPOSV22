@@ -31,6 +31,31 @@ interface SucursalDao {
     @Query("DELETE FROM sucursales WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    @Query("SELECT * FROM sucursales WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): SucursalEntity?
+
+    /**
+     * Inserta o actualiza una lista de sucursales. Si una sucursal ya existe
+     * (mismo serverId), la actualiza. Si no, la inserta como nueva.
+     */
+    @Transaction
+    suspend fun upsertAll(sucursales: List<SucursalEntity>) {
+        sucursales.forEach { sucursal ->
+            val existente = sucursal.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                sucursal.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                sucursal
+            }
+
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
+
+
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -25,6 +25,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.FormaPagoViewModel
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.PromocionViewModel
 import ar.com.nexofiscal.nexofiscalposv2.models.FormaPago
 import ar.com.nexofiscal.nexofiscalposv2.models.Promocion
+import ar.com.nexofiscal.nexofiscalposv2.ui.SelectionModal
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.AzulNexo
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.Blanco
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.BordeSuave
@@ -64,7 +65,14 @@ fun CobrarScreen(
 
     LaunchedEffect(todasLasFormasDePago) {
         if (pagosSeleccionados.isEmpty() && todasLasFormasDePago.isNotEmpty()) {
+            val todasLasFormasDePago = formaPagoViewModel.getAllFormasDePagoCompletas()
+
+            // 2. Ahora, esta línea funcionará perfectamente.
             val formaDePagoPorDefecto = todasLasFormasDePago.find { it.tipoFormaPago?.id == 1 }
+
+            if (formaDePagoPorDefecto != null) {
+                // Haz lo que necesites con la forma de pago encontrada.
+            }
             formaDePagoPorDefecto?.let {
                 pagosSeleccionados.add(
                     Pago(
@@ -258,39 +266,42 @@ fun CobrarScreen(
 
     if (showFormaPagoSelector) {
         val pagedFormasPago = formaPagoViewModel.pagedFormasPago.collectAsLazyPagingItems()
-        PagedSelectionDialog(
-            showDialog = showFormaPagoSelector,
-            onDismiss = { showFormaPagoSelector = false },
+        SelectionModal(
             title = "Seleccionar Forma de Pago",
-            items = pagedFormasPago,
+            pagedItems = pagedFormasPago,
             itemContent = { item -> Text("${item.nombre} (${item.porcentaje}%)") },
             onSearch = { query -> formaPagoViewModel.search(query) },
             onSelect = { formaPago ->
+                // La lógica de selección se mantiene igual
                 val faltanteActual = totalFinalACobrar - totalIngresado
                 val recargoNuevo = faltanteActual * (formaPago.porcentaje / 100.0)
                 val nuevoPago = Pago(formaPago = formaPago)
                 recargosPorPago[nuevoPago.id] = recargoNuevo
                 pagosSeleccionados.add(nuevoPago)
                 showFormaPagoSelector = false
-            }
+            },
+            onDismiss = { showFormaPagoSelector = false },
+            itemKey = { it.localId } // Usamos localId para consistencia
         )
     }
 
+    // Diálogo para seleccionar la PROMOCIÓN
     if (showPromocionSelector) {
         val pagedPromociones = promocionViewModel.pagedPromociones.collectAsLazyPagingItems()
-        PagedSelectionDialog(
-            showDialog = showPromocionSelector,
-            onDismiss = { showPromocionSelector = false },
+        SelectionModal(
             title = "Seleccionar Promoción",
-            items = pagedPromociones,
+            pagedItems = pagedPromociones,
             itemContent = { item -> Text("${item.nombre} (-${item.porcentaje}%)") },
             onSearch = { query -> promocionViewModel.search(query) },
             onSelect = { promo ->
+                // La lógica de selección se mantiene igual
                 if (!promocionesSeleccionadas.any { it.id == promo.id }) {
                     promocionesSeleccionadas.add(promo)
                 }
                 showPromocionSelector = false
-            }
+            },
+            onDismiss = { showPromocionSelector = false },
+            itemKey = { it.localId } // Usamos localId para consistencia
         )
     }
 }

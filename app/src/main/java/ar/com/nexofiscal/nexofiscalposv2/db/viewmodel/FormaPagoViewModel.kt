@@ -13,6 +13,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.FormaPago
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.FormaPagoRepository
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoFormaPagoRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -63,12 +64,13 @@ class FormaPagoViewModel(application: Application) : AndroidViewModel(applicatio
     // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
     fun guardar(f: FormaPagoEntity) {
         viewModelScope.launch {
-            if (f.serverId == null) {
+            if (f.serverId == null || f.serverId == 0) {
                 f.syncStatus = SyncStatus.CREATED
             } else {
                 f.syncStatus = SyncStatus.UPDATED
             }
             repo.guardar(f)
+            UploadManager.triggerImmediateUpload(getApplication())
         }
     }
 
@@ -78,5 +80,14 @@ class FormaPagoViewModel(application: Application) : AndroidViewModel(applicatio
             f.syncStatus = SyncStatus.DELETED
             repo.actualizar(f)
         }
+    }
+
+    suspend fun getFirstByTipoId(tipoId: Int): FormaPago? {
+        // Llama al repositorio (que a su vez llama al DAO) y mapea el resultado al modelo de dominio.
+        return repo.getFirstByTipoId(tipoId)?.toDomainModel()
+    }
+
+    suspend fun getAllFormasDePagoCompletas(): List<FormaPago> {
+        return repo.getAllWithDetails().map { it.toDomainModel() }
     }
 }

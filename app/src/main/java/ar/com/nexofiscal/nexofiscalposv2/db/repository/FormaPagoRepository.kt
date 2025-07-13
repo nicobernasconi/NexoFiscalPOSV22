@@ -5,6 +5,7 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.FormaPagoDao
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.FormaPagoConDetalles
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.FormaPagoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +32,13 @@ class FormaPagoRepository(private val dao: FormaPagoDao) {
     suspend fun eliminar(entity: FormaPagoEntity) {
         entity.syncStatus = SyncStatus.DELETED
         dao.update(entity) // Se utiliza el método update del DAO.
+    }
+    suspend fun getFirstByTipoId(tipoId: Int): FormaPagoConDetalles? {
+        return dao.getFirstByTipoId(tipoId)
+    }
+
+    suspend fun getAllWithDetails(): List<FormaPagoConDetalles> {
+        return dao.getAllWithDetails()
     }
     suspend fun eliminarTodo() = dao.clearAll()
 }

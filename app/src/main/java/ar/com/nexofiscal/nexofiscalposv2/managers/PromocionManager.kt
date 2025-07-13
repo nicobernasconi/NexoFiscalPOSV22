@@ -26,7 +26,7 @@ object PromocionManager {
 
                 val dao = AppDatabase.getInstance(context.applicationContext).promocionDao()
                 val entities = allItems.toPromocionEntityList()
-                entities.forEach { entity -> dao.insert(entity) }
+                dao.upsertAll(entities)
                 Log.d(TAG, "${entities.size} promociones guardadas/actualizadas en la BD.")
 
                 withContext(Dispatchers.Main) {

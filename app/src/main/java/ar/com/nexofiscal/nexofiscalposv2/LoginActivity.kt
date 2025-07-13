@@ -72,6 +72,12 @@ class LoginActivity : ComponentActivity() {
     }
 
     private fun navigateToMain(isOffline: Boolean = false) {
+        // Iniciar el servicio en segundo plano si no estamos en modo offline
+        if (!isOffline) {
+            val serviceIntent = Intent(this, SyncService::class.java)
+            startService(serviceIntent)
+        }
+
         val intent = Intent(this@LoginActivity, MainActivity::class.java)
         intent.putExtra("IS_OFFLINE_MODE", isOffline)
         startActivity(intent)
