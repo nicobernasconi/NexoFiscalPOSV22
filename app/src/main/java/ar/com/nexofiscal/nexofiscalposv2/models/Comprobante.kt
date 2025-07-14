@@ -101,7 +101,7 @@ class Comprobante(
     @SerializedName("provincia") val provincia: Provincia?,
     @SerializedName("tipo_comprobante") val tipoComprobante: TipoComprobante?,
     @SerializedName("promociones") val promociones: List<Promocion>?,
-    @SerializedName("formas_de_pago") val formas_de_pago: List<Pago>,
+    @SerializedName("formas_de_pago") val formas_de_pago: List<FormaPagoComprobante>,
     var tipoComprobanteId: Int?
 ) {
     override fun toString(): String {
@@ -206,7 +206,7 @@ class Comprobante(
         provincia: Provincia? = this.provincia,
         tipoComprobante: TipoComprobante? = this.tipoComprobante,
         promociones: List<Promocion>? = this.promociones,
-        formas_de_pago: List<Pago>? = this.formas_de_pago,
+        formas_de_pago: List<FormaPagoComprobante>? = this.formas_de_pago,
         tipoComprobanteId: Int? = this.tipoComprobanteId
     ): Comprobante {
         return Comprobante(

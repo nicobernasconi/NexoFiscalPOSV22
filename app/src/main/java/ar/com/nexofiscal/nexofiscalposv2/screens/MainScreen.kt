@@ -110,10 +110,12 @@ import ar.com.nexofiscal.nexofiscalposv2.managers.SyncManager
 import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Cliente
 import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
+import ar.com.nexofiscal.nexofiscalposv2.models.FormaPagoComprobante
 import ar.com.nexofiscal.nexofiscalposv2.models.Producto
 import ar.com.nexofiscal.nexofiscalposv2.models.Promocion
 import ar.com.nexofiscal.nexofiscalposv2.models.Proveedor
 import ar.com.nexofiscal.nexofiscalposv2.models.RenglonComprobante
+import ar.com.nexofiscal.nexofiscalposv2.models.TipoFormaPago
 import ar.com.nexofiscal.nexofiscalposv2.screens.config.AgrupacionScreen
 import ar.com.nexofiscal.nexofiscalposv2.screens.config.getMainClientFieldDescriptors
 import ar.com.nexofiscal.nexofiscalposv2.screens.config.getMainProductFieldDescriptors
@@ -277,6 +279,15 @@ fun MainScreen(
             NotificationManager.show("Debe agregar al menos un pago.", NotificationType.SUCCESS)
             return
         }
+        val formasDePagoComprobante = resultado.pagos.map { pago ->
+            FormaPagoComprobante(
+                id = pago.formaPago.id,
+                nombre = pago.formaPago.nombre ?: "",
+                porcentaje = pago.formaPago.porcentaje,
+                importe = String.format(Locale.US, "%.2f", pago.monto),
+                tipoFormaPago = pago.formaPago.tipoFormaPago ?: TipoFormaPago()
+            )
+        }
 
         var numeroDeComprobante: Int? = null
         var numeroDeFactura: Int? = null
@@ -321,7 +332,7 @@ fun MainScreen(
             vendedorId =null, // Asignamos el vendedor de la sesión
             // --- ASIGNACIÓN CORREGIDA ---
             promociones = resultado.promociones,
-            formas_de_pago = resultado.pagos,
+            formas_de_pago = formasDePagoComprobante,
             // --- RESTO DE CAMPOS ---
             cuotas = null, remito = null, persona = null, provinciaId = null, fechaBaja = null, motivoBaja = null,
             fechaProceso = null, letra = null, prefijoFactura = null, operacionNegocioId = null, retencionIva = null,

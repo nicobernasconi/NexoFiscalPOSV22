@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -36,7 +37,7 @@ import kotlin.math.absoluteValue
 data class Pago(
     val formaPago: FormaPago,
     var monto: Double = 0.0,
-    val id: UUID = UUID.randomUUID()
+    val id: Int = UUID.randomUUID().hashCode()
 )
 
 // --- NUEVA CLASE DE DATOS ---
@@ -59,7 +60,7 @@ fun CobrarScreen(
 ) {
     val pagosSeleccionados = remember { mutableStateListOf<Pago>() }
     val promocionesSeleccionadas = remember { mutableStateListOf<Promocion>() }
-    val recargosPorPago = remember { mutableStateMapOf<UUID, Double>() }
+    val recargosPorPago = remember { mutableStateMapOf<Int, Double>() }
 
     val todasLasFormasDePago by formaPagoViewModel.allFormasPago.collectAsState()
 
@@ -312,32 +313,40 @@ fun PagoItemRow(
     pago: Pago, isLocked: Boolean, onMontoChanged: (Double) -> Unit, onRemove: () -> Unit,
     totalFinalACobrar: Double, totalIngresado: Double
 ) {
-    var montoText by remember(pago.id) { mutableStateOf(if (pago.monto == 0.0) "" else String.format(Locale.US, "%.2f", pago.monto)) }
+    // Estado para el contenido del campo de texto
+    var montoText by remember { mutableStateOf(if (pago.monto == 0.0) "" else String.format(Locale.US, "%.2f", pago.monto)) }
+    // Estado para saber si el campo está en foco
+    var isFocused by remember { mutableStateOf(false) }
+
+    // Este efecto sincroniza el campo con el modelo, PERO SOLO SI NO ESTÁ EN FOCO.
+    // Esto evita que se sobreescriba la entrada del usuario.
     LaunchedEffect(pago.monto) {
-        val modelValueStr = if (pago.monto == 0.0) "" else String.format(Locale.US, "%.2f", pago.monto)
-        val textValue = if (montoText.isEmpty()) "" else String.format(Locale.US, "%.2f", montoText.toDoubleOrNull() ?: 0.0)
-        if (modelValueStr != textValue) {
+        if (!isFocused) {
             montoText = if (pago.monto == 0.0) "" else String.format(Locale.US, "%.2f", pago.monto)
         }
     }
+
     OutlinedTextField(
         value = montoText,
         onValueChange = { newText ->
-            if (newText.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
-                val nuevoMonto = newText.toDoubleOrNull() ?: 0.0
-                val esTipoEfectivo = pago.formaPago.tipoFormaPago?.id == 1
-                val totalIngresadoEnOtrosCampos = totalIngresado - pago.monto
-                val maximoPermitido = totalFinalACobrar - totalIngresadoEnOtrosCampos
-                if (esTipoEfectivo || nuevoMonto <= maximoPermitido + 0.001) {
-                    montoText = newText
-                    onMontoChanged(nuevoMonto)
-                } else {
-                    montoText = String.format(Locale.US, "%.2f", maximoPermitido)
-                    onMontoChanged(maximoPermitido)
-                }
+            // Valida que el texto sea un número válido con hasta 2 decimales
+            if (newText.isEmpty() || newText.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                // Actualiza el texto local para que el usuario vea lo que escribe
+                montoText = newText
+                // Notifica el cambio hacia arriba para que los totales se actualicen en tiempo real
+                onMontoChanged(newText.toDoubleOrNull() ?: 0.0)
             }
         },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            // Detecta cuándo el campo gana o pierde el foco
+            .onFocusChanged { focusState ->
+                isFocused = focusState.isFocused
+                // Al perder el foco, formatea el texto a 2 decimales para consistencia visual
+                if (!isFocused) {
+                    montoText = String.format(Locale.US, "%.2f", pago.monto)
+                }
+            },
         label = { Text("${pago.formaPago.nombre?.uppercase(Locale.getDefault())} (${pago.formaPago.porcentaje}%)") },
         readOnly = isLocked,
         trailingIcon = {

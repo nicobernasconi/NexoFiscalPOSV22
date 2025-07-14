@@ -122,8 +122,8 @@ object ComprobanteManager {
                             val pagoEntities = nuevosPagos.map { pago ->
                                 ComprobantePagoEntity(
                                     comprobanteLocalId = idFinalParaRenglones.toLong(),
-                                    formaPagoId = pago.formaPago.id,
-                                    importe = pago.monto.toDouble(),
+                                    formaPagoId = pago.id,
+                                    importe = pago.importe.toDoubleOrNull() ?: 0.0,
                                     syncStatus = SyncStatus.SYNCED
                                 )
                             }

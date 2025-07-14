@@ -180,12 +180,11 @@ fun ComprobanteEntity.toDomainModel(): Comprobante {
         sucursalId = this.sucursalId,
         descuentoTotal = this.descuentoTotal,
         incrementoTotal = this.incrementoTotal,
-        // Los objetos relacionados aquí son null por diseño, se poblarán en el siguiente paso.
         cliente = null,
         vendedor = null,
         provincia = null,
         tipoComprobante = null,
-        formas_de_pago = emptyList(), // Inicializar como lista vacía
+        formas_de_pago = emptyList(),
         promociones = null,
         tipoComprobanteId = this.tipoComprobanteId,
 
@@ -1148,8 +1147,12 @@ fun UsuarioConDetalles.toDomainModel(): Usuario {
 fun Comprobante.toUploadRequest(): ComprobanteUploadRequest {
     // --- LÓGICA DE MAPEO AÑADIDA ---
     val promocionesRequest = this.promociones?.map { PromocionRequest(id = it.id) }
-    val pagosRequest = this.formas_de_pago?.map { FormaPagoRequest(id = it.formaPago.id, importe = it.monto?: 0.0) }
-
+    val pagosRequest = this.formas_de_pago.map {
+        FormaPagoRequest(
+            id = it.id,
+            importe = it.importe.toDoubleOrNull() ?: 0.0
+        )
+    }
     return ComprobanteUploadRequest(
         numero = this.numero,
         cuotas = this.cuotas,

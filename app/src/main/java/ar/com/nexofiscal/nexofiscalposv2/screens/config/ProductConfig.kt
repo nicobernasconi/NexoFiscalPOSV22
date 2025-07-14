@@ -28,7 +28,7 @@ fun getMainProductFieldDescriptors(
     monedaViewModel: MonedaViewModel
 ): List<FieldDescriptor<Producto>> {
     return listOf(
-        // --- SECCIÓN: IDENTIFICACIÓN PRINCIPAL ---
+        // --- SECCIÓN: IDENTIFICACIÓN PRINCIPAL (sin cambios) ---
         FieldDescriptor(
             id = "tipo",
             label = "Tipo",
@@ -146,14 +146,18 @@ fun getMainProductFieldDescriptors(
             validator = { if (it.unidad == null) ValidationResult.Invalid("La unidad de medida es obligatoria.") else ValidationResult.Valid }
         ),
 
-        // --- SECCIÓN: PRECIOS ---
+        // --- SECCIÓN: PRECIOS (CORREGIDA) ---
         FieldDescriptor(
             id = "precio1",
             label = "Precio 1",
             editorContent = { entity, onUpdate, isReadOnly, error ->
                 SelectAllTextField(
                     value = entity.precio1.toString(),
-                    onValueChange = { newValue -> onUpdate { it.copy(precio1 = newValue.toDoubleOrNull() ?: 0.0) } },
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                            onUpdate { it.copy(precio1 = newValue.toDoubleOrNull() ?: 0.0) }
+                        }
+                    },
                     label = "Precio de Venta",
                     isReadOnly = isReadOnly, error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -167,7 +171,11 @@ fun getMainProductFieldDescriptors(
             editorContent = { entity, onUpdate, isReadOnly, error ->
                 SelectAllTextField(
                     value = entity.precio2.toString(),
-                    onValueChange = { newValue -> onUpdate { it.copy(precio2 = newValue.toDoubleOrNull() ?: 0.0) } },
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                            onUpdate { it.copy(precio2 = newValue.toDoubleOrNull() ?: 0.0) }
+                        }
+                    },
                     label = "Precio 2",
                     isReadOnly = isReadOnly, error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -180,7 +188,11 @@ fun getMainProductFieldDescriptors(
             editorContent = { entity, onUpdate, isReadOnly, error ->
                 SelectAllTextField(
                     value = entity.precio3.toString(),
-                    onValueChange = { newValue -> onUpdate { it.copy(precio3 = newValue.toDoubleOrNull() ?: 0.0) } },
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                            onUpdate { it.copy(precio3 = newValue.toDoubleOrNull() ?: 0.0) }
+                        }
+                    },
                     label = "Precio 3",
                     isReadOnly = isReadOnly, error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -193,7 +205,11 @@ fun getMainProductFieldDescriptors(
             editorContent = { entity, onUpdate, isReadOnly, error ->
                 SelectAllTextField(
                     value = entity.precioCosto.toString(),
-                    onValueChange = { newValue -> onUpdate { it.copy(precioCosto = newValue.toDoubleOrNull() ?: 0.0) } },
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                            onUpdate { it.copy(precioCosto = newValue.toDoubleOrNull() ?: 0.0) }
+                        }
+                    },
                     label = "Precio de Costo",
                     isReadOnly = isReadOnly, error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -201,14 +217,18 @@ fun getMainProductFieldDescriptors(
             }
         ),
 
-        // --- SECCIÓN: STOCK ---
+        // --- SECCIÓN: STOCK (CORREGIDA) ---
         FieldDescriptor(
             id = "stock",
             label = "Stock",
             editorContent = { entity, onUpdate, isReadOnly, error ->
                 SelectAllTextField(
                     value = entity.stock.toString(),
-                    onValueChange = { newValue -> onUpdate { it.copy(stock = newValue.toIntOrNull() ?: 0) } },
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                            onUpdate { it.copy(stock = newValue.toIntOrNull() ?: 0) }
+                        }
+                    },
                     label = "Stock Actual",
                     isReadOnly = isReadOnly, error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -221,7 +241,11 @@ fun getMainProductFieldDescriptors(
             editorContent = { entity, onUpdate, isReadOnly, error ->
                 SelectAllTextField(
                     value = entity.stockMinimo.toString(),
-                    onValueChange = { newValue -> onUpdate { it.copy(stockMinimo = newValue.toIntOrNull() ?: 0) } },
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                            onUpdate { it.copy(stockMinimo = newValue.toIntOrNull() ?: 0) }
+                        }
+                    },
                     label = "Stock Mínimo",
                     isReadOnly = isReadOnly, error = error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -229,7 +253,7 @@ fun getMainProductFieldDescriptors(
             }
         ),
 
-        // --- SECCIÓN: CONFIGURACIONES ADICIONALES ---
+        // --- SECCIÓN: CONFIGURACIONES ADICIONALES (sin cambios) ---
         FieldDescriptor(
             id = "productoBalanza",
             label = "Balanza",

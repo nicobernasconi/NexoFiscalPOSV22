@@ -563,7 +563,7 @@ object UploadManager {
 
     private suspend fun uploadComprobantes(db: AppDatabase, headers: MutableMap<String?, String?>) {
         val comprobanteDao = db.comprobanteDao()
-        val renglonDao = db.renglonComprobanteDao()
+        val renglonDao = db.renglonComprobanteDao() // DAO para acceder a los renglones locales
 
         try {
             val unsyncedItems = comprobanteDao.getUnsynced()
@@ -574,9 +574,11 @@ object UploadManager {
                 try {
                     when (entity.syncStatus) {
                         SyncStatus.CREATED -> {
+                            // 1. Subir el comprobante principal para obtener el ID del servidor
                             val comprobanteDomain = entity.toDomainModel()
                             val comprobanteUploadRequest = comprobanteDomain.toUploadRequest()
 
+                            Log.d(TAG, "[COMPROBANTE] Petición POST. Body: ${gson.toJson(comprobanteUploadRequest)}")
                             val responseComprobante = apiRequest<Comprobante>(
                                 method = HttpMethod.POST,
                                 url = "/api/comprobantes/",
@@ -587,58 +589,61 @@ object UploadManager {
                             val newServerId = responseComprobante.id
                             Log.i(TAG, "[COMPROBANTE] Éxito POST. LocalID ${entity.id} -> ServerID $newServerId.")
 
+                            // --- INICIO: LÓGICA PARA SUBIR RENGLONES ---
+                            var allRenglonesUploaded = true
                             val renglonEntities = renglonDao.getByComprobante(entity.id).first()
-                            val renglonesDomain = renglonEntities.map { it.toDomainModel() }
-                            var renglonesExitosos = 0
 
-                            Log.d(TAG, "[RENGLONES] Subiendo ${renglonesDomain.size} renglones para Comprobante ServerID $newServerId...")
-                            for (renglon in renglonesDomain) {
-                                try {
-                                    val renglonUploadRequest = renglon.toUploadRequest(comprobanteServerId = newServerId)
-                                    apiRequest<Unit>(
-                                        method = HttpMethod.POST,
-                                        url = "/api/renglones_comprobantes/$newServerId/",
-                                        headers = headers,
-                                        body = renglonUploadRequest,
-                                        responseType = object : TypeToken<Unit>() {}.type
-                                    )
-                                    renglonesExitosos++
-                                } catch (renglonError: Exception) {
-                                    Log.e(TAG, "[RENGLON] Falló subida para Comprobante ServerID $newServerId. Error: ${renglonError.message}")
+                            if (renglonEntities.isNotEmpty()) {
+                                Log.d(TAG, "[RENGLONES] Subiendo ${renglonEntities.size} renglones para Comprobante ServerID $newServerId...")
+                                for (renglonEntity in renglonEntities) {
+                                    try {
+                                        val renglonModel = gson.fromJson(renglonEntity.data, RenglonComprobante::class.java)
+                                        val renglonUploadRequest = renglonModel.toUploadRequest(comprobanteServerId = newServerId)
+
+                                        // Petición POST para cada renglón
+                                        apiRequest<Unit>(
+                                            method = HttpMethod.POST,
+                                            url = "/api/renglones_comprobantes/$newServerId/",
+                                            headers = headers,
+                                            body = renglonUploadRequest,
+                                            responseType = object : TypeToken<Unit>() {}.type
+                                        )
+                                    } catch (renglonError: Exception) {
+                                        allRenglonesUploaded = false
+                                        Log.e(TAG, "[RENGLON] Falló subida para Comprobante ServerID $newServerId. Renglón LocalID: ${renglonEntity.id}. Error: ${renglonError.message}")
+                                    }
                                 }
                             }
+                            // --- FIN: LÓGICA PARA SUBIR RENGLONES ---
 
-                            if (renglonesExitosos == renglonesDomain.size) {
+                            // 3. Marcar como sincronizado solo si el comprobante Y TODOS sus renglones se subieron
+                            if (allRenglonesUploaded) {
                                 comprobanteDao.updateServerIdAndStatus(entity.id, newServerId)
                                 Log.i(TAG, "[COMPROBANTE] Sincronización completa para LocalID ${entity.id}.")
                             } else {
-                                Log.w(TAG, "[COMPROBANTE] Sincronización incompleta para LocalID ${entity.id}.")
+                                Log.w(TAG, "[COMPROBANTE] Sincronización incompleta para LocalID ${entity.id}. Se reintentará más tarde.")
                             }
                         }
                         SyncStatus.UPDATED -> {
-
-                            val comprobanteDomain = entity.toDomainModel()
-                            val comprobanteUploadRequest = comprobanteDomain.toUploadRequest() // Asume que este DTO incluye renglones
-
+                            // La lógica para actualizar comprobantes existentes se mantiene
                             if (entity.serverId == null) {
                                 Log.e(TAG, "[COMPROBANTE] Error: ServerID es nulo para un comprobante marcado como UPDATED. LocalID: ${entity.id}")
-                                continue // Salta este comprobante
+                                continue
                             }
-
+                            val comprobanteUploadRequest = entity.toDomainModel().toUploadRequest()
                             Log.d(TAG, "[COMPROBANTE] Petición PUT a /api/comprobantes/${entity.serverId}. Body: ${gson.toJson(comprobanteUploadRequest)}")
-                                apiRequest<Unit>(
+
+                            apiRequest<Unit>(
                                 method = HttpMethod.PUT,
-                                    url = "/api/comprobantes/${entity.serverId}/", // Asegúrate que el endpoint sea el correcto
-                                    headers = headers,
+                                url = "/api/comprobantes/${entity.serverId}/",
+                                headers = headers,
                                 body = comprobanteUploadRequest,
-                                    responseType = object : TypeToken<Unit>() {}.type
-                                )
-                            comprobanteDao.updateServerIdAndStatus(entity.id, entity.serverId!!)
+                                responseType = object : TypeToken<Unit>() {}.type
+                            )
+                            comprobanteDao.updateServerIdAndStatus(entity.serverId!!,entity.serverId!!)
                             Log.i(TAG, "[COMPROBANTE] Éxito PUT: ServerID=${entity.serverId} actualizado.")
                         }
-                        else -> {
-                            Log.w(TAG, "[COMPROBANTE] Estado no manejado: ${entity.syncStatus} para LocalID ${entity.id}")
-                        }
+                        else -> {}
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "[COMPROBANTE] Falló subida para LocalID ${entity.id}. Error: ${e.message}")
