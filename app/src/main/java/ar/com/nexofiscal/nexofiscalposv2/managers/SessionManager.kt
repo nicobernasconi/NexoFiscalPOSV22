@@ -45,6 +45,8 @@ object SessionManager {
     val codigosBarrasInicio: Int get() = prefs.getInt("codigos_barras_inicio", 0)
     val codigosBarrasPayloadInt: Int get() = prefs.getInt("codigos_barras_payload_int", 0)
     val codigosBarrasPayloadType: String? get() = prefs.getString("codigos_barras_payload_type", null)
+    val certificadoAfip: String? get() = prefs.getString("empresa_cert", null)
+    val claveAfip: String? get() = prefs.getString("empresa_key", null)
 
     private val permissionsMap: Map<String, List<String>> by lazy {
         parsePermissions(prefs.getString("permisos", "{}"))

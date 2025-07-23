@@ -27,5 +27,17 @@ data class ComprobanteConDetalles(
         parentColumn = "tipoComprobanteId",
         entityColumn = "id" // Asumiendo que la clave en TipoComprobanteEntity es 'id' del servidor
     )
-    val tipoComprobante: TipoComprobanteEntity?
+
+    val tipoComprobante: TipoComprobanteEntity?,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "comprobanteLocalId"
+    )
+    val pagos: List<ComprobantePagoEntity>,
+
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "comprobanteLocalId"
+    )
+    val promociones: List<ComprobantePromocionEntity>
 )

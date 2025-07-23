@@ -5,6 +5,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.ComprobanteConDetalle
 import ar.com.nexofiscal.nexofiscalposv2.models.*
 import ar.com.nexofiscal.nexofiscalposv2.screens.Pago
 import com.google.gson.Gson
+import java.util.Locale
 
 // MAPPERS DE ENTIDAD A MODELO DE DOMINIO (API)
 // Nota: Se han corregido los mappers para que solo asignen los campos que realmente existen en el modelo de dominio.
@@ -1120,7 +1121,27 @@ fun ComprobanteConDetalles.toComprobanteConDetalle(): ComprobanteConDetalle {
     val domainCliente = this.cliente?.toDomainModel()
     val domainVendedor = this.vendedor?.toDomainModel()
     val domainTipoComprobante = this.tipoComprobante?.toDomainModel() // <-- ¡AQUÍ SE CARGA EL TIPO!
+    // Mapeamos las entidades de pago a los modelos de dominio.
+    // NOTA: Esto es una simplificación. Idealmente, aquí se buscaría el objeto `FormaPago` completo.
+    val formasDePago = this.pagos.map { pagoEntity ->
+        FormaPagoComprobante(
+            id = pagoEntity.formaPagoId,
+            nombre = "Forma de Pago ID: ${pagoEntity.formaPagoId}", // Placeholder
+            porcentaje = 0, // Placeholder
+            importe = String.format(Locale.US, "%.2f", pagoEntity.importe),
+            tipoFormaPago = TipoFormaPago() // Placeholder
+        )
+    }
 
+    // Mapeamos las entidades de promoción a los modelos de dominio.
+    // NOTA: Aquí también se necesitaría buscar el objeto `Promocion` completo.
+    val promociones = this.promociones.map { promoEntity ->
+        Promocion().apply { id = promoEntity.promocionId }
+    }
+
+    // Asignamos las listas mapeadas al comprobante de dominio.
+    domainComprobante.formas_de_pago = formasDePago
+    domainComprobante.promociones = promociones
     return ComprobanteConDetalle(
         comprobante = domainComprobante,
         cliente = domainCliente,
@@ -1145,7 +1166,6 @@ fun UsuarioConDetalles.toDomainModel(): Usuario {
 }
 
 fun Comprobante.toUploadRequest(): ComprobanteUploadRequest {
-    // --- LÓGICA DE MAPEO AÑADIDA ---
     val promocionesRequest = this.promociones?.map { PromocionRequest(id = it.id) }
     val pagosRequest = this.formas_de_pago.map {
         FormaPagoRequest(

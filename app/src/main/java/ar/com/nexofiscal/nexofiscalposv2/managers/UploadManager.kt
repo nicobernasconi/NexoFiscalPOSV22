@@ -20,6 +20,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.Headers
 import java.lang.reflect.Type
+import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -564,7 +565,12 @@ object UploadManager {
     private suspend fun uploadComprobantes(db: AppDatabase, headers: MutableMap<String?, String?>) {
         val comprobanteDao = db.comprobanteDao()
         val renglonDao = db.renglonComprobanteDao() // DAO para acceder a los renglones locales
-
+        val pagoDao = db.comprobantePagoDao()
+        val promocionDao = db.comprobantePromocionDao()
+        val formaPagoDao = db.formaPagoDao()
+        val promocionDaoForDetails = db.promocionDao()
+        val promocionJoinDao = db.comprobantePromocionDao()
+        val promocionDetailDao = db.promocionDao()
         try {
             val unsyncedItems = comprobanteDao.getUnsynced()
             if (unsyncedItems.isEmpty()) return
@@ -574,18 +580,45 @@ object UploadManager {
                 try {
                     when (entity.syncStatus) {
                         SyncStatus.CREATED -> {
-                            // 1. Subir el comprobante principal para obtener el ID del servidor
                             val comprobanteDomain = entity.toDomainModel()
-                            val comprobanteUploadRequest = comprobanteDomain.toUploadRequest()
 
-                            Log.d(TAG, "[COMPROBANTE] Petición POST. Body: ${gson.toJson(comprobanteUploadRequest)}")
-                            val responseComprobante = apiRequest<Comprobante>(
-                                method = HttpMethod.POST,
-                                url = "/api/comprobantes/",
-                                headers = headers,
-                                body = comprobanteUploadRequest,
-                                responseType = object : TypeToken<Comprobante>() {}.type
-                            )
+                            // --- INICIO DE LA MODIFICACIÓN: Cargar y adjuntar detalles ---
+                            // 2. Cargar y mapear los pagos asociados
+                            val pagoEntities = pagoDao.getByComprobanteLocalId(entity.id.toLong())
+                            val formasDePagoComprobante = pagoEntities.mapNotNull { pagoEntity ->
+                                val formaPagoEntity = formaPagoDao.findByServerId(pagoEntity.formaPagoId)
+                                formaPagoEntity?.let {
+                                    FormaPagoComprobante(
+                                        id = it.serverId ?: 0,
+                                        nombre = it.nombre ?: "",
+                                        porcentaje = it.porcentaje,
+                                        importe = String.format(Locale.US, "%.2f", pagoEntity.importe),
+                                        tipoFormaPago = TipoFormaPago() // Placeholder, no es crítico para la subida
+                                    )
+                                }
+                            }
+                            comprobanteDomain.formas_de_pago = formasDePagoComprobante
+
+                            val promocionRelations = promocionJoinDao.getByComprobanteLocalId(entity.id.toLong())
+
+                            // 4. Buscar los detalles de cada promoción y crear la lista final
+                            val promocionesComprobante = promocionRelations.mapNotNull { relation ->
+                                // Usamos el ID de la promoción para buscar sus detalles completos
+                                promocionDetailDao.findByServerId(relation.promocionId)?.toDomainModel()
+                            }
+                            comprobanteDomain.promociones = promocionesComprobante
+
+
+                                val comprobanteUploadRequest = comprobanteDomain.toUploadRequest()
+
+                                Log.d(TAG, "[COMPROBANTE] Petición POST. Body: ${gson.toJson(comprobanteUploadRequest)}")
+                                val responseComprobante = apiRequest<Comprobante>(
+                                    method = HttpMethod.POST,
+                                    url = "/api/comprobantes/",
+                                    headers = headers,
+                                    body = comprobanteUploadRequest,
+                                    responseType = object : TypeToken<Comprobante>() {}.type
+                                )
                             val newServerId = responseComprobante.id
                             Log.i(TAG, "[COMPROBANTE] Éxito POST. LocalID ${entity.id} -> ServerID $newServerId.")
 

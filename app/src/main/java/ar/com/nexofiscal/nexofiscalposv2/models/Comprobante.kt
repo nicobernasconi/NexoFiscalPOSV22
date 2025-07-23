@@ -18,7 +18,7 @@ class Comprobante(
     @SerializedName("motivo_baja") val motivoBaja: String?,
     @SerializedName("hora") val hora: String?,
     @SerializedName("fecha_proceso") val fechaProceso: String?,
-    @SerializedName("letra") val letra: String?,
+    @SerializedName("letra") var letra: String?,
     @SerializedName("numero_factura") val numeroFactura: Int?,
     @SerializedName("prefijo_factura") val prefijoFactura: String?,
     @SerializedName("operacion_negocio_id") val operacionNegocioId: Int?,
@@ -88,7 +88,7 @@ class Comprobante(
     @SerializedName("hora_entrega") val horaEntrega: String?,
     @SerializedName("empresa_id") val empresaId: Int?,
     @SerializedName("punto_venta") val puntoVenta: Int?,
-    @SerializedName("tipo_factura") val tipoFactura: Int?,
+    @SerializedName("tipo_factura") var tipoFactura: Int?,
     @SerializedName("tipo_documento") val tipoDocumento: Int?,
     @SerializedName("numero_de_documento") val numeroDeDocumento: Long?,
     @SerializedName("qr") val qr: String?,
@@ -100,8 +100,11 @@ class Comprobante(
     @SerializedName("vendedor") val vendedor: Vendedor?,
     @SerializedName("provincia") val provincia: Provincia?,
     @SerializedName("tipo_comprobante") val tipoComprobante: TipoComprobante?,
-    @SerializedName("promociones") val promociones: List<Promocion>?,
-    @SerializedName("formas_de_pago") val formas_de_pago: List<FormaPagoComprobante>,
+    @SerializedName("promociones")
+    var promociones: List<Promocion>?,
+
+    @SerializedName("formas_de_pago")
+    var formas_de_pago: List<FormaPagoComprobante>,
     var tipoComprobanteId: Int?
 ) {
     override fun toString(): String {

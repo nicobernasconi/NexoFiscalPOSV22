@@ -6,7 +6,7 @@ import androidx.room.Index
 
 @Entity(
     tableName = "comprobante_pagos",
-    primaryKeys = ["comprobanteLocalId"],
+    primaryKeys = ["comprobanteLocalId", "formaPagoId"],
     foreignKeys = [
         ForeignKey(
             entity = ComprobanteEntity::class,
