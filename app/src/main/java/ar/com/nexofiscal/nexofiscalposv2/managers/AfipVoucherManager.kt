@@ -163,4 +163,128 @@ object AfipVoucherManager {
             }
         }
     }
+
+    /**
+     * Genera un comprobante de nota de crédito basado en el comprobante que se anuló.
+     * @param comprobanteAnulado El comprobante original que se anuló.
+     * @return Un nuevo objeto [Comprobante] configurado como nota de crédito.
+     */
+    fun generarNotaDeCredito(comprobanteAnulado: Comprobante): Comprobante {
+        // Determinar el tipo de comprobante para la nota de crédito basado en el tipo de factura original
+        // Ref: https://www.afip.gob.ar/fe/documentos/TABLA-Tipos-de-Comprobantes.pdf
+        // Si es Factura A -> Nota de Crédito A (código 3)
+        // Si es Factura B -> Nota de Crédito B (código 8)
+        // Si es Factura C -> Nota de Crédito C (código 13)
+        // Si es Factura M -> Nota de Crédito M (código 53)
+        val tipoNotaDeCredito = when (comprobanteAnulado.tipoFactura) {
+            1 -> 3 // Factura A -> Nota de Crédito A
+            6 -> 8 // Factura B -> Nota de Crédito B
+            11 -> 13 // Factura C -> Nota de Crédito C
+            51 -> 53 // Factura M -> Nota de Crédito M
+            else -> throw IllegalArgumentException("Tipo de factura no soportado para generar nota de crédito: ${comprobanteAnulado.tipoFactura}")
+        }
+
+
+        return Comprobante(
+            id = 0, // Nuevo comprobante, sin ID asignado aún
+            serverId = null,
+            cliente = comprobanteAnulado.cliente,
+            clienteId = comprobanteAnulado.clienteId,
+            tipoComprobante = comprobanteAnulado.tipoComprobante,
+            tipoComprobanteId = tipoNotaDeCredito,
+            fecha = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
+            hora = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()),
+            total = (comprobanteAnulado.total!!.toDouble()).toString(), // Total negativo para la nota de crédito
+            totalPagado = comprobanteAnulado.totalPagado,
+            descuentoTotal = "0.0", // Sin descuentos
+            incrementoTotal = "0.0", // Sin incrementos
+            importeIva = (comprobanteAnulado.importeIva!!).toDouble(),
+            noGravado = (comprobanteAnulado.noGravado!!).toDouble(),
+            importeIva21 = (comprobanteAnulado.importeIva21!!).toDouble(),
+            importeIva105 = (comprobanteAnulado.importeIva105!!).toDouble(),
+            importeIva0 = (comprobanteAnulado.importeIva0!!).toDouble(),
+            noGravadoIva21 = (comprobanteAnulado.noGravadoIva21!!).toDouble(),
+            noGravadoIva105 = (comprobanteAnulado.noGravadoIva105!!).toDouble(),
+            noGravadoIva0 = (comprobanteAnulado.noGravadoIva0!!).toDouble(),
+            numero = null, // Número aún no asignado
+            puntoVenta = comprobanteAnulado.puntoVenta,
+            empresaId = comprobanteAnulado.empresaId,
+            sucursalId = comprobanteAnulado.sucursalId,
+            vendedorId = comprobanteAnulado.vendedorId,
+            formas_de_pago = emptyList(), // Sin formas de pago
+            promociones = emptyList(), // Sin promociones
+            cuotas = null,
+            remito = null,
+            persona = null,
+            provinciaId = comprobanteAnulado.provinciaId,
+            fechaBaja = null,
+            motivoBaja = null,
+            fechaProceso = null,
+            letra = comprobanteAnulado.letra, // Mantener la misma letra
+            numeroFactura = null, // Número aún no asignado
+            prefijoFactura = null,
+            operacionNegocioId = null,
+            retencionIva = null,
+            retencionIibb = null,
+            retencionGanancias = null,
+            porcentajeGanancias = null,
+            porcentajeIibb = null,
+            porcentajeIva = null,
+            condicionVentaId = comprobanteAnulado.condicionVentaId,
+            descripcionFlete = null,
+            recibo = null,
+            observaciones1 = "Nota de crédito por anulación del comprobante ${comprobanteAnulado.numeroFactura}",
+            observaciones2 = null,
+            observaciones3 = null,
+            observaciones4 = null,
+            descuento = null,
+            descuento1 = null,
+            descuento2 = null,
+            descuento3 = null,
+            descuento4 = null,
+            iva2 = null,
+            impresa = false,
+            cancelado = false,
+            nombreCliente = comprobanteAnulado.nombreCliente,
+            direccionCliente = comprobanteAnulado.direccionCliente,
+            localidadCliente = comprobanteAnulado.localidadCliente,
+            garantia = null,
+            concepto = null,
+            notas = null,
+            lineaPagoUltima = null,
+            relacionTk = null,
+            totalIibb = null,
+            importeIibb = null,
+            provinciaCategoriaIibbId = null,
+            importeRetenciones = null,
+            provinciaIvaProveedorId = null,
+            gananciasProveedorId = null,
+            importeGanancias = null,
+            numeroIibb = null,
+            numeroGanancias = null,
+            gananciasProveedor = null,
+            cae = null,
+            fechaVencimiento = null,
+            remitoCliente = null,
+            textoDolares = null,
+            comprobanteFinal = null,
+            numeroGuia1 = null,
+            numeroGuia2 = null,
+            numeroGuia3 = null,
+            tipoAlicuota1 = null,
+            tipoAlicuota2 = null,
+            tipoAlicuota3 = null,
+            direccionEntrega = null,
+            fechaEntrega = null,
+            horaEntrega = null,
+            tipoFactura = tipoNotaDeCredito, // Usar el tipo de nota de crédito
+            tipoDocumento = comprobanteAnulado.tipoDocumento,
+            numeroDeDocumento = comprobanteAnulado.numeroDeDocumento,
+            qr = null,
+            comprobanteIdBaja = comprobanteAnulado.id.toString(),
+            vendedor = comprobanteAnulado.vendedor,
+            provincia = comprobanteAnulado.provincia,
+            localId = 0
+        )
+    }
 }
