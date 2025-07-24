@@ -85,6 +85,32 @@ object AfipVoucherManager {
             if (comprobante.noGravadoIva0!! > 0) AlicIva(id = 3, baseImp = comprobante.noGravadoIva0!!, importe = 0.0) else null
         ).filterNotNull()
 
+        // Determinar CondicionIVAReceptorId basado en el tipo de factura y la condición de IVA del cliente
+        // Referencia: https://www.afip.gob.ar/ws/WSCI/tabla_CondicionIVAReceptorId.txt
+        // 1=IVA Responsable Inscripto, 2=IVA Responsable No Inscripto, 3=IVA No Responsable,
+        // 4=IVA Sujeto Exento, 5=Consumidor Final, 6=Responsable Monotributo, 7=Sujeto No Categorizado,
+        // 8=Proveedor del Exterior, 9=Cliente del Exterior, 10=IVA Liberado Ley Nº 19.640,
+        // 11=IVA Responsable Inscripto Agente de Percepción, 12=Pequeño Contribuyente Eventual,
+        // 13=Monotributista Social, 14=Pequeño Contribuyente Eventual Social
+        val clienteSeleccionado = comprobante.cliente
+        val condicionIvaCliente = clienteSeleccionado?.tipoIva?.nombre
+            ?.uppercase(Locale.getDefault()) ?: "CONSUMIDOR" // Predeterminado a Consumidor Final
+        val condicionIvaReceptorId = when {
+            condicionIvaCliente.contains("INSCRIPTO") -> 1
+            condicionIvaCliente.contains("NO INSCRIPTO") -> 2 // Generalmente significa Monotributista o Exento en la práctica para la app
+            condicionIvaCliente.contains("NO RESPONSABLE") -> 3
+            condicionIvaCliente.contains("EXENTO") -> 4
+            condicionIvaCliente.contains("CONSUMIDOR") -> 5
+            condicionIvaCliente.contains("MONOTRIBUTO") -> 6
+            condicionIvaCliente.contains("NO CATEGORIZADO") -> 7
+            condicionIvaCliente.contains("PROVEEDOR DEL EXTERIOR") -> 8
+            condicionIvaCliente.contains("CLIENTE DEL EXTERIOR") -> 9
+            condicionIvaCliente.contains("LIBERADO") -> 10
+            else -> throw Exception("Condición de IVA del cliente no válida: $condicionIvaCliente")
+        }
+
+
+
         val feDetRequest = FECAEDetRequest(
             docTipo = comprobante.tipoDocumento!!,
             docNro = comprobante.numeroDeDocumento!!,
@@ -94,7 +120,8 @@ object AfipVoucherManager {
             impTotal = comprobante.total!!.toDouble(),
             impNeto = comprobante.noGravado!!,
             impIVA = comprobante.importeIva!!,
-            iva = if (subtotalesIva.isNotEmpty()) IvaData(subtotalesIva) else null
+            iva = if (subtotalesIva.isNotEmpty()) IvaData(subtotalesIva) else null,
+            condicionIVAReceptorId = condicionIvaReceptorId,
         )
 
         val feCAEReq = FeCAEReq(feCabReq, FeDetReq(feDetRequest))

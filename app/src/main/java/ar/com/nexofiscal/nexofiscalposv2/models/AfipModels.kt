@@ -131,6 +131,7 @@ data class FECAEDetRequest(
     @SerializedName("ImpOpEx") val impOpEx: Double = 0.0,
     @SerializedName("ImpIVA") val impIVA: Double,
     @SerializedName("ImpTrib") val impTrib: Double = 0.0,
+    @SerializedName("CondicionIVAReceptorId") val condicionIVAReceptorId: Int? = null,
     @SerializedName("MonId") val monId: String = "PES",
     @SerializedName("MonCotiz") val monCotiz: Int = 1,
     @SerializedName("Iva") val iva: IvaData?,
