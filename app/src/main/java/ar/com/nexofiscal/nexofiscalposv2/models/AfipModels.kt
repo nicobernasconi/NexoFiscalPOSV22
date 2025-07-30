@@ -91,6 +91,12 @@ data class CreateVoucherResult(
     @SerializedName("Errors") val errors: Errors? // Nulable
 )
 
+data class CbteAsoc(
+    @SerializedName("Tipo") val tipo: Int,
+    @SerializedName("PtoVta") val ptoVta: Int,
+    @SerializedName("Nro") val nro: Long
+)
+
 data class CreateVoucherResponse(
     @SerializedName("FECAESolicitarResult") val result: CreateVoucherResult
 )
@@ -135,6 +141,7 @@ data class FECAEDetRequest(
     @SerializedName("MonId") val monId: String = "PES",
     @SerializedName("MonCotiz") val monCotiz: Int = 1,
     @SerializedName("Iva") val iva: IvaData?,
+    @SerializedName("CbtesAsoc") val cbtesAsoc: List<CbteAsoc>? = null
 )
 
 data class IvaData(

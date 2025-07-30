@@ -165,6 +165,111 @@ object AfipVoucherManager {
     }
 
     /**
+     * Crea una Nota de Crédito basada en un comprobante anulado.
+     * @param auth Datos de autenticación de AFIP.
+     * @param cuit CUIT de la empresa emisora.
+     * @param comprobanteAnulado Comprobante original que se anuló.
+     * @return Un objeto [CreateVoucherDetailResponse] con el CAE y la fecha de vencimiento.
+     */
+    suspend fun createNotaDeCredito(
+        auth: AfipAuthResponse,
+        cuit: String,
+        comprobanteAnulado: Comprobante
+    ): CreateVoucherDetailResponse {
+        val puntoDeVenta = comprobanteAnulado.puntoVenta!!
+        val tipoNotaDeCredito = 13 // Nota de Crédito C
+
+        // Obtener el último número de comprobante para la Nota de Crédito
+        val lastVoucher = getLastVoucherNumber(auth, cuit, puntoDeVenta, tipoNotaDeCredito)
+        val numeroDeNota = (lastVoucher ?: 0) + 1
+
+        val fechaActual = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+
+        val condicionIvaClienteAnulado = comprobanteAnulado.cliente?.tipoIva?.nombre
+            ?.uppercase(Locale.getDefault()) ?: "CONSUMIDOR" // Predeterminado a Consumidor Final
+        val condicionIvaReceptorId = when {
+            condicionIvaClienteAnulado.contains("INSCRIPTO") -> 1
+            condicionIvaClienteAnulado.contains("NO INSCRIPTO") -> 2 // Generalmente significa Monotributista o Exento en la práctica para la app
+            condicionIvaClienteAnulado.contains("NO RESPONSABLE") -> 3
+            condicionIvaClienteAnulado.contains("EXENTO") -> 4
+            condicionIvaClienteAnulado.contains("CONSUMIDOR") -> 5
+            condicionIvaClienteAnulado.contains("MONOTRIBUTO") -> 6
+            condicionIvaClienteAnulado.contains("NO CATEGORIZADO") -> 7
+            condicionIvaClienteAnulado.contains("PROVEEDOR DEL EXTERIOR") -> 8
+            condicionIvaClienteAnulado.contains("CLIENTE DEL EXTERIOR") -> 9
+            condicionIvaClienteAnulado.contains("LIBERADO") -> 10
+            // No se manejan "MONOTRIBUTISTA SOCIAL", "IVA NO ALCANZADO", "MONOTRIBUTO TRABAJADOR INDEPENDIENTE PROMOVIDO" explícitamente aquí,
+            // se asume que "MONOTRIBUTO" o "NO CATEGORIZADO" cubrirán esos casos o se usa el valor por defecto.
+            else -> 1 // Valor por defecto: Responsable Inscripto
+        }
+
+        val feCabReq = FeCabReq(ptoVta = puntoDeVenta, cbteTipo = tipoNotaDeCredito)
+        val subtotalesIva = listOf(
+            if (comprobanteAnulado.importeIva21!! > 0) AlicIva(id = 5, baseImp = comprobanteAnulado.noGravadoIva21!!, importe = comprobanteAnulado.importeIva21!!) else null,
+            if (comprobanteAnulado.importeIva105!! > 0) AlicIva(id = 4, baseImp = comprobanteAnulado.noGravadoIva105!!, importe = comprobanteAnulado.importeIva105!!) else null,
+            if (comprobanteAnulado.noGravadoIva0!! > 0) AlicIva(id = 3, baseImp = comprobanteAnulado.noGravadoIva0!!, importe = 0.0) else null
+        ).filterNotNull()
+
+        val feDetRequest = FECAEDetRequest(
+            docTipo = comprobanteAnulado.tipoDocumento!!,
+            docNro = comprobanteAnulado.numeroDeDocumento!!,
+            cbteDesde = numeroDeNota.toLong(),
+            cbteHasta = numeroDeNota.toLong(),
+            cbteFch = fechaActual,
+            impTotal = comprobanteAnulado.total!!.toDouble(),
+            impNeto = comprobanteAnulado.noGravado!!,
+            impIVA = comprobanteAnulado.importeIva!!,
+            iva = if (subtotalesIva.isNotEmpty()) IvaData(subtotalesIva) else null,
+            condicionIVAReceptorId = condicionIvaReceptorId,
+            cbtesAsoc = listOf(
+                CbteAsoc(
+                    tipo = comprobanteAnulado.tipoFactura!!,
+                    ptoVta = comprobanteAnulado.puntoVenta!!,
+                    nro = comprobanteAnulado.numeroFactura!!.toLong()
+                )
+            )
+        )
+
+        val feCAEReq = FeCAEReq(feCabReq, FeDetReq(feDetRequest))
+        val params = CreateVoucherParams(auth = AuthPayload(auth.token, auth.sign, cuit), feCAEReq = feCAEReq)
+        val request = CreateVoucherRequest(params = params)
+
+        Log.d(TAG, "Creando Nota de Crédito N°$numeroDeNota. Petición: ${Gson().toJson(request)}")
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = AfipApiClient.instance.createVoucher(request).execute()
+                if (response.isSuccessful) {
+                    val afipResult = response.body()?.result
+
+                    // Validar si la respuesta de AFIP es un rechazo
+                    if (afipResult?.feCabResp?.resultado == "R") {
+                        val errorMsg = afipResult.errors?.errorDetails?.firstOrNull()?.message
+                            ?: "AFIP rechazó la solicitud sin un mensaje claro."
+                        throw Exception(errorMsg)
+                    }
+
+                    // Si es Aprobado, extraer el CAE y la fecha de vencimiento
+                    val detailResponse = afipResult?.feDetResp?.FECAEDetResponse?.firstOrNull()
+                    if (detailResponse?.resultado == "A" && !detailResponse.cae.isNullOrBlank()) {
+                        Log.i(TAG, "CAE obtenido con éxito: ${detailResponse.cae}")
+                        detailResponse
+                    } else {
+                        throw Exception("Respuesta de AFIP Aprobada pero sin CAE válido.")
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    Log.e(TAG, "Error al crear la Nota de Crédito. Código: ${response.code()}, Mensaje: $errorBody")
+                    throw Exception("Error de comunicación con el servidor de AFIP (${response.code()})")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Excepción al crear la Nota de Crédito: ${e.message}")
+                throw e
+            }
+        }
+    }
+
+    /**
      * Genera un comprobante de nota de crédito basado en el comprobante que se anuló.
      * @param comprobanteAnulado El comprobante original que se anuló.
      * @return Un nuevo objeto [Comprobante] configurado como nota de crédito.
@@ -287,4 +392,7 @@ object AfipVoucherManager {
             localId = 0
         )
     }
+
+
+
 }
