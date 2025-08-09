@@ -7,6 +7,7 @@ import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ProductoDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoConDetalles
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoConStockCompleto
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
@@ -24,6 +25,11 @@ class ProductoRepository(private val dao: ProductoDao) {
                 }
             }
         ).flow
+    }
+
+    // Nuevo método para obtener productos con stock completo
+    fun getProductosConStockCompleto(): Flow<List<ProductoConStockCompleto>> {
+        return dao.getProductosConStockCompleto()
     }
 
     // Asegúrate de que este método, que ya existe en el DAO, esté expuesto aquí.
@@ -44,5 +50,6 @@ class ProductoRepository(private val dao: ProductoDao) {
         dao.update(entity) // Se utiliza el método update del DAO.
     }
     suspend fun eliminarTodo() = dao.clearAll()
-}
 
+
+}

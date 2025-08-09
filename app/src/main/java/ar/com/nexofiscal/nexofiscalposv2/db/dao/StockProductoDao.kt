@@ -41,4 +41,39 @@ interface StockProductoDao {
 
     @Query("DELETE FROM stock_productos")
     suspend fun clearAll()
+
+    @Transaction
+    suspend fun insertOrUpdate(items: List<StockProductoEntity>) {
+        for (item in items) {
+            val existingItem = getById(item.id)
+            if (existingItem == null) {
+                insert(item)
+            } else {
+                update(item)
+            }
+        }
+    }
+
+    @Query("SELECT * FROM stock_productos WHERE serverId = :serverId LIMIT 1")
+    suspend fun findByServerId(serverId: Int): StockProductoEntity?
+
+    /**
+     * Inserta o actualiza una lista de registros de stock. Si un registro ya existe
+     * (mismo serverId), lo actualiza. Si no, lo inserta como nuevo.
+     */
+    @Transaction
+    suspend fun upsertAll(items: List<StockProductoEntity>) {
+        items.forEach { item ->
+            val existente = item.serverId?.let { findByServerId(it) }
+
+            val entidadParaInsertar = if (existente != null) {
+                // Si existe, se copia la nueva info pero se mantiene el ID local
+                item.copy(id = existente.id)
+            } else {
+                // Si no existe, es un registro nuevo
+                item
+            }
+            insert(entidadParaInsertar) // El método insert ya tiene OnConflictStrategy.REPLACE
+        }
+    }
 }

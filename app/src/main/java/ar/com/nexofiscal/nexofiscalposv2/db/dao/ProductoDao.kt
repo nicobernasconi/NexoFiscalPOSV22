@@ -4,6 +4,7 @@ import androidx.paging.PagingSource
 import androidx.room.*
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoConDetalles
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoConStockCompleto
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
@@ -85,4 +86,21 @@ interface ProductoDao {
 
     @Query("DELETE FROM productos")
     suspend fun clearAll()
+
+    // Nueva consulta para obtener productos con stock completo
+    @Query("""
+        SELECT 
+            p.id as producto_id,
+            p.codigo,
+            p.descripcion,
+            p.stockMinimo as stock_minimo,
+            p.stockPedido as stock_pedido,
+            COALESCE(sp.stockActual, 0.0) as stock_actual
+        FROM productos p
+        LEFT JOIN stock_productos sp ON p.id = sp.productoId
+        WHERE p.syncStatus != :statusDeleted
+        ORDER BY p.descripcion ASC
+    """)
+    fun getProductosConStockCompleto(statusDeleted: SyncStatus = SyncStatus.DELETED): Flow<List<ProductoConStockCompleto>>
+
 }

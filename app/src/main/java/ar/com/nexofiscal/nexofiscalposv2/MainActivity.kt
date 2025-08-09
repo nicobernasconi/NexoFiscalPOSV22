@@ -73,6 +73,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var configuracionViewModel: ConfiguracionViewModel
     private lateinit var monedaViewModel: MonedaViewModel
 
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -122,6 +124,7 @@ class MainActivity : ComponentActivity() {
 
 
 
+
         currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "AR")).apply {
             maximumFractionDigits = 2
             minimumFractionDigits = 2
@@ -152,7 +155,7 @@ class MainActivity : ComponentActivity() {
                             tipoDocumentoViewModel, tipoIvaViewModel, categoriaViewModel,
                             tipoFormaPagoViewModel, localidadViewModel, promocionViewModel,
                             paisViewModel, provinciaViewModel, rolViewModel, sucursalViewModel,configuracionViewModel,
-                            usuarioViewModel, vendedorViewModel, cierreCajaViewModel,tipoComprobanteViewModel,monedaViewModel,
+                            usuarioViewModel, vendedorViewModel, cierreCajaViewModel,tipoComprobanteViewModel,monedaViewModel
 
                         )
                         NotificationHost()

@@ -112,7 +112,8 @@ fun MainScreen(
     vendedorViewModel: VendedorViewModel,
     cierreCajaViewModel: CierreCajaViewModel,
     tipoComprobanteViewModel: TipoComprobanteViewModel,
-    monedaViewModel: MonedaViewModel
+    monedaViewModel: MonedaViewModel,
+
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -168,6 +169,7 @@ fun MainScreen(
     var showProveedorEditScreen by remember { mutableStateOf(false) }
     var isProveedorCreateMode by remember { mutableStateOf(false) }
     var proveedorInScreen by remember { mutableStateOf<Proveedor?>(null) }
+    var showProductStockScreen by remember { mutableStateOf(false) }
     LaunchedEffect(total) { onTotalUpdated(total) }
 
     // --- Lógica de Edición y Carga ---
@@ -252,35 +254,41 @@ fun MainScreen(
         val recargosAcumulados = resultado.pagos.sumOf { (it.monto * (it.formaPago.porcentaje / 100.0)).coerceAtLeast(0.0) }
         val totalFinal = totalOriginal - montoDescuento + recargosAcumulados
 
-        var importeIva21 = 0.0
-        var importeIva105 = 0.0
-        var noGravadoTotal = 0.0
-        var noGravadoIva21 = 0.0
-        var noGravadoIva105 = 0.0
-        var noGravadoIva0 = 0.0
+        var importeIva21: Double
+        var importeIva105: Double
+        var noGravadoTotal: Double
+        var noGravadoIva21: Double
+        var noGravadoIva105: Double
+        var noGravadoIva0: Double=0.0
+
+        var acumuladoImporteIva21 = 0.0
+        var acumuladoImporteIva105 = 0.0
+        var acumuladoNoGravadoTotal = 0.0
+        var acumuladoNoGravadoIva21 = 0.0
+        var acumuladoNoGravadoIva105 = 0.0
+        var acumuladoNoGravadoIva0 = 0.0
 
         renglonesDeVenta.forEach { renglon ->
             val subtotal = renglon.totalLinea.toDoubleOrNull() ?: 0.0
             val tasa = renglon.tasaIva
             val netoRenglon = if (tasa > 0) subtotal / (1 + tasa) else subtotal
             val ivaRenglon = subtotal - netoRenglon
-
-            noGravadoTotal += netoRenglon
-
+            acumuladoNoGravadoTotal += netoRenglon
             when (tasa) {
-                0.21 -> {
-                    importeIva21 += ivaRenglon
-                    noGravadoIva21 += netoRenglon
-                }
-                0.105 -> {
-                    importeIva105 += ivaRenglon
-                    noGravadoIva105 += netoRenglon
-                }
+                0.21 -> { acumuladoImporteIva21 += ivaRenglon; acumuladoNoGravadoIva21 += netoRenglon }
+                0.105 -> { acumuladoImporteIva105 += ivaRenglon; acumuladoNoGravadoIva105 += netoRenglon }
                 else -> {
                     noGravadoIva0 += netoRenglon
                 }
             }
         }
+
+        importeIva21 = String.format(Locale.US, "%.2f", acumuladoImporteIva21).toDouble()
+        importeIva105 = String.format(Locale.US, "%.2f", acumuladoImporteIva105).toDouble()
+        noGravadoTotal = String.format(Locale.US, "%.2f", acumuladoNoGravadoTotal).toDouble()
+        noGravadoIva21 = String.format(Locale.US, "%.2f", acumuladoNoGravadoIva21).toDouble()
+        noGravadoIva105 = String.format(Locale.US, "%.2f", acumuladoNoGravadoIva105).toDouble()
+        noGravadoIva0 = String.format(Locale.US, "%.2f", acumuladoNoGravadoIva0).toDouble()
 
         val importeIvaTotal = importeIva21 + importeIva105
         val tipoComprobanteDomain = tipoComprobanteViewModel.getById(tipoComprobanteId)
@@ -288,9 +296,9 @@ fun MainScreen(
         var comprobanteParaGestionar = Comprobante(
             id = 0, serverId = null, cliente = clienteSeleccionado, clienteId = clienteSeleccionado?.id ?: 1,
             tipoComprobante = tipoComprobanteDomain, tipoComprobanteId = tipoComprobanteDomain?.id,
-            fecha = fechaStr, hora = horaStr, total = totalFinal.toString(), totalPagado = resultado.pagos.sumOf { it.monto },
-            descuentoTotal = montoDescuento.toString(), incrementoTotal = recargosAcumulados.toString(),
-            importeIva = importeIvaTotal, noGravado = noGravadoTotal, importeIva21 = importeIva21,
+            fecha = fechaStr, hora = horaStr, total = String.format(Locale.US, "%.2f", totalFinal), totalPagado = resultado.pagos.sumOf { it.monto },
+            descuentoTotal = String.format(Locale.US, "%.2f", montoDescuento), incrementoTotal = String.format(Locale.US, "%.2f", recargosAcumulados),
+            importeIva = String.format(Locale.US, "%.2f", importeIvaTotal).toDouble(), noGravado = noGravadoTotal, importeIva21 = importeIva21,
             importeIva105 = importeIva105, importeIva0 = 0.0, noGravadoIva21 = noGravadoIva21,
             noGravadoIva105 = noGravadoIva105, noGravadoIva0 = noGravadoIva0,
             numero = numeroDeComprobante, puntoVenta = SessionManager.puntoVentaNumero,
@@ -415,7 +423,13 @@ fun MainScreen(
         }
 
         if (imprimir) {
-            // ... lógica de impresión ...
+            try {
+                PrintingManager.print(context, comprobanteParaGestionar, renglonesDeVenta)
+                Log.d("FinalizarVenta", "Impresión realizada con éxito.")
+            } catch (e: Exception) {
+                Log.e("FinalizarVenta", "Error durante la impresión: ${e.message}")
+                NotificationManager.show("Error al imprimir el comprobante.", NotificationType.ERROR)
+            }
         }
 
         scope.launch(Dispatchers.IO) {
@@ -459,7 +473,9 @@ fun MainScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().background(Blanco)) {
+        Column(Modifier
+            .fillMaxSize()
+            .background(Blanco)) {
             HeaderSection { showMenu = true }
             NotificationHost()
             PrintingStatusDialog()
@@ -524,6 +540,9 @@ fun MainScreen(
                 "Crear Cliente" -> { isClientCreateMode = true; clienteViewModel.limpiarClienteParaEdicion(); showClienteEditScreen = true }
                 "Listar Productos" -> { productScreenMode = CrudScreenMode.EDIT_DELETE; showFullScreenProductSearch = true }
                 "Crear Producto" -> { isProductCreateMode = true; productoViewModel.limpiarProductoParaEdicion(); showProductEditScreen = true }
+                "Productos con Stock" -> {
+                    showProductStockScreen = true
+                }
                 "Informe de Ventas" -> {showInformeDeVentas = true}
                 "Descargar Datos" -> {
                     scope.launch {
@@ -852,6 +871,7 @@ fun MainScreen(
         if (showUnidadScreen) { Surface(Modifier.fillMaxSize()) { UnidadScreen(unidadViewModel) { showUnidadScreen = false } } }
         if (showUsuarioScreen) { Surface(Modifier.fillMaxSize()) { UsuarioScreen(usuarioViewModel, rolViewModel, sucursalViewModel, vendedorViewModel) { showUsuarioScreen = false } } }
         if (showVendedorScreen) { Surface(Modifier.fillMaxSize()) { VendedorScreen(vendedorViewModel) { showVendedorScreen = false } } }
+
     }
 
     SyncStatusIcon(
@@ -925,7 +945,10 @@ private fun ClientInfoSection(
             }
         } else {
             Row(
-                modifier = Modifier.fillMaxWidth().background( NegroNexo).padding(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(NegroNexo)
+                    .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -1075,7 +1098,9 @@ private fun SaleItemRow(item: SaleItem, onRemove: () -> Unit) {
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Column(modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp)) {
                     Text(
                         text = item.producto.descripcion.orEmpty(),
                         style = MaterialTheme.typography.titleSmall,
@@ -1129,7 +1154,13 @@ private fun SaleItemRow(item: SaleItem, onRemove: () -> Unit) {
                             color = if (isPriceFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
                             shape = RoundedCornerShape(4.dp)
                         )
-                        .border(1.dp, if (isPriceFocused) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                        .border(
+                            1.dp,
+                            if (isPriceFocused) MaterialTheme.colorScheme.primary else Color.Gray.copy(
+                                alpha = 0.5f
+                            ),
+                            RoundedCornerShape(4.dp)
+                        )
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

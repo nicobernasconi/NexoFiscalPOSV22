@@ -28,4 +28,9 @@ class StockProductoRepository(private val dao: StockProductoDao) {
 
     /** Borra todos los registros */
     suspend fun eliminarTodo() = dao.clearAll()
+
+    /** Obtiene un registro de stock por el ID del producto */
+    suspend fun getByProductoId(productoId: Int): StockProductoEntity? {
+        return dao.getById(productoId)
+    }
 }

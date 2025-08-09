@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import android.content.Context
 import androidx.room.TypeConverters
+import ar.com.nexofiscal.nexofiscalposv2.db.converter.DateConverter
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.AgrupacionDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.CategoriaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.CierreCajaDao
@@ -26,6 +27,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.dao.ProvinciaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.RenglonComprobanteDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.RolDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.StockProductoDao
+import ar.com.nexofiscal.nexofiscalposv2.db.dao.StockActualizacionDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.SubcategoriaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.SucursalDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.TasaIvaDao
@@ -57,6 +59,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProvinciaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.RenglonComprobanteEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.RolEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.StockProductoEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.StockActualizacionEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SubcategoriaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SucursalEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TasaIvaEntity
@@ -87,6 +90,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
         ProvinciaEntity::class,
         RolEntity::class,
         StockProductoEntity::class,
+        StockActualizacionEntity::class,
         SubcategoriaEntity::class,
         SucursalEntity::class,
         TasaIvaEntity::class,
@@ -105,10 +109,10 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
 
 
     ],
-    version = 7,
+    version = 8,    // Incrementar versión por la nueva tabla
     exportSchema = false
 )
-
+@TypeConverters(DateConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun agrupacionDao(): AgrupacionDao
@@ -127,6 +131,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun provinciaDao(): ProvinciaDao
     abstract fun rolDao(): RolDao
     abstract fun stockProductoDao(): StockProductoDao
+    abstract fun stockActualizacionDao(): StockActualizacionDao
     abstract fun subcategoriaDao(): SubcategoriaDao
     abstract fun sucursalDao(): SucursalDao
     abstract fun tasaIvaDao(): TasaIvaDao

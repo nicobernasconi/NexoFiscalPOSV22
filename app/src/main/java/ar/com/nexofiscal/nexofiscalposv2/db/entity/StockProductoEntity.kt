@@ -10,7 +10,6 @@ data class StockProductoEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     var serverId: Int?,
     var syncStatus: SyncStatus,
-
     val codigo: String?,
     val stockInicial: Double?,
     val controlaStock: Boolean?,

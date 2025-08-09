@@ -18,6 +18,7 @@ import ar.com.nexofiscal.nexofiscalposv2.models.Promocion
 import ar.com.nexofiscal.nexofiscalposv2.models.Proveedor
 import ar.com.nexofiscal.nexofiscalposv2.models.Provincia
 import ar.com.nexofiscal.nexofiscalposv2.models.Rol
+import ar.com.nexofiscal.nexofiscalposv2.models.StockProducto
 import ar.com.nexofiscal.nexofiscalposv2.models.Sucursal
 import ar.com.nexofiscal.nexofiscalposv2.models.TasaIva
 import ar.com.nexofiscal.nexofiscalposv2.models.Tipo
@@ -284,6 +285,24 @@ object SyncManager {
                     object : com.google.gson.reflect.TypeToken<List<TasaIva>>() {}.type,
                     headers
                 ) { db.tasaIvaDao().upsertAll(it.map(TasaIva::toEntity)) }
+            },{
+                // --- INICIO DE LA CORRECCIÓN ---
+                val taskName = "Stocks"
+                _progressState.update { it.copy(currentTaskName = taskName, currentTaskItemCount = 0) }
+                val sucursalId = SessionManager.sucursalId
+                if (sucursalId != -1) {
+                    executeSyncTask<StockProducto>(
+                        taskName,
+                        "/api/productos_stocks?sucursal_id=$sucursalId&",
+                        object : com.google.gson.reflect.TypeToken<List<StockProducto>>() {}.type,
+                        headers
+                    ) { db.stockProductoDao().upsertAll(it.map(StockProducto::toEntity)) }
+                } else {
+                    val errorMsg = "Error en $taskName: ID de sucursal no encontrado."
+                    Log.e(TAG, errorMsg)
+                    _progressState.update { it.copy(errors = it.errors + errorMsg) }
+                }
+                // --- FIN DE LA CORRECCIÓN ---
             },
             {
 
@@ -312,10 +331,10 @@ object SyncManager {
                             headers,
                             sucursalId,
                             object : ComprobanteManager.ComprobanteListCallback {
-                                override fun onSuccess(items: MutableList<Comprobante?>?) {
+                                override fun onSuccess(comprobantes: MutableList<Comprobante?>?) {
                                     _progressState.update {
                                         it.copy(
-                                            currentTaskItemCount = items?.size ?: 0
+                                            currentTaskItemCount = comprobantes?.size ?: 0
                                         )
                                     }
                                     Log.d(TAG, "Tarea '$taskName' completada.")
@@ -352,4 +371,6 @@ object SyncManager {
             )
         }
     }
+
+
 }

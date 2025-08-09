@@ -36,6 +36,7 @@ val menuItems = listOf(
     MenuItemModel(R.drawable.ic_inventory, "Productos", listOf(
         MenuItemModel(R.drawable.ic_add, "Crear Producto"),
         MenuItemModel(R.drawable.ic_list, "Listar Productos"),
+        MenuItemModel(R.drawable.ic_inventory, "Stock de Productos"),
     )),
     MenuItemModel(R.drawable.ic_people, "Clientes", listOf(
         MenuItemModel(R.drawable.ic_add, "Crear Cliente"),
