@@ -172,106 +172,84 @@ private fun ProductoStockCard(
         colors = CardDefaults.cardColors(containerColor = Blanco),
         shape = BordeSuave
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Código y descripción del producto
-            Column {
+            // Información del producto a la izquierda
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = producto.codigo ?: "Sin código",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     color = AzulNexo,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = producto.descripcion ?: "Sin descripción",
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = TextoGrisOscuro,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Separador visual
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = GrisClaro
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Información de stock en chips con colores del tema
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                StockInfoChip(
-                    label = "Stock Actual",
-                    value = "${producto.stockActual?.toInt() ?: 0}",
-                    backgroundColor = getStockBackgroundColor(
-                        stockActual = producto.stockActual ?: 0.0,
-                        stockMinimo = producto.stockMinimo.toDouble()
-                    ),
-                    textColor = getStockTextColor(
-                        stockActual = producto.stockActual ?: 0.0,
-                        stockMinimo = producto.stockMinimo.toDouble()
+                // Stock mínimo y de pedido como texto simple
+                Row(
+                    modifier = Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Mín: ${producto.stockMinimo}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextoGrisOscuro.copy(alpha = 0.7f)
                     )
-                )
-
-                StockInfoChip(
-                    label = "Mínimo",
-                    value = "${producto.stockMinimo}",
-                    backgroundColor = AzulNexo.copy(alpha = 0.1f),
-                    textColor = AzulNexo
-                )
-
-                StockInfoChip(
-                    label = "Pedido",
-                    value = "${producto.stockPedido}",
-                    backgroundColor = GrisClaro,
-                    textColor = TextoGrisOscuro
-                )
+                    Text(
+                        text = "Ped: ${producto.stockPedido}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextoGrisOscuro.copy(alpha = 0.7f)
+                    )
+                }
             }
-        }
-    }
-}
 
-@Composable
-private fun StockInfoChip(
-    label: String,
-    value: String,
-    backgroundColor: Color,
-    textColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = backgroundColor
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = textColor.copy(alpha = 0.8f),
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-                textAlign = TextAlign.Center
-            )
+            // Solo el stock actual con recuadro a la derecha
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = getStockBackgroundColor(
+                    stockActual = producto.stockActual ?: 0.0,
+                    stockMinimo = producto.stockMinimo.toDouble()
+                )
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Stock",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = getStockTextColor(
+                            stockActual = producto.stockActual ?: 0.0,
+                            stockMinimo = producto.stockMinimo.toDouble()
+                        ).copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "${producto.stockActual?.toInt() ?: 0}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = getStockTextColor(
+                            stockActual = producto.stockActual ?: 0.0,
+                            stockMinimo = producto.stockMinimo.toDouble()
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }
