@@ -1,6 +1,7 @@
 package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class StockViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -20,6 +22,18 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
     init {
         val database = AppDatabase.getInstance(application) // Usar getInstance en lugar de getDatabase
         repository = ProductoRepository(database.productoDao())
+
+        // Diagnóstico: verificar datos en las tablas
+        viewModelScope.launch {
+            try {
+                val productosCount = repository.getProductosCount()
+                val stockCount = repository.getStockProductosCount()
+                Log.d("StockViewModel", "Productos en DB: $productosCount")
+                Log.d("StockViewModel", "Registros de stock en DB: $stockCount")
+            } catch (e: Exception) {
+                Log.e("StockViewModel", "Error al obtener counts: ${e.message}")
+            }
+        }
     }
 
     // Estado para la lista de productos con stock
@@ -40,6 +54,11 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
         productosConStock,
         searchQuery
     ) { productos, query ->
+        Log.d("StockViewModel", "Productos obtenidos: ${productos.size}")
+        if (productos.isNotEmpty()) {
+            Log.d("StockViewModel", "Primer producto: ${productos.first().descripcion}, Stock: ${productos.first().stockActual}")
+        }
+
         if (query.isBlank()) {
             productos
         } else {

@@ -88,19 +88,25 @@ interface ProductoDao {
     suspend fun clearAll()
 
     // Nueva consulta para obtener productos con stock completo
+    @Transaction
     @Query("""
         SELECT 
-            p.id as producto_id,
-            p.codigo,
+            p.id as productoId, 
+            p.codigo, 
             p.descripcion,
-            p.stockMinimo as stock_minimo,
-            p.stockPedido as stock_pedido,
-            COALESCE(sp.stockActual, 0.0) as stock_actual
+            s.stockActual,
+            p.stockMinimo,
+            p.stockPedido
         FROM productos p
-        LEFT JOIN stock_productos sp ON p.id = sp.productoId
-        WHERE p.syncStatus != :statusDeleted
-        ORDER BY p.descripcion ASC
+        LEFT JOIN stock_productos s ON p.serverId = s.productoId
+        WHERE s.sucursalId = :sucursalId
     """)
-    fun getProductosConStockCompleto(statusDeleted: SyncStatus = SyncStatus.DELETED): Flow<List<ProductoConStockCompleto>>
+    fun getProductosConStockCompleto(sucursalId: Int): Flow<List<ProductoConStockCompleto>>
 
+    // Consulta de prueba para verificar si hay datos
+    @Query("SELECT COUNT(*) FROM productos WHERE syncStatus != :statusDeleted")
+    suspend fun getProductosCount(statusDeleted: SyncStatus = SyncStatus.DELETED): Int
+
+    @Query("SELECT COUNT(*) FROM stock_productos")
+    suspend fun getStockProductosCount(): Int
 }

@@ -72,6 +72,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var tipoComprobanteViewModel: TipoComprobanteViewModel
     private lateinit var configuracionViewModel: ConfiguracionViewModel
     private lateinit var monedaViewModel: MonedaViewModel
+    private lateinit var stockViewModel: StockViewModel
 
 
 
@@ -121,6 +122,7 @@ class MainActivity : ComponentActivity() {
         tipoComprobanteViewModel = ViewModelProvider(this)[TipoComprobanteViewModel::class.java]
         configuracionViewModel = ViewModelProvider(this)[ConfiguracionViewModel::class.java]
         monedaViewModel = ViewModelProvider(this)[MonedaViewModel::class.java]
+        stockViewModel = ViewModelProvider(this)[StockViewModel::class.java]
 
 
 
@@ -155,7 +157,9 @@ class MainActivity : ComponentActivity() {
                             tipoDocumentoViewModel, tipoIvaViewModel, categoriaViewModel,
                             tipoFormaPagoViewModel, localidadViewModel, promocionViewModel,
                             paisViewModel, provinciaViewModel, rolViewModel, sucursalViewModel,configuracionViewModel,
-                            usuarioViewModel, vendedorViewModel, cierreCajaViewModel,tipoComprobanteViewModel,monedaViewModel
+                            usuarioViewModel, vendedorViewModel, cierreCajaViewModel,tipoComprobanteViewModel,monedaViewModel,
+                            stockViewModel
+
 
                         )
                         NotificationHost()

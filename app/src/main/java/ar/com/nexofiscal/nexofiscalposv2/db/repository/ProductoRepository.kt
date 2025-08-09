@@ -9,6 +9,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoConDetalles
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoConStockCompleto
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
 import kotlinx.coroutines.flow.Flow
 
 class ProductoRepository(private val dao: ProductoDao) {
@@ -29,8 +30,12 @@ class ProductoRepository(private val dao: ProductoDao) {
 
     // Nuevo método para obtener productos con stock completo
     fun getProductosConStockCompleto(): Flow<List<ProductoConStockCompleto>> {
-        return dao.getProductosConStockCompleto()
+        return dao.getProductosConStockCompleto(SessionManager.sucursalId)
     }
+
+    // Métodos de diagnóstico
+    suspend fun getProductosCount(): Int = dao.getProductosCount()
+    suspend fun getStockProductosCount(): Int = dao.getStockProductosCount()
 
     // Asegúrate de que este método, que ya existe en el DAO, esté expuesto aquí.
 

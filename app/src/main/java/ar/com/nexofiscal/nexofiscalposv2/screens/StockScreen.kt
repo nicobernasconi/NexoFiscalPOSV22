@@ -1,19 +1,18 @@
 package ar.com.nexofiscal.nexofiscalposv2.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -21,94 +20,145 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoConStockCompleto
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.StockViewModel
+import ar.com.nexofiscal.nexofiscalposv2.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StockScreen(
-    viewModel: StockViewModel = viewModel()
-) {
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    val filteredProducts by viewModel.filteredProducts.collectAsState()
+    viewModel: StockViewModel = viewModel(),
+    onDismiss: () -> Unit = {
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Título de la pantalla
-        Text(
-            text = "Control de Stock",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
 
-        // Campo de búsqueda
-        SearchField(
-            query = searchQuery,
-            onQueryChange = viewModel::updateSearchQuery,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
 
-        // Lista de productos
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(
-                items = filteredProducts,
-                key = { it.productoId }
-            ) { producto ->
-                ProductoStockCard(producto = producto)
-            }
-        }
     }
-}
-
-@Composable
-private fun SearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    modifier: Modifier = Modifier
 ) {
-    BasicTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(16.dp),
-        textStyle = MaterialTheme.typography.bodyLarge.copy(
-            color = MaterialTheme.colorScheme.onSurface
-        ),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        decorationBox = { innerTextField ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Buscar",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Box {
-                    if (query.isEmpty()) {
-                        Text(
-                            text = "Buscar producto...",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+    val filteredProducts by viewModel.filteredProducts.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+    var searchText by remember { mutableStateOf("") }
+
+    LaunchedEffect(searchText) {
+        viewModel.updateSearchQuery(searchText)
+    }
+
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Control de Stock",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = Blanco,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = Blanco
                         )
                     }
-                    innerTextField()
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AzulNexo,
+                    titleContentColor = Blanco,
+                    navigationIconContentColor = Blanco
+                ),
+                scrollBehavior = scrollBehavior
+            )
+        },
+        containerColor = GrisClaro
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // Campo de búsqueda con estilo consistente
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = BordeSuave,
+                colors = CardDefaults.cardColors(containerColor = Blanco),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchText,
+                    onValueChange = { searchText = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    placeholder = {
+                        Text(
+                            "Buscar por código o descripción...",
+                            color = TextoGrisOscuro.copy(alpha = 0.6f)
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Buscar",
+                            tint = AzulNexo
+                        )
+                    },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AzulNexo,
+                        unfocusedBorderColor = GrisClaro,
+                        focusedTextColor = TextoGrisOscuro,
+                        unfocusedTextColor = TextoGrisOscuro
+                    ),
+                    shape = BordeSuave
+                )
+            }
+
+            // Lista de productos con estilos consistentes
+            if (filteredProducts.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier.padding(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = Blanco),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = BordeSuave
+                    ) {
+                        Text(
+                            text = if (searchQuery.isBlank()) {
+                                "No hay productos con stock para mostrar"
+                            } else {
+                                "No se encontraron productos que coincidan con '$searchQuery'"
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = TextoGrisOscuro,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(24.dp)
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(
+                        items = filteredProducts,
+                        key = { it.productoId }
+                    ) { producto ->
+                        ProductoStockCard(producto = producto)
+                    }
                 }
             }
         }
-    )
+    }
 }
 
 @Composable
@@ -117,68 +167,73 @@ private fun ProductoStockCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        colors = CardDefaults.cardColors(containerColor = Blanco),
+        shape = BordeSuave
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
             // Código y descripción del producto
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = producto.codigo ?: "Sin código",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = producto.descripcion ?: "Sin descripción",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
+            Column {
+                Text(
+                    text = producto.codigo ?: "Sin código",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AzulNexo,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = producto.descripcion ?: "Sin descripción",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = TextoGrisOscuro,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Información de stock
+            // Separador visual
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = GrisClaro
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Información de stock en chips con colores del tema
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                StockInfoItem(
+                StockInfoChip(
                     label = "Stock Actual",
                     value = "${producto.stockActual?.toInt() ?: 0}",
-                    color = getStockColor(
+                    backgroundColor = getStockBackgroundColor(
+                        stockActual = producto.stockActual ?: 0.0,
+                        stockMinimo = producto.stockMinimo.toDouble()
+                    ),
+                    textColor = getStockTextColor(
                         stockActual = producto.stockActual ?: 0.0,
                         stockMinimo = producto.stockMinimo.toDouble()
                     )
                 )
 
-                StockInfoItem(
-                    label = "Stock Mínimo",
+                StockInfoChip(
+                    label = "Mínimo",
                     value = "${producto.stockMinimo}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    backgroundColor = AzulNexo.copy(alpha = 0.1f),
+                    textColor = AzulNexo
                 )
 
-                StockInfoItem(
-                    label = "Stock Pedido",
+                StockInfoChip(
+                    label = "Pedido",
                     value = "${producto.stockPedido}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    backgroundColor = GrisClaro,
+                    textColor = TextoGrisOscuro
                 )
             }
         }
@@ -186,38 +241,55 @@ private fun ProductoStockCard(
 }
 
 @Composable
-private fun StockInfoItem(
+private fun StockInfoChip(
     label: String,
     value: String,
-    color: Color,
+    backgroundColor: Color,
+    textColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = backgroundColor
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = color,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = textColor.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
 @Composable
-private fun getStockColor(stockActual: Double, stockMinimo: Double): Color {
+private fun getStockBackgroundColor(stockActual: Double, stockMinimo: Double): Color {
     return when {
-        stockActual <= 0 -> Color.Red
-        stockActual <= stockMinimo -> Color(0xFFFF9800) // Naranja
-        else -> Color(0xFF4CAF50) // Verde
+        stockActual <= 0 -> RojoError.copy(alpha = 0.15f)
+        stockActual <= stockMinimo -> Color(0xFFFF9800).copy(alpha = 0.15f) // Naranja suave
+        else -> Color(0xFF4CAF50).copy(alpha = 0.15f) // Verde suave
+    }
+}
+
+@Composable
+private fun getStockTextColor(stockActual: Double, stockMinimo: Double): Color {
+    return when {
+        stockActual <= 0 -> RojoError
+        stockActual <= stockMinimo -> Color(0xFFE65100) // Naranja oscuro
+        else -> Color(0xFF2E7D32) // Verde oscuro
     }
 }

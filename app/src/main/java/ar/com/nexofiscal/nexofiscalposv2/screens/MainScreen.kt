@@ -113,6 +113,7 @@ fun MainScreen(
     cierreCajaViewModel: CierreCajaViewModel,
     tipoComprobanteViewModel: TipoComprobanteViewModel,
     monedaViewModel: MonedaViewModel,
+    stockViewModel: StockViewModel,
 
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -171,6 +172,7 @@ fun MainScreen(
     var proveedorInScreen by remember { mutableStateOf<Proveedor?>(null) }
     var showProductStockScreen by remember { mutableStateOf(false) }
     LaunchedEffect(total) { onTotalUpdated(total) }
+
 
     // --- Lógica de Edición y Carga ---
     val clientInScreen by clienteViewModel.clienteParaEditar.collectAsState()
@@ -540,7 +542,7 @@ fun MainScreen(
                 "Crear Cliente" -> { isClientCreateMode = true; clienteViewModel.limpiarClienteParaEdicion(); showClienteEditScreen = true }
                 "Listar Productos" -> { productScreenMode = CrudScreenMode.EDIT_DELETE; showFullScreenProductSearch = true }
                 "Crear Producto" -> { isProductCreateMode = true; productoViewModel.limpiarProductoParaEdicion(); showProductEditScreen = true }
-                "Productos con Stock" -> {
+                "Stock de Productos" -> {
                     showProductStockScreen = true
                 }
                 "Informe de Ventas" -> {showInformeDeVentas = true}
@@ -853,6 +855,19 @@ fun MainScreen(
                 onDismiss = { showProveedorScreen = false }
             )
         }
+        if (showProductStockScreen) {
+            Surface(Modifier.fillMaxSize()) {
+                StockScreen(
+                   viewModel = stockViewModel,
+                    onDismiss = { showProductStockScreen = false },
+
+
+
+                )
+
+            }
+        }
+
         if (showFamiliaScreen) { Surface(Modifier.fillMaxSize()) { FamiliaScreen(familiaViewModel) { showFamiliaScreen = false } } }
         if (showFormaPagoScreen) { Surface(Modifier.fillMaxSize()) { FormaPagoScreen(formaPagoViewModel, tipoFormaPagoViewModel) { showFormaPagoScreen = false } } }
         if (showLocalidadScreen) { Surface(Modifier.fillMaxSize()) { LocalidadScreen(localidadViewModel, provinciaViewModel) { showLocalidadScreen = false } } }
