@@ -22,6 +22,7 @@ import ar.com.nexofiscal.nexofiscalposv2.ui.theme.NexoFiscalPOSV2Theme
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import ar.com.nexofiscal.nexofiscalposv2.services.BackupScheduler
 
 class LoginActivity : ComponentActivity() {
 
@@ -72,6 +73,10 @@ class LoginActivity : ComponentActivity() {
     }
 
     private fun navigateToMain(isOffline: Boolean = false) {
+        // Programar backups (cada hora) y verificar inmediatamente al entrar
+        BackupScheduler.scheduleHourly(applicationContext)
+        BackupScheduler.runNow(applicationContext)
+
         // Iniciar el servicio en segundo plano si no estamos en modo offline
         if (!isOffline) {
             val serviceIntent = Intent(this, SyncService::class.java)

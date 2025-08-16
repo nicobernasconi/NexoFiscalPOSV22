@@ -18,7 +18,6 @@ data class ComprobanteEntity(
     val numero: Int?,
     val cuotas: Int?,
     val clienteId: Int,
-    // ... resto de los campos existentes
     val remito: String?,
     val persona: String?,
     val provinciaId: Int?,
@@ -103,8 +102,8 @@ data class ComprobanteEntity(
     val qr: String?,
     val comprobanteIdBaja: String?,
     val sucursalId: Int?,
-    val descuentoTotal: String?,
-    val incrementoTotal: String?,
+    val descuentoTotal: String?,//porcentage de descuentos
+    val incrementoTotal: String?,//porcentage de incrementos
     val tipoComprobanteId: Int?,
 
     )

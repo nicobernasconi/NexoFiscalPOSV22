@@ -119,4 +119,9 @@ dependencies {
     implementation ("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.0")
 
     implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // WorkManager para tareas en background (backup periódico)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+
 }

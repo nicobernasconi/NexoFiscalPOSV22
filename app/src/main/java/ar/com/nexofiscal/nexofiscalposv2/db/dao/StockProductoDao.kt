@@ -42,6 +42,14 @@ interface StockProductoDao {
     @Query("DELETE FROM stock_productos")
     suspend fun clearAll()
 
+    // Nuevo método para obtener stock por producto y sucursal
+    @Query("SELECT * FROM stock_productos WHERE productoId = :productoId AND sucursalId = :sucursalId LIMIT 1")
+    suspend fun getByProductoId(productoId: Int, sucursalId: Int): StockProductoEntity?
+
+    // Método para obtener stock solo por producto (primera sucursal encontrada)
+    @Query("SELECT * FROM stock_productos WHERE productoId = :productoId LIMIT 1")
+    suspend fun getByProductoId(productoId: Int): StockProductoEntity?
+
     @Transaction
     suspend fun insertOrUpdate(items: List<StockProductoEntity>) {
         for (item in items) {

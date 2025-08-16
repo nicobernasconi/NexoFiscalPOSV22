@@ -24,6 +24,9 @@ interface ComprobanteDao {
         @Query("SELECT * FROM comprobantes WHERE id = :id")
         suspend fun getById(id: Int): ComprobanteEntity?
 
+        @Query("SELECT * FROM comprobantes")
+        suspend fun getAll(): List<ComprobanteEntity>
+
         @Query("SELECT MAX(numero) FROM comprobantes WHERE tipoComprobanteId = :tipoId")
         suspend fun getHighestNumeroForTipo(tipoId: Int): Int?
 

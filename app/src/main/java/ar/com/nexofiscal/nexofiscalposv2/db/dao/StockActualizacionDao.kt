@@ -50,8 +50,19 @@ interface StockActualizacionDao {
     @Query("DELETE FROM stock_actualizaciones")
     suspend fun clearAll()
 
-    @Query("SELECT COUNT(*) FROM stock_actualizaciones WHERE enviado = 0")
-    fun contarPendientes(): Flow<Int>
+    // Nuevas consultas para el StockMovementManager
+    @Query("SELECT * FROM stock_actualizaciones WHERE productoId = :productoId ORDER BY fechaCreacion DESC")
+    suspend fun getByProducto(productoId: Int): List<StockActualizacionEntity>
+
+    @Query("SELECT * FROM stock_actualizaciones WHERE productoId = :productoId AND sucursalId = :sucursalId ORDER BY fechaCreacion DESC")
+    suspend fun getByProductoAndSucursal(productoId: Int, sucursalId: Int): List<StockActualizacionEntity>
+
+    @Query("SELECT * FROM stock_actualizaciones WHERE sucursalId = :sucursalId ORDER BY fechaCreacion DESC")
+    suspend fun getBySucursal(sucursalId: Int): List<StockActualizacionEntity>
+
+    // Consulta para obtener movimientos por rango de fechas
+    @Query("SELECT * FROM stock_actualizaciones WHERE fechaCreacion BETWEEN :fechaInicio AND :fechaFin ORDER BY fechaCreacion DESC")
+    suspend fun getByRangoFechas(fechaInicio: Date, fechaFin: Date): List<StockActualizacionEntity>
 
     /**
      * Upsert: Inserta o actualiza una actualización de stock

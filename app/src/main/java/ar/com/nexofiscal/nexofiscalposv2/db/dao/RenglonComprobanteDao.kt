@@ -16,6 +16,10 @@ interface RenglonComprobanteDao {
     @Query("SELECT * FROM renglones_comprobante WHERE comprobanteLocalId = :localId")
     fun getByComprobante(localId: Int): Flow<List<RenglonComprobanteEntity>>
 
+    // Método síncrono para obtener renglones por comprobante ID
+    @Query("SELECT * FROM renglones_comprobante WHERE comprobanteLocalId = :comprobanteId")
+    suspend fun getByComprobanteId(comprobanteId: Int): List<RenglonComprobanteEntity>
+
     // --- CAMBIO: Se añade un método para borrar todos los renglones de un comprobante ---
     @Query("DELETE FROM renglones_comprobante WHERE comprobanteLocalId = :compId")
      fun deleteByComprobanteId(compId: Int)

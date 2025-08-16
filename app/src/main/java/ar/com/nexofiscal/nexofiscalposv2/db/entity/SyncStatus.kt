@@ -4,5 +4,6 @@ enum class SyncStatus {
     SYNCED,  // Sincronizado
     CREATED, // Creado localmente, pendiente de POST
     UPDATED, // Modificado localmente, pendiente de PUT
-    DELETED  // Borrado localmente, pendiente de DELETE
+    DELETED, // Borrado localmente, pendiente de DELETE
+    PENDING
 }

@@ -252,8 +252,8 @@ fun MainScreen(
         }
 
         val totalOriginal = renglonesDeVenta.sumOf { it.totalLinea.toDoubleOrNull() ?: 0.0 }
-        val montoDescuento = totalOriginal * (resultado.promociones.sumOf { it.porcentaje } / 100.0)
-        val recargosAcumulados = resultado.pagos.sumOf { (it.monto * (it.formaPago.porcentaje / 100.0)).coerceAtLeast(0.0) }
+        val montoDescuento = (resultado.promociones.sumOf { it.porcentaje })
+        val recargosAcumulados = resultado.pagos.sumOf { ( (it.formaPago.porcentaje)) }
         val totalFinal = totalOriginal - montoDescuento + recargosAcumulados
 
         var importeIva21: Double
