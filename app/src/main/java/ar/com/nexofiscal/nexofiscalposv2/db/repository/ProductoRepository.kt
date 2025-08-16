@@ -55,6 +55,6 @@ class ProductoRepository(private val dao: ProductoDao) {
         dao.update(entity) // Se utiliza el método update del DAO.
     }
     suspend fun eliminarTodo() = dao.clearAll()
-
+    suspend fun existeCodigo(codigo: String): Boolean = dao.countByCodigo(codigo) > 0
 
 }

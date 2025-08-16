@@ -116,6 +116,19 @@ class ProductoViewModel(application: Application) : AndroidViewModel(application
     fun save(p: Producto) { // Recibe el modelo de dominio
         viewModelScope.launch {
             val entity = p.toEntity() // Esta llamada ahora preserva el localId
+
+            // Validación: impedir crear un producto con código duplicado.
+            // Si es edición (id/localId != 0), se permite mismo código.
+            val isCreate = (entity.id == 0)
+            val codigo = entity.codigo?.trim()
+            if (isCreate && !codigo.isNullOrEmpty()) {
+                val existe = repo.existeCodigo(codigo)
+                if (existe) {
+                    NotificationManager.show("Ya existe un producto con el código '$codigo'.", NotificationType.ERROR)
+                    return@launch
+                }
+            }
+
             if (entity.serverId == null || entity.serverId == 0) {
                 entity.syncStatus = SyncStatus.CREATED
             } else {

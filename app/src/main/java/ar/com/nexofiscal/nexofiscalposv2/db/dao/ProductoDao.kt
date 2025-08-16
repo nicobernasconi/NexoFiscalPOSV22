@@ -109,4 +109,7 @@ interface ProductoDao {
 
     @Query("SELECT COUNT(*) FROM stock_productos")
     suspend fun getStockProductosCount(): Int
+
+    @Query("SELECT COUNT(*) FROM productos WHERE codigo = :codigo AND syncStatus != :statusDeleted")
+    suspend fun countByCodigo(codigo: String, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
 }
