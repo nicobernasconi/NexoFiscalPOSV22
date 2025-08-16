@@ -8,7 +8,7 @@ import java.util.Date
 @Entity(
     tableName = "stock_actualizaciones",
     indices = [
-        Index(value = ["productoId", "sucursalId"], unique = true),
+        Index(value = ["productoId", "sucursalId"]),
         Index(value = ["fechaCreacion"])
     ]
 )

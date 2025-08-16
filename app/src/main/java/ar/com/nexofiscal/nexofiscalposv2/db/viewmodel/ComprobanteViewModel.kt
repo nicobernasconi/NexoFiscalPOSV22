@@ -36,6 +36,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.collections.isNotEmpty
+import ar.com.nexofiscal.nexofiscalposv2.managers.StockMovementManager
+import ar.com.nexofiscal.nexofiscalposv2.managers.MovimientoStock
+import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
 
 data class ComprobanteConDetalle(
     val comprobante: Comprobante,
@@ -53,6 +56,7 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
     private val comprobantePromocionDao: ComprobantePromocionDao
     private val renglonComprobanteDao: RenglonComprobanteDao // <-- AÑADIR
     private val _searchQuery = MutableStateFlow("")
+    private val stockMovementManager: StockMovementManager
 
     init {
         db = AppDatabase.getInstance(application)
@@ -61,6 +65,7 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
         comprobantePromocionDao = db.comprobantePromocionDao()
         renglonComprobanteDao = db.renglonComprobanteDao() // <-- AÑADIR
         comprobanteRepo = ComprobanteRepository(comprobanteDao)
+        stockMovementManager = StockMovementManager(db.stockActualizacionDao(), db.stockProductoDao())
     }
 
     val pagedComprobantes: Flow<PagingData<ComprobanteConDetalle>> = _searchQuery
@@ -135,6 +140,31 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
                 }
                 comprobantePromocionDao.insertAll(promocionEntities)
 
+            }
+        }
+        // Registrar movimientos de stock según tipo de comprobante
+        if (newComprobanteId > 0) {
+            val tipoId = comprobante.tipoComprobanteId
+            if (tipoId == 1 || tipoId == 3) { // 1: Venta, 3: Pedido
+                val movimientos = renglones.mapNotNull { renglon ->
+                    val pid = renglon.productoId
+                    val cant = renglon.cantidad
+                    if (pid != null && cant > 0) {
+                        MovimientoStock(
+                            productoId = pid,
+                            cantidad = cant,
+                            tipoMovimiento = if (tipoId == 3) StockMovementManager.MOVIMIENTO_PEDIDO else StockMovementManager.MOVIMIENTO_VENTA
+                        )
+                    } else null
+                }
+                val sucursalId = SessionManager.sucursalId ?: 0
+                // Ejecutar fuera de la transacción principal
+                stockMovementManager.procesarMovimientosComprobante(
+                    productos = movimientos,
+                    sucursalId = sucursalId,
+                    comprobanteId = newComprobanteId.toInt(),
+                    esAnulacion = false
+                )
             }
         }
         UploadManager.triggerImmediateUpload(getApplication())

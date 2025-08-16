@@ -252,8 +252,10 @@ fun MainScreen(
         }
 
         val totalOriginal = renglonesDeVenta.sumOf { it.totalLinea.toDoubleOrNull() ?: 0.0 }
-        val montoDescuento = (resultado.promociones.sumOf { it.porcentaje })
-        val recargosAcumulados = resultado.pagos.sumOf { ( (it.formaPago.porcentaje)) }
+        val descuentoPorcTotal = resultado.promociones.sumOf { it.porcentaje }.toDouble()
+        val recargoPorcTotal = resultado.pagos.sumOf { it.formaPago.porcentaje }.toDouble()
+        val montoDescuento = totalOriginal * (descuentoPorcTotal / 100.0)
+        val recargosAcumulados = totalOriginal * (recargoPorcTotal / 100.0)
         val totalFinal = totalOriginal - montoDescuento + recargosAcumulados
 
         var importeIva21: Double
@@ -299,7 +301,7 @@ fun MainScreen(
             id = 0, serverId = null, cliente = clienteSeleccionado, clienteId = clienteSeleccionado?.id ?: 1,
             tipoComprobante = tipoComprobanteDomain, tipoComprobanteId = tipoComprobanteDomain?.id,
             fecha = fechaStr, hora = horaStr, total = String.format(Locale.US, "%.2f", totalFinal), totalPagado = resultado.pagos.sumOf { it.monto },
-            descuentoTotal = String.format(Locale.US, "%.2f", montoDescuento), incrementoTotal = String.format(Locale.US, "%.2f", recargosAcumulados),
+            descuentoTotal = String.format(Locale.US, "%.2f", descuentoPorcTotal), incrementoTotal = String.format(Locale.US, "%.2f", recargoPorcTotal),
             importeIva = String.format(Locale.US, "%.2f", importeIvaTotal).toDouble(), noGravado = noGravadoTotal, importeIva21 = importeIva21,
             importeIva105 = importeIva105, importeIva0 = 0.0, noGravadoIva21 = noGravadoIva21,
             noGravadoIva105 = noGravadoIva105, noGravadoIva0 = noGravadoIva0,

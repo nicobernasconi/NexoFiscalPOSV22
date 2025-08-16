@@ -45,21 +45,22 @@ class StockMovementManager(
             val stockProducto = stockProductoDao.getByProductoId(productoId, sucursalId)
 
             if (stockProducto == null) {
-                Log.w(TAG, "No se encontró stock para producto $productoId en sucursal $sucursalId")
-                return@withContext false
+                Log.w(TAG, "No se encontró stock para producto $productoId en sucursal $sucursalId. Registrando sólo movimiento.")
+                // Registrar movimiento igualmente (negativo por reducción)
+                registrarMovimiento(
+                    productoId = productoId,
+                    sucursalId = sucursalId,
+                    cantidad = -cantidad,
+                    tipoMovimiento = tipoMovimiento,
+                    comprobanteId = comprobanteId
+                )
+                return@withContext true
             }
 
             val stockActual = stockProducto.stockActual ?: 0.0
             val nuevoStock = stockActual - cantidad
 
-            // Verificar si hay stock suficiente
-            if (nuevoStock < 0) {
-                Log.w(TAG, "Stock insuficiente. Stock actual: $stockActual, Cantidad solicitada: $cantidad")
-                // Dependiendo de la lógica de negocio, puedes permitir stock negativo o no
-                // return@withContext false
-            }
-
-            // Actualizar el stock
+            // Nota: permitir stock negativo según política; si no, retornar false aquí
             val stockActualizado = stockProducto.copy(stockActual = nuevoStock)
             stockProductoDao.update(stockActualizado)
 
@@ -97,8 +98,16 @@ class StockMovementManager(
             val stockProducto = stockProductoDao.getByProductoId(productoId, sucursalId)
 
             if (stockProducto == null) {
-                Log.w(TAG, "No se encontró stock para producto $productoId en sucursal $sucursalId")
-                return@withContext false
+                Log.w(TAG, "No se encontró stock para producto $productoId en sucursal $sucursalId. Registrando sólo movimiento.")
+                // Registrar movimiento igualmente (positivo por restitución)
+                registrarMovimiento(
+                    productoId = productoId,
+                    sucursalId = sucursalId,
+                    cantidad = cantidad,
+                    tipoMovimiento = MOVIMIENTO_ANULACION,
+                    comprobanteId = comprobanteId
+                )
+                return@withContext true
             }
 
             val stockActual = stockProducto.stockActual ?: 0.0

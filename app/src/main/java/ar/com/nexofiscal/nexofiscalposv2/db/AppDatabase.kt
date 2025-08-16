@@ -109,7 +109,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
 
 
     ],
-    version = 8,    // Incrementar versión por la nueva tabla
+    version = 9,    // Incrementar versión por cambios en stock_actualizaciones
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
