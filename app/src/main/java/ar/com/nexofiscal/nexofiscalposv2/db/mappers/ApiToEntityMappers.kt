@@ -1384,3 +1384,34 @@ fun Pago.toEntity(comprobanteLocalId: Long): ComprobantePagoEntity {
         syncStatus = SyncStatus.CREATED // Los pagos siempre se crean localmente primero
     )
 }
+
+fun ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity.toDomainModel(): ar.com.nexofiscal.nexofiscalposv2.models.Notificacion {
+    val domain = ar.com.nexofiscal.nexofiscalposv2.models.Notificacion()
+    domain.localId = this.id
+    domain.id = this.serverId ?: 0
+    domain.nombre = this.nombre
+    domain.mensaje = this.mensaje
+    domain.empresaId = this.empresaId
+    domain.activo = this.activo
+    domain.tipoNotificacionId = this.tipoNotificacionId
+    return domain
+}
+
+fun ar.com.nexofiscal.nexofiscalposv2.models.Notificacion.toEntity(): ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity {
+    return ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity(
+        id = this.localId,
+        serverId = this.id,
+        syncStatus = ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus.SYNCED,
+        nombre = this.nombre,
+        mensaje = this.mensaje,
+        empresaId = this.empresaId,
+        activo = this.activo,
+        tipoNotificacionId = this.tipoNotificacionId
+    )
+}
+
+fun List<ar.com.nexofiscal.nexofiscalposv2.models.Notificacion?>.toNotificacionEntityList(): List<ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity> = this.mapNotNull { it?.toEntity() }
+
+fun List<ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity>.toNotificacionDomainModelList(): List<ar.com.nexofiscal.nexofiscalposv2.models.Notificacion> {
+    return this.map { it.toDomainModel() }
+}

@@ -12,6 +12,7 @@ import ar.com.nexofiscal.nexofiscalposv2.models.Familia
 import ar.com.nexofiscal.nexofiscalposv2.models.FormaPago
 import ar.com.nexofiscal.nexofiscalposv2.models.Localidad
 import ar.com.nexofiscal.nexofiscalposv2.models.Moneda
+import ar.com.nexofiscal.nexofiscalposv2.models.Notificacion
 import ar.com.nexofiscal.nexofiscalposv2.models.Pais
 import ar.com.nexofiscal.nexofiscalposv2.models.Producto
 import ar.com.nexofiscal.nexofiscalposv2.models.Promocion
@@ -83,6 +84,15 @@ object SyncManager {
                     object : com.google.gson.reflect.TypeToken<List<Agrupacion>>() {}.type,
                     headers
                 ) { db.agrupacionDao().upsertAll(it.map(Agrupacion::toEntity)) } // <-- CAMBIO AQUÍ
+            },
+            {
+                _progressState.update { it.copy(currentTaskName = "Notificaciones", currentTaskItemCount = 0) }
+                executeSyncTask<Notificacion>(
+                    "Notificaciones",
+                    "/api/notificaciones",
+                    object : com.google.gson.reflect.TypeToken<List<Notificacion>>() {}.type,
+                    headers
+                ) { db.notificacionDao().upsertAll(it.map(Notificacion::toEntity)) }
             },
             {
                 _progressState.update { it.copy(currentTaskName = "Tipos", currentTaskItemCount = 0) }

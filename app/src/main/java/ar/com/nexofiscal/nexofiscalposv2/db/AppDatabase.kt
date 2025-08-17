@@ -19,6 +19,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.dao.FamiliaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.FormaPagoDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.LocalidadDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.MonedaDao
+import ar.com.nexofiscal.nexofiscalposv2.db.dao.NotificacionDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.PaisDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ProductoDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.PromocionDao
@@ -71,6 +72,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoIvaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.UnidadEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.UsuarioEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity
 
 @Database(
     entities = [
@@ -105,11 +107,12 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
         ComprobanteEntity::class,
         RenglonComprobanteEntity::class,
         ComprobantePagoEntity::class,      // Se añade la nueva entidad
-        ComprobantePromocionEntity::class
+        ComprobantePromocionEntity::class,
+        NotificacionEntity::class
 
 
     ],
-    version = 9,    // Incrementar versión por cambios en stock_actualizaciones
+    version = 10,    // Incrementar versión por nueva entidad Notificacion
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -147,6 +150,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun renglonComprobanteDao(): RenglonComprobanteDao
     abstract fun comprobantePagoDao(): ComprobantePagoDao // Añadido para manejar pagos
     abstract fun comprobantePromocionDao(): ComprobantePromocionDao // Añadido para manejar promociones en comprobantes
+    abstract fun notificacionDao(): NotificacionDao // Añadido para notificaciones
 
 
 
