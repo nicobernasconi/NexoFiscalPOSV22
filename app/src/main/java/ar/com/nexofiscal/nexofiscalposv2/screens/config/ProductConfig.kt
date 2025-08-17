@@ -13,6 +13,10 @@ import ar.com.nexofiscal.nexofiscalposv2.ui.CheckboxRow
 import ar.com.nexofiscal.nexofiscalposv2.ui.EntitySelectionButton
 import ar.com.nexofiscal.nexofiscalposv2.ui.SelectionModal
 import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
+import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Define y configura todos los campos para el formulario de creación y edición de Productos,
@@ -46,6 +50,24 @@ fun getMainProductFieldDescriptors(
             id = "codigo",
             label = "Código",
             editorContent = { entity, onUpdate, isReadOnly, error ->
+                // Sugerir código al crear: {empresaId}-{timestamp}
+                val isCreate = entity.localId == 0
+                val shouldSuggest = isCreate && (entity.codigo.isNullOrBlank())
+                val suggested by remember {
+                    mutableStateOf(
+                        run {
+                            val emp = SessionManager.empresaId.toString()
+                            val ts = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(Date())
+                            "$emp-$ts"
+                        }
+                    )
+                }
+                LaunchedEffect(shouldSuggest) {
+                    if (shouldSuggest) {
+                        onUpdate { it.copy(codigo = suggested) }
+                    }
+                }
+
                 SelectAllTextField(
                     value = entity.codigo ?: "",
                     onValueChange = { newValue -> onUpdate { it.copy(codigo = newValue) } },
