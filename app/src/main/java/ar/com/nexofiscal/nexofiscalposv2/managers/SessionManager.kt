@@ -48,12 +48,13 @@ object SessionManager {
     val certificadoAfip: String? get() = prefs.getString("empresa_cert", null)
     val claveAfip: String? get() = prefs.getString("empresa_key", null)
 
-    private val permissionsMap: Map<String, List<String>> by lazy {
-        parsePermissions(prefs.getString("permisos", "{}"))
-    }
+    @Volatile
+    private var permissionsMap: Map<String, List<String>> = emptyMap()
 
     fun init(context: Context) {
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        // cargar permisos desde prefs
+        permissionsMap = parsePermissions(prefs.getString("permisos", "{}"))
     }
 
     private fun parsePermissions(jsonString: String?): Map<String, List<String>> {
@@ -81,5 +82,20 @@ object SessionManager {
 
     fun hasPermission(entity: String, action: String): Boolean {
         return permissionsMap[entity]?.contains(action) ?: false
+    }
+
+    /**
+     * Permite actualizar/establecer los permisos en caliente.
+     * Guarda el JSON en SharedPreferences y actualiza el mapa en memoria.
+     */
+    fun setPermissionsJson(json: String?) {
+        prefs.edit().putString("permisos", json ?: "{}").apply()
+        permissionsMap = parsePermissions(json)
+    }
+
+    /** Limpia permisos actuales (vacía el mapa en memoria y prefs). */
+    fun clearPermissions() {
+        prefs.edit().remove("permisos").apply()
+        permissionsMap = emptyMap()
     }
 }
