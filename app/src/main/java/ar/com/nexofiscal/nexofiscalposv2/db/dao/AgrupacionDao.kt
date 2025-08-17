@@ -70,4 +70,8 @@ interface AgrupacionDao {
 
     @Query("DELETE FROM agrupaciones")
     suspend fun clearAll()
+
+    // Conteo de productos que referencian esta agrupación (productos.agrupacionId -> agrupaciones.serverId)
+    @Query("SELECT COUNT(*) FROM productos WHERE agrupacionId = :agrupacionServerId AND syncStatus != :statusDeleted")
+    suspend fun countProductosReferencingAgrupacion(agrupacionServerId: Int, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
 }

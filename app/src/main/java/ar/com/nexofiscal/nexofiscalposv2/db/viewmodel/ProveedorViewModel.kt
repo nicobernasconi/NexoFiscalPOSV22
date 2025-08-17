@@ -16,6 +16,8 @@ import ar.com.nexofiscal.nexofiscalposv2.models.Proveedor
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.ProveedorRepository
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoIvaRepository
 import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -68,11 +70,15 @@ class ProveedorViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    // --- CAMBIO: El borrado ahora valida dependencias y notifica ---
     fun delete(p: ProveedorEntity) {
         viewModelScope.launch {
-            p.syncStatus = SyncStatus.DELETED
-            repo.actualizar(p)
+            try {
+                repo.eliminar(p)
+                NotificationManager.show("Proveedor eliminado.", NotificationType.SUCCESS)
+            } catch (e: Exception) {
+                NotificationManager.show(e.message ?: "No se puede borrar el proveedor.", NotificationType.ERROR)
+            }
         }
     }
 }

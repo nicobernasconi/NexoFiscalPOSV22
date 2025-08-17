@@ -72,4 +72,8 @@ interface UnidadDao {
 
     @Query("DELETE FROM unidades")
     suspend fun clearAll()
+
+    // Conteo de productos que referencian esta unidad (productos.unidadId -> unidades.serverId)
+    @Query("SELECT COUNT(*) FROM productos WHERE unidadId = :unidadServerId AND syncStatus != :statusDeleted")
+    suspend fun countProductosReferencingUnidad(unidadServerId: Int, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
 }

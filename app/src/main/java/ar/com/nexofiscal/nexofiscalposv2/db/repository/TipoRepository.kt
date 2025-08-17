@@ -7,7 +7,6 @@ import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.TipoDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoIvaEntity
 import kotlinx.coroutines.flow.Flow
 
 class TipoRepository(private val dao: TipoDao) {
@@ -30,8 +29,13 @@ class TipoRepository(private val dao: TipoDao) {
     suspend fun guardar(item: TipoEntity) = dao.insert(item)
     suspend fun actualizar(item: TipoEntity) = dao.update(item)
     suspend fun eliminar(entity: TipoEntity) {
+        val serverId = entity.serverId
+        if (serverId != null) {
+            val refs = dao.countProductosReferencingTipo(serverId)
+            if (refs > 0) throw IllegalStateException("No se puede borrar: hay $refs producto(s) que usan este tipo.")
+        }
         entity.syncStatus = SyncStatus.DELETED
-        dao.update(entity) // Se utiliza el método update del DAO.
+        dao.update(entity)
     }
     suspend fun eliminarTodo() = dao.clearAll()
 }

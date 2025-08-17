@@ -70,4 +70,8 @@ interface TasaIvaDao {
 
     @Query("DELETE FROM tasas_iva")
     suspend fun clearAll()
+
+    // Conteo de productos que referencian esta tasa de IVA (productos.tasaIvaId -> tasas_iva.serverId)
+    @Query("SELECT COUNT(*) FROM productos WHERE tasaIvaId = :tasaIvaServerId AND syncStatus != :statusDeleted")
+    suspend fun countProductosReferencingTasaIva(tasaIvaServerId: Int, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
 }

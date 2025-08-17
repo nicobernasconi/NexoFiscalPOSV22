@@ -141,9 +141,13 @@ class ProductoViewModel(application: Application) : AndroidViewModel(application
 
     fun delete(p: Producto) { // Recibimos el modelo de dominio
         viewModelScope.launch {
-            val entity = p.toEntity() // Mapeamos al modelo de entidad
-            entity.syncStatus = SyncStatus.DELETED
-            repo.actualizar(entity)
+            try {
+                val entity = p.toEntity()
+                repo.eliminar(entity)
+                NotificationManager.show("Producto eliminado.", NotificationType.SUCCESS)
+            } catch (e: Exception) {
+                NotificationManager.show(e.message ?: "No se puede borrar el producto.", NotificationType.ERROR)
+            }
         }
     }
 }

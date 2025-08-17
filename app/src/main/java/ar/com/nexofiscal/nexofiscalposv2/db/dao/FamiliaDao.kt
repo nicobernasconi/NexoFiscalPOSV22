@@ -64,4 +64,8 @@ interface FamiliaDao {
 
     @Query("DELETE FROM familias")
     suspend fun clearAll()
+
+    // Conteo de productos que referencian esta familia (productos.familiaId -> familias.serverId)
+    @Query("SELECT COUNT(*) FROM productos WHERE familiaId = :familiaServerId AND syncStatus != :statusDeleted")
+    suspend fun countProductosReferencingFamilia(familiaServerId: Int, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
 }

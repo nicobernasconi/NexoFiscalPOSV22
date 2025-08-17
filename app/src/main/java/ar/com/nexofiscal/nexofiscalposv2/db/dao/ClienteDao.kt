@@ -49,6 +49,10 @@ interface ClienteDao {
     @Query("DELETE FROM clientes WHERE id = :localId")
     suspend fun deleteByLocalId(localId: Int)
 
+    // Contar comprobantes que referencian al cliente por serverId (evitar borrar si > 0)
+    @Query("SELECT COUNT(*) FROM comprobantes WHERE clienteId = :clienteServerId AND syncStatus != :statusDeleted")
+    suspend fun countComprobantesReferencingCliente(clienteServerId: Int, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
+
 
     @Transaction
     suspend fun upsert(cliente: ClienteEntity) {

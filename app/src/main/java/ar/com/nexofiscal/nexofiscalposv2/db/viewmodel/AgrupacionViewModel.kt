@@ -13,6 +13,8 @@ import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.Agrupacion
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.AgrupacionRepository
 import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -52,11 +54,15 @@ class AgrupacionViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    // --- CAMBIO: El borrado ahora es un "soft delete" que actualiza el estado ---
+    // --- CAMBIO: El borrado ahora valida dependencias y notifica ---
     fun remove(agrup: AgrupacionEntity) {
         viewModelScope.launch {
-            agrup.syncStatus = SyncStatus.DELETED
-            repo.actualizar(agrup)
+            try {
+                repo.eliminar(agrup)
+                NotificationManager.show("Agrupación eliminada.", NotificationType.SUCCESS)
+            } catch (e: Exception) {
+                NotificationManager.show(e.message ?: "No se puede borrar la agrupación.", NotificationType.ERROR)
+            }
         }
     }
 }

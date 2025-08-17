@@ -542,9 +542,8 @@ fun MainScreen(
                 "Crear Cliente" -> { isClientCreateMode = true; clienteViewModel.limpiarClienteParaEdicion(); showClienteEditScreen = true }
                 "Listar Productos" -> { productScreenMode = CrudScreenMode.EDIT_DELETE; showFullScreenProductSearch = true }
                 "Crear Producto" -> { isProductCreateMode = true; productoViewModel.limpiarProductoParaEdicion(); showProductEditScreen = true }
-                "Stock de Productos" -> {
-                    showProductStockScreen = true
-                }
+                "Stock de Productos" -> { showProductStockScreen = true }
+                "Listar Ventas" -> { showComprobantesScreen = true }
                 "Informe de Ventas" -> {showInformeDeVentas = true}
                 "Descargar Datos" -> {
                     scope.launch {
@@ -639,6 +638,50 @@ fun MainScreen(
         if (showCategoriaScreen) { Surface(Modifier.fillMaxSize()) { CategoriaScreen(categoriaViewModel) { showCategoriaScreen = false } } }
         if (showCierreCajaScreen) { Surface(Modifier.fillMaxSize()) { CierreCajaScreen(cierreCajaViewModel) { showCierreCajaScreen = false } } }
 
+        // --- NUEVO: Lista de Clientes ---
+        if (showClienteListDialog) {
+            ClientListDialog(
+                clienteViewModel = clienteViewModel,
+                screenMode = clientListMode,
+                onClientSelected = { cliente ->
+                    clienteSeleccionado = cliente
+                    showClienteListDialog = false
+                },
+                onDismiss = { showClienteListDialog = false },
+                onAttemptEdit = { cliente ->
+                    isClientCreateMode = false
+                    clienteViewModel.cargarClienteParaEdicion(cliente.localId)
+                },
+                onDelete = { cliente ->
+                    clienteViewModel.delete(cliente.toEntity())
+                }
+            )
+        }
+
+        // --- NUEVO: Edición/Creación de Cliente ---
+        if (showClienteEditScreen && (isClientCreateMode || clientInScreen != null)) {
+            val initialCliente = if (isClientCreateMode) Cliente() else clientInScreen!!
+            val title = if (isClientCreateMode) "Crear Cliente" else "Editar Cliente: ${initialCliente.nombre ?: ""}"
+            Surface(modifier = Modifier.fillMaxSize()) {
+                EntityEditScreen(
+                    title = title,
+                    initialEntity = initialCliente,
+                    fieldDescriptors = clientDescriptors,
+                    onSave = { updatedCliente ->
+                        clienteViewModel.save(updatedCliente)
+                        showClienteEditScreen = false
+                        isClientCreateMode = false
+                        NotificationManager.show("Cliente guardado.", NotificationType.SUCCESS)
+                    },
+                    onCancel = {
+                        showClienteEditScreen = false
+                        isClientCreateMode = false
+                        clienteViewModel.limpiarClienteParaEdicion()
+                    }
+                )
+            }
+        }
+
         if (showComprobantesScreen) {
             Dialog({ showComprobantesScreen = false }, DialogProperties(usePlatformDefaultWidth = false)) {
                 Surface(Modifier.fillMaxSize()) {
@@ -648,6 +691,83 @@ fun MainScreen(
                 }
             }
         }
+
+        // --- NUEVO: Búsqueda/Listado de Productos ---
+        if (showFullScreenProductSearch) {
+            Dialog(onDismissRequest = { showFullScreenProductSearch = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+                Surface(Modifier.fillMaxSize()) {
+                    ProductListContent(
+                        productoViewModel = productoViewModel,
+                        onProductSelected = { producto ->
+                            saleItems.add(SaleItem(producto))
+                            NotificationManager.show("Agregado: ${producto.descripcion}", NotificationType.SUCCESS)
+                            showFullScreenProductSearch = false
+                        },
+                        screenMode = productScreenMode,
+                        onDismiss = { showFullScreenProductSearch = false },
+                        onAttemptCreate = {
+                            isProductCreateMode = true
+                            productoViewModel.limpiarProductoParaEdicion()
+                            showProductEditScreen = true
+                        },
+                        onAttemptEdit = { producto ->
+                            isProductCreateMode = false
+                            productoViewModel.cargarProductoParaEdicion(producto.localId)
+                        },
+                        onDelete = { producto ->
+                            productoViewModel.delete(producto)
+                        }
+                    )
+                }
+            }
+        }
+
+        // --- NUEVO: Edición/Creación de Producto ---
+        if (showProductEditScreen && (isProductCreateMode || productInScreen != null)) {
+            val initialProduct = if (isProductCreateMode) Producto() else productInScreen!!
+            val title = if (isProductCreateMode) "Crear Producto" else "Editar Producto: ${initialProduct.descripcion ?: ""}"
+            Surface(modifier = Modifier.fillMaxSize()) {
+                EntityEditScreen(
+                    title = title,
+                    initialEntity = initialProduct,
+                    fieldDescriptors = productDescriptors,
+                    onSave = { updatedProducto ->
+                        productoViewModel.save(updatedProducto)
+                        showProductEditScreen = false
+                        isProductCreateMode = false
+                        productoViewModel.limpiarProductoParaEdicion()
+                        NotificationManager.show("Producto guardado.", NotificationType.SUCCESS)
+                    },
+                    onCancel = {
+                        showProductEditScreen = false
+                        isProductCreateMode = false
+                        productoViewModel.limpiarProductoParaEdicion()
+                    }
+                )
+            }
+        }
+
+        // --- NUEVO: Escáner de Código de Barras ---
+        if (showBarcodeScanner) {
+            Surface(Modifier.fillMaxSize()) {
+                BarcodeScannerScreen(
+                    onDismiss = { showBarcodeScanner = false },
+                    onCodeScanned = { code ->
+                        scope.launch {
+                            val producto = productoViewModel.findByBarcode(code)
+                            if (producto != null) {
+                                saleItems.add(SaleItem(producto))
+                                NotificationManager.show("Agregado: ${producto.descripcion}", NotificationType.SUCCESS)
+                            } else {
+                                NotificationManager.show("Código no encontrado.", NotificationType.WARNING)
+                            }
+                            showBarcodeScanner = false
+                        }
+                    }
+                )
+            }
+        }
+
         if (showCobrarScreen) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 CobrarScreen(

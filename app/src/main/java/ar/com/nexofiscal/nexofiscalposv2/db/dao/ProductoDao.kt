@@ -112,4 +112,12 @@ interface ProductoDao {
 
     @Query("SELECT COUNT(*) FROM productos WHERE codigo = :codigo AND syncStatus != :statusDeleted")
     suspend fun countByCodigo(codigo: String, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
+
+    // Conteo de referencias en stock_productos (usa productoId = serverId del producto)
+    @Query("SELECT COUNT(*) FROM stock_productos WHERE productoId = :productoServerId")
+    suspend fun countStockByProductoServerId(productoServerId: Int): Int
+
+    // Conteo de referencias en stock_actualizaciones (usa productoId = id local del producto)
+    @Query("SELECT COUNT(*) FROM stock_actualizaciones WHERE productoId = :productoLocalId")
+    suspend fun countActualizacionesByProductoLocalId(productoLocalId: Int): Int
 }

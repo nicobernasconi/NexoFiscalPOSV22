@@ -5,7 +5,6 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ClienteDao
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ClienteConDetalles
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ClienteEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
@@ -37,8 +36,16 @@ class ClienteRepository(private val dao: ClienteDao) {
     suspend fun actualizar(c: ClienteEntity) = dao.update(c)
 
     suspend fun eliminar(entity: ClienteEntity) {
+        // Verificar dependencias: comprobantes que referencian al cliente por serverId
+        val serverId = entity.serverId
+        if (serverId != null) {
+            val refs = dao.countComprobantesReferencingCliente(serverId)
+            if (refs > 0) {
+                throw IllegalStateException("No se puede borrar: el cliente tiene comprobantes asociados ($refs).")
+            }
+        }
         entity.syncStatus = SyncStatus.DELETED
-        dao.update(entity) // Se utiliza el método update del DAO.
+        dao.update(entity)
     }
 
     suspend fun eliminarTodo() = dao.clearAll()

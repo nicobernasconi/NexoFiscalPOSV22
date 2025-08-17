@@ -96,8 +96,12 @@ class ClienteViewModel(application: Application) : AndroidViewModel(application)
 
     fun delete(c: ClienteEntity) {
         viewModelScope.launch {
-            c.syncStatus = SyncStatus.DELETED
-            repo.actualizar(c)
+            try {
+                repo.eliminar(c)
+                NotificationManager.show("Cliente eliminado.", NotificationType.SUCCESS)
+            } catch (e: Exception) {
+                NotificationManager.show(e.message ?: "No se puede borrar el cliente.", NotificationType.ERROR)
+            }
         }
     }
 

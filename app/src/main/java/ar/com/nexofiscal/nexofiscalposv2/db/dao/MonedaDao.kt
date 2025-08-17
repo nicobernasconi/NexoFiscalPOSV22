@@ -71,4 +71,8 @@ interface MonedaDao {
 
     @Query("DELETE FROM monedas")
     suspend fun clearAll()
+
+    // Conteo de productos que referencian esta moneda (productos.monedaId -> monedas.serverId)
+    @Query("SELECT COUNT(*) FROM productos WHERE monedaId = :monedaServerId AND syncStatus != :statusDeleted")
+    suspend fun countProductosReferencingMoneda(monedaServerId: Int, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
 }

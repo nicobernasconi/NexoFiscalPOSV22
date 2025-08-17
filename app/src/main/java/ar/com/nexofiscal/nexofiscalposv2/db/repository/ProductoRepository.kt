@@ -51,6 +51,20 @@ class ProductoRepository(private val dao: ProductoDao) {
     suspend fun guardar(p: ProductoEntity) = dao.insert(p)
     suspend fun actualizar(p: ProductoEntity) = dao.update(p)
     suspend fun eliminar(entity: ProductoEntity) {
+        // Verificar dependencias en stock_productos (productoId = serverId)
+        val serverId = entity.serverId
+        if (serverId != null) {
+            val stockRefs = dao.countStockByProductoServerId(serverId)
+            if (stockRefs > 0) {
+                throw IllegalStateException("No se puede borrar: el producto tiene stock asociado ($stockRefs).")
+            }
+        }
+        // Verificar dependencias en stock_actualizaciones (productoId = id local)
+        val actualizacionesRefs = dao.countActualizacionesByProductoLocalId(entity.id)
+        if (actualizacionesRefs > 0) {
+            throw IllegalStateException("No se puede borrar: el producto tiene actualizaciones de stock (${actualizacionesRefs}).")
+        }
+
         entity.syncStatus = SyncStatus.DELETED
         dao.update(entity) // Se utiliza el método update del DAO.
     }

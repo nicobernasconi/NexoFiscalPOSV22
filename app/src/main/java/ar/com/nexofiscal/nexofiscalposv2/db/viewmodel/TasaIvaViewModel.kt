@@ -13,6 +13,8 @@ import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.models.TasaIva
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TasaIvaRepository
 import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -52,11 +54,15 @@ class TasaIvaViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    // --- CAMBIO: El borrado ahora valida dependencias y notifica ---
     fun delete(t: TasaIvaEntity) {
         viewModelScope.launch {
-            t.syncStatus = SyncStatus.DELETED
-            repo.actualizar(t)
+            try {
+                repo.eliminar(t)
+                NotificationManager.show("Tasa de IVA eliminada.", NotificationType.SUCCESS)
+            } catch (e: Exception) {
+                NotificationManager.show(e.message ?: "No se puede borrar la tasa de IVA.", NotificationType.ERROR)
+            }
         }
     }
 }

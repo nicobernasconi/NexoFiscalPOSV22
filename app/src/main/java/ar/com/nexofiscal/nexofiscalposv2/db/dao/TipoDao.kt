@@ -70,4 +70,8 @@ interface TipoDao {
 
     @Query("DELETE FROM tipos")
     suspend fun clearAll()
+
+    // Conteo de productos que referencian este tipo (productos.tipoId -> tipos.serverId)
+    @Query("SELECT COUNT(*) FROM productos WHERE tipoId = :tipoServerId AND syncStatus != :statusDeleted")
+    suspend fun countProductosReferencingTipo(tipoServerId: Int, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
 }

@@ -13,6 +13,8 @@ import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.TipoRepository
 import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Tipo
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -52,11 +54,15 @@ class TipoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    // --- CAMBIO: El borrado ahora valida dependencias y notifica ---
     fun delete(t: TipoEntity) {
         viewModelScope.launch {
-            t.syncStatus = SyncStatus.DELETED
-            repo.actualizar(t)
+            try {
+                repo.eliminar(t)
+                NotificationManager.show("Tipo eliminado.", NotificationType.SUCCESS)
+            } catch (e: Exception) {
+                NotificationManager.show(e.message ?: "No se puede borrar el tipo.", NotificationType.ERROR)
+            }
         }
     }
 }

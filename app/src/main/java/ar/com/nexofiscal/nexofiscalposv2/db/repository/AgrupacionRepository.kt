@@ -29,8 +29,13 @@ class AgrupacionRepository(private val dao: AgrupacionDao) {
     suspend fun guardar(entity: AgrupacionEntity) = dao.insert(entity)
     suspend fun actualizar(entity: AgrupacionEntity) = dao.update(entity)
     suspend fun eliminar(entity: AgrupacionEntity) {
+        val serverId = entity.serverId
+        if (serverId != null) {
+            val refs = dao.countProductosReferencingAgrupacion(serverId)
+            if (refs > 0) throw IllegalStateException("No se puede borrar: hay $refs producto(s) que usan esta agrupación.")
+        }
         entity.syncStatus = SyncStatus.DELETED
-        dao.update(entity) // Se utiliza el método update del DAO.
+        dao.update(entity)
     }
     suspend fun eliminarTodo() = dao.clearAll()
 }

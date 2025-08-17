@@ -29,8 +29,13 @@ class MonedaRepository(private val dao: MonedaDao) {
     suspend fun guardar(m: MonedaEntity) = dao.insert(m)
     suspend fun actualizar(m: MonedaEntity) = dao.update(m)
     suspend fun eliminar(entity: MonedaEntity) {
+        val serverId = entity.serverId
+        if (serverId != null) {
+            val refs = dao.countProductosReferencingMoneda(serverId)
+            if (refs > 0) throw IllegalStateException("No se puede borrar: hay $refs producto(s) que usan esta moneda.")
+        }
         entity.syncStatus = SyncStatus.DELETED
-        dao.update(entity) // Se utiliza el método update del DAO.
+        dao.update(entity)
     }
     suspend fun eliminarTodo() = dao.clearAll()
 }

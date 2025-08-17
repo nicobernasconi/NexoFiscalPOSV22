@@ -30,6 +30,11 @@ class TasaIvaRepository(private val dao: TasaIvaDao) {
     suspend fun guardar(item: TasaIvaEntity) = dao.insert(item)
     suspend fun actualizar(item: TasaIvaEntity) = dao.update(item)
     suspend fun eliminar(entity: TasaIvaEntity) {
+        val serverId = entity.serverId
+        if (serverId != null) {
+            val refs = dao.countProductosReferencingTasaIva(serverId)
+            if (refs > 0) throw IllegalStateException("No se puede borrar: hay $refs producto(s) que usan esta tasa de IVA.")
+        }
         entity.syncStatus = SyncStatus.DELETED
         dao.update(entity) // Se utiliza el método update del DAO.
     }

@@ -29,8 +29,13 @@ class FamiliaRepository(private val dao: FamiliaDao) {
     suspend fun guardar(entity: FamiliaEntity) = dao.insert(entity)
     suspend fun actualizar(entity: FamiliaEntity) = dao.update(entity)
     suspend fun eliminar(entity: FamiliaEntity) {
+        val serverId = entity.serverId
+        if (serverId != null) {
+            val refs = dao.countProductosReferencingFamilia(serverId)
+            if (refs > 0) throw IllegalStateException("No se puede borrar: hay $refs producto(s) que usan esta familia.")
+        }
         entity.syncStatus = SyncStatus.DELETED
-        dao.update(entity) // Se utiliza el método update del DAO.
+        dao.update(entity)
     }
     suspend fun eliminarTodo() = dao.clearAll()
 }

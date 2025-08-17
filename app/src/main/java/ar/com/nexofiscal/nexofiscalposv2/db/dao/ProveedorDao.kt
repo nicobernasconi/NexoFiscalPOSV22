@@ -66,4 +66,8 @@ interface ProveedorDao {
 
     @Query("DELETE FROM proveedores")
     suspend fun clearAll()
+
+    // Conteo de productos que referencian este proveedor (productos.proveedorId -> proveedores.serverId)
+    @Query("SELECT COUNT(*) FROM productos WHERE proveedorId = :proveedorServerId AND syncStatus != :statusDeleted")
+    suspend fun countProductosReferencingProveedor(proveedorServerId: Int, statusDeleted: SyncStatus = SyncStatus.DELETED): Int
 }

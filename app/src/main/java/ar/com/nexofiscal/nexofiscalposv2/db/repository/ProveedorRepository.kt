@@ -29,8 +29,13 @@ class ProveedorRepository(private val dao: ProveedorDao) {
     suspend fun guardar(p: ProveedorEntity) = dao.insert(p)
     suspend fun actualizar(p: ProveedorEntity) = dao.update(p)
     suspend fun eliminar(entity: ProveedorEntity) {
+        val serverId = entity.serverId
+        if (serverId != null) {
+            val refs = dao.countProductosReferencingProveedor(serverId)
+            if (refs > 0) throw IllegalStateException("No se puede borrar: hay $refs producto(s) que usan este proveedor.")
+        }
         entity.syncStatus = SyncStatus.DELETED
-        dao.update(entity) // Se utiliza el método update del DAO.
+        dao.update(entity)
     }
     suspend fun eliminarTodo() = dao.clearAll()
 }

@@ -6,7 +6,6 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.UnidadDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.UnidadEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -30,8 +29,13 @@ class UnidadRepository(private val dao: UnidadDao) {
     suspend fun guardar(item: UnidadEntity) = dao.insert(item)
     suspend fun actualizar(item: UnidadEntity) = dao.update(item)
     suspend fun eliminar(entity: UnidadEntity) {
+        val serverId = entity.serverId
+        if (serverId != null) {
+            val refs = dao.countProductosReferencingUnidad(serverId)
+            if (refs > 0) throw IllegalStateException("No se puede borrar: hay $refs producto(s) que usan esta unidad.")
+        }
         entity.syncStatus = SyncStatus.DELETED
-        dao.update(entity) // Se utiliza el método update del DAO.
+        dao.update(entity)
     }
     suspend fun eliminarTodo() = dao.clearAll()
 }

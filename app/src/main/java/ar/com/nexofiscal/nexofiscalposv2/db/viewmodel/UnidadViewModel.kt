@@ -13,6 +13,8 @@ import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.UnidadRepository
 import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Unidad
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -52,11 +54,15 @@ class UnidadViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // --- CAMBIO: El borrado ahora es un "soft delete" ---
+    // --- CAMBIO: El borrado ahora valida dependencias y notifica ---
     fun delete(u: UnidadEntity) {
         viewModelScope.launch {
-            u.syncStatus = SyncStatus.DELETED
-            repo.actualizar(u)
+            try {
+                repo.eliminar(u)
+                NotificationManager.show("Unidad eliminada.", NotificationType.SUCCESS)
+            } catch (e: Exception) {
+                NotificationManager.show(e.message ?: "No se puede borrar la unidad.", NotificationType.ERROR)
+            }
         }
     }
 }
