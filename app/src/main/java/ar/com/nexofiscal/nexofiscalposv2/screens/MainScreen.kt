@@ -117,7 +117,6 @@ fun MainScreen(
 
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    var showLogoutDialog by remember { mutableStateOf(false) }
     var showAgrupacionesScreen by remember { mutableStateOf(false) }
     var showCategoriaScreen by remember { mutableStateOf(false) }
     var showCierreCajaScreen by remember { mutableStateOf(false) }
@@ -539,7 +538,6 @@ fun MainScreen(
         MenuDialog(showMenu, userName, menuItems, { showMenu = false }) { title ->
             showMenu = false
             when (title) {
-                "Salir" -> showLogoutDialog = true
                 "Listar Clientes" -> { clientListMode = CrudScreenMode.EDIT_DELETE; showClienteListDialog = true }
                 "Crear Cliente" -> { isClientCreateMode = true; clienteViewModel.limpiarClienteParaEdicion(); showClienteEditScreen = true }
                 "Listar Productos" -> { productScreenMode = CrudScreenMode.EDIT_DELETE; showFullScreenProductSearch = true }
@@ -623,116 +621,6 @@ fun MainScreen(
             }
         }
 
-        if (showClienteListDialog) {
-            ClientListDialog(clienteViewModel, clientListMode,
-                onClientSelected = { cliente -> clienteSeleccionado = cliente; showClienteListDialog = false; NotificationManager.show("Seleccionado ${cliente.nombre}", NotificationType.SUCCESS) },
-                onDismiss = { showClienteListDialog = false },
-                onAttemptEdit = { cliente ->
-                    isClientCreateMode = false
-                    clienteViewModel.cargarClienteParaEdicion(cliente.localId)
-                },
-
-                onDelete  = { cliente ->
-                    // Convertimos el modelo 'Cliente' a 'ClienteEntity' antes de borrar.
-                    clienteViewModel.delete(cliente.toEntity())
-                }
-
-            )
-        }
-
-        if (showClienteEditScreen) {
-            val entityToEdit = if (isClientCreateMode) remember { Cliente() } else clientInScreen
-            if (entityToEdit != null) {
-                val title = if (isClientCreateMode) "Crear Cliente" else "Editar Cliente: ${entityToEdit.nombre}"
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    EntityEditScreen(title, entityToEdit, clientDescriptors,
-                        onSave = { updatedClient ->
-
-                            clienteViewModel.save(updatedClient)
-                            showClienteEditScreen = false
-                            clienteViewModel.limpiarClienteParaEdicion()
-                            isClientCreateMode = false
-                            val action = if (isClientCreateMode) "creado" else "actualizado"
-                            NotificationManager.show("Cliente '${updatedClient.nombre}' $action.", NotificationType.SUCCESS)
-                        },
-                        onCancel = {
-                            showClienteEditScreen = false
-                            clienteViewModel.limpiarClienteParaEdicion()
-                            isClientCreateMode = false
-                        }
-                    )
-                }
-            }
-        }
-
-        if (showFullScreenProductSearch) {
-            Surface(modifier = Modifier.fillMaxSize()) {
-                ProductListContent(
-                    productoViewModel = productoViewModel,
-                    onProductSelected = { saleItems.add(SaleItem(it)); showFullScreenProductSearch = false; NotificationManager.show("Agregado ${it.descripcion}", NotificationType.SUCCESS) },
-                    screenMode = productScreenMode,
-                    onDismiss = { showFullScreenProductSearch = false },
-                    onAttemptCreate = {
-                        isProductCreateMode = true
-                        productoViewModel.limpiarProductoParaEdicion()
-                        showProductEditScreen = true
-                    },
-                    onAttemptEdit = { producto ->
-                        isProductCreateMode = false
-                        productoViewModel.cargarProductoParaEdicion(producto.localId)
-                    },
-                    onDelete  = {producto -> productoViewModel.delete(producto)}
-                )
-            }
-        }
-
-        if (showProductEditScreen) {
-            val entityToEdit = if (isProductCreateMode) remember { Producto() } else productInScreen
-            if (entityToEdit != null) {
-                val title = if (isProductCreateMode) "Crear Producto" else "Editar: ${entityToEdit.descripcion ?: ""}"
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    EntityEditScreen(title, entityToEdit, productDescriptors,
-                        onSave = { updatedProduct ->
-                            productoViewModel.save(updatedProduct)
-                            showProductEditScreen = false
-                            productoViewModel.limpiarProductoParaEdicion()
-                            isProductCreateMode = false
-                            val action = if (isProductCreateMode) "creado" else "actualizado"
-                            NotificationManager.show("Producto '${updatedProduct.descripcion}' $action.", NotificationType.SUCCESS)
-                        },
-                        onCancel = {
-                            showProductEditScreen = false
-                            productoViewModel.limpiarProductoParaEdicion()
-                            isProductCreateMode = false
-                        }
-                    )
-                }
-            }
-        }
-
-        if (showBarcodeScanner) {
-            BarcodeScannerScreen(onDismiss = { showBarcodeScanner = false }) { code ->
-                showBarcodeScanner = false
-                scope.launch {
-                    val foundProduct = productoViewModel.findByBarcode(code)
-                    if (foundProduct != null) {
-                        saleItems.add(SaleItem(foundProduct))
-                        NotificationManager.show("Agregado: ${foundProduct.descripcion}", NotificationType.SUCCESS)
-                    } else {
-                        NotificationManager.show("Producto con código '$code' no encontrado.", NotificationType.ERROR)
-                    }
-                }
-            }
-        }
-        if (showLogoutDialog) {
-            LogoutConfirmationDialog(
-                onDismiss = { showLogoutDialog = false },
-                onConfirm = {
-                    showLogoutDialog = false
-                    LogoutManager.logout(context)
-                }
-            )
-        }
         if(showPluDirectos) {
             Surface(Modifier.fillMaxSize()) {
                 PluDirectosScreen(

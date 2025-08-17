@@ -45,6 +45,31 @@ object PrintingManager {
             }
         }
     }
+
+    // NUEVO: Forzar impresión como PDF (útil para pruebas del layout)
+    suspend fun printAsPdf(
+        context: Context,
+        comprobante: Comprobante,
+        renglones: List<RenglonComprobante>
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val pdfGenerator = PdfTicketGenerator()
+                val file = pdfGenerator.createPdfTicket(context, comprobante, renglones)
+                val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
+                val jobName = "${context.getString(R.string.app_name)} Documento"
+                withContext(Dispatchers.Main) {
+                    printManager.print(jobName, PdfPrintDocumentAdapter(context, file), null)
+                }
+            } catch (e: Exception) {
+                Log.e("PrintingManager", "Error al generar o imprimir el PDF", e)
+                withContext(Dispatchers.Main) {
+                    NotificationManager.show("Error al crear el PDF del comprobante.", NotificationType.ERROR)
+                }
+            }
+        }
+    }
+
     suspend fun printInforme(
         context: Context,
         filtros: InformeFiltros,

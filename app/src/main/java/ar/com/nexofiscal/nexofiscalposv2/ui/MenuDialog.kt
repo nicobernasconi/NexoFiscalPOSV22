@@ -69,8 +69,7 @@ val menuItems = listOf(
         MenuItemModel(R.drawable.ic_lock, "Modo Kiosco"),
         MenuItemModel(R.drawable.ic_settings, "Configuración General")
 
-    )),
-    MenuItemModel(R.drawable.ic_exit, "Salir")
+    ))
 )
 
 /**
