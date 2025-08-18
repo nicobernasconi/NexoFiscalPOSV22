@@ -775,6 +775,7 @@ fun Comprobante.toEntity(): ComprobanteEntity {
         descuentoTotal = this.descuentoTotal,
         incrementoTotal = this.incrementoTotal,
         tipoComprobanteId = this.tipoComprobante?.id,
+        cierreCajaId = null
     )
 }
 fun List<Comprobante?>.toComprobanteEntityList(): List<ComprobanteEntity> = this.mapNotNull { it?.toEntity() }

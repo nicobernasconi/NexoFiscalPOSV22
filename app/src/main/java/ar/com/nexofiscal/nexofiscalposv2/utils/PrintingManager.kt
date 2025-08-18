@@ -103,4 +103,22 @@ object PrintingManager {
             }
         }
     }
+
+    suspend fun printCierreCaja(
+        context: Context,
+        filtros: ar.com.nexofiscal.nexofiscalposv2.models.CierreCajaFiltros,
+        resumen: ar.com.nexofiscal.nexofiscalposv2.models.CierreCajaResumen
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val cierrePrinter = CierreCajaPrinter()
+                cierrePrinter.print(filtros, resumen)
+            } catch (e: Exception) {
+                Log.e("PrintingManager", "Error al imprimir el cierre de caja", e)
+                withContext(Dispatchers.Main) {
+                    NotificationManager.show("Error al imprimir el cierre de caja.", NotificationType.ERROR)
+                }
+            }
+        }
+    }
 }

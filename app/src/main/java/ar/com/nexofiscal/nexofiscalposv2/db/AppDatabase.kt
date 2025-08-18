@@ -113,7 +113,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity
 
 
     ],
-    version = 10,    // Incrementar versión por nueva entidad Notificacion
+    version = 11,    // Incrementar versión por nuevo campo cierreCajaId en ComprobanteEntity
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SyncStatusConverter::class)

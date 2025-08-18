@@ -27,7 +27,7 @@ class CierreCajaRepository(private val dao: CierreCajaDao) {
     }
 
     suspend fun porId(id: Int): CierreCajaEntity? = dao.getById(id)
-    suspend fun guardar(cierre: CierreCajaEntity) = dao.insert(cierre)
+    suspend fun guardar(cierre: CierreCajaEntity): Long = dao.insert(cierre)
     suspend fun actualizar(cierre: CierreCajaEntity) = dao.update(cierre)
     suspend fun eliminar(entity: CierreCajaEntity) {
         entity.syncStatus = SyncStatus.DELETED

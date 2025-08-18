@@ -38,4 +38,14 @@ class ComprobanteRepository(private val dao: ComprobanteDao) {
         dao.update(entity) // Se utiliza el método update del DAO.
     }
     suspend fun eliminarTodo() = dao.clearAll()
+
+    // --- NUEVO: Cierre de caja ---
+    suspend fun asignarCierreAComprobantesDeUsuario(usuarioId: Int, cierreId: Int): Int =
+        dao.asignarCierreAComprobantesDeUsuario(usuarioId, cierreId)
+
+    suspend fun contarPendientesDeCierre(usuarioId: Int): Int =
+        dao.contarComprobantesPendientesDeCierre(usuarioId)
+
+    suspend fun sumarPendienteDeCierre(usuarioId: Int): Double =
+        dao.sumarTotalPendienteDeCierre(usuarioId)
 }

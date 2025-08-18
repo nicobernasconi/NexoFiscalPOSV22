@@ -56,7 +56,7 @@ interface CierreCajaDao {
     // --- MÉTODOS EXISTENTES (con pequeños ajustes) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(cierre: CierreCajaEntity)
+    suspend fun insert(cierre: CierreCajaEntity): Long
 
     @Update
     suspend fun update(cierre: CierreCajaEntity)

@@ -106,4 +106,6 @@ data class ComprobanteEntity(
     val incrementoTotal: String?,//porcentage de incrementos
     val tipoComprobanteId: Int?,
 
-    )
+    // --- NUEVO CAMPO: Relación con Cierre de Caja ---
+    val cierreCajaId: Int?
+)

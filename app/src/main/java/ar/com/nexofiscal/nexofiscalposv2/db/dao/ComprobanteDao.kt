@@ -78,4 +78,20 @@ interface ComprobanteDao {
         @Query("DELETE FROM comprobante_promociones WHERE comprobanteLocalId = :comprobanteId")
         suspend fun deletePromocionesForComprobante(comprobanteId: Int)
 
+        // --- NUEVO: Asignar cierre a comprobantes del usuario que no tengan cierre y no estén dados de baja ---
+        @Query("""
+            UPDATE comprobantes
+            SET cierreCajaId = :cierreId
+            WHERE cierreCajaId IS NULL
+              AND (fechaBaja IS NULL OR fechaBaja = '')
+              AND vendedorId = :usuarioId
+        """)
+        suspend fun asignarCierreAComprobantesDeUsuario(usuarioId: Int, cierreId: Int): Int
+
+        // Métricas útiles para el cierre (opcional)
+        @Query("SELECT COUNT(*) FROM comprobantes WHERE cierreCajaId IS NULL AND (fechaBaja IS NULL OR fechaBaja = '') AND vendedorId = :usuarioId")
+        suspend fun contarComprobantesPendientesDeCierre(usuarioId: Int): Int
+
+        @Query("SELECT IFNULL(SUM(CAST(total AS REAL)),0) FROM comprobantes WHERE cierreCajaId IS NULL AND (fechaBaja IS NULL OR fechaBaja = '') AND vendedorId = :usuarioId")
+        suspend fun sumarTotalPendienteDeCierre(usuarioId: Int): Double
 }

@@ -2,71 +2,62 @@ package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
-import androidx.paging.map
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
-import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.CierreCajaRepository
-import ar.com.nexofiscal.nexofiscalposv2.db.repository.UsuarioRepository
-import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
-import ar.com.nexofiscal.nexofiscalposv2.models.CierreCaja
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
+import ar.com.nexofiscal.nexofiscalposv2.db.repository.ComprobanteRepository
+import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.*
+
+data class CierreCajaResultado(
+    val cierreId: Int,
+    val comprobantesAsignados: Int
+)
 
 class CierreCajaViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo: CierreCajaRepository
-    private val usuarioRepo: UsuarioRepository
-    private val _searchQuery = MutableStateFlow("")
+    private val cierreRepo: CierreCajaRepository
+    private val compRepo: ComprobanteRepository
 
     init {
         val db = AppDatabase.getInstance(application)
-        repo = CierreCajaRepository(db.cierreCajaDao())
-        usuarioRepo = UsuarioRepository(db.usuarioDao())
+        cierreRepo = CierreCajaRepository(db.cierreCajaDao())
+        compRepo = ComprobanteRepository(db.comprobanteDao())
     }
 
-    val pagedCierresCaja: Flow<PagingData<CierreCaja>> = _searchQuery
-        .flatMapLatest { query ->
-            repo.getCierresCajaPaginated(query)
-        }
-        .map { pagingData ->
-            pagingData.map { entity ->
-                val domainModel = entity.toDomainModel()
-                entity.usuarioId?.let { userId ->
-                    val userEntity = usuarioRepo.porId(userId)
-                    domainModel.usuario = userEntity?.toDomainModel()
-                }
-                domainModel
-            }
-        }
-        .cachedIn(viewModelScope)
-
-    fun search(query: String) {
-        _searchQuery.value = query
+    private fun ahoraStr(): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        return sdf.format(Date())
     }
 
-    // --- CAMBIO: Lógica de guardado ahora establece el estado de sincronización ---
-    fun save(cierre: CierreCajaEntity) {
-        viewModelScope.launch {
-            if (cierre.serverId == null || cierre.serverId == 0) {
-                cierre.syncStatus = SyncStatus.CREATED
-            } else {
-                cierre.syncStatus = SyncStatus.UPDATED
-            }
-            repo.guardar(cierre)
-            UploadManager.triggerImmediateUpload(getApplication())
-        }
-    }
+    suspend fun cerrarCaja(efectivoInicial: Double, efectivoFinal: Double): CierreCajaResultado = withContext(Dispatchers.IO) {
+        val usuarioId = SessionManager.usuarioId
+        require(usuarioId > 0) { "Usuario no válido para cierre de caja." }
 
-    // --- CAMBIO: El borrado ahora es un "soft delete" ---
-    fun delete(cierre: CierreCajaEntity) {
-        viewModelScope.launch {
-            cierre.syncStatus = SyncStatus.DELETED
-            repo.actualizar(cierre)
-        }
+        // Crear el cierre de caja
+        val cierre = CierreCajaEntity(
+            id = 0,
+            serverId = null,
+            syncStatus = SyncStatus.CREATED,
+            fecha = ahoraStr(),
+            totalVentas = null,
+            totalGastos = null,
+            efectivoInicial = efectivoInicial,
+            efectivoFinal = efectivoFinal,
+            tipoCajaId = null,
+            usuarioId = usuarioId
+        )
+        val cierreIdLong = cierreRepo.guardar(cierre)
+        val cierreId = cierreIdLong.toInt()
+
+        // Asignar el id de cierre a los comprobantes del usuario
+        val asignados = compRepo.asignarCierreAComprobantesDeUsuario(usuarioId, cierreId)
+
+        CierreCajaResultado(cierreId = cierreId, comprobantesAsignados = asignados)
     }
 }
+
