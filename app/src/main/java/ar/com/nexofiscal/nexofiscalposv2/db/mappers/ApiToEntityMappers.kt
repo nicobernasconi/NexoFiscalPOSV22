@@ -3,6 +3,8 @@ package ar.com.nexofiscal.nexofiscalposv2.db.mappers
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.*
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.ComprobanteConDetalle
 import ar.com.nexofiscal.nexofiscalposv2.models.*
+import ar.com.nexofiscal.nexofiscalposv2.models.CierreCaja
+import ar.com.nexofiscal.nexofiscalposv2.models.CierreCajaUploadRequest
 import ar.com.nexofiscal.nexofiscalposv2.screens.Pago
 import com.google.gson.Gson
 import java.util.Locale
@@ -887,19 +889,7 @@ fun Producto.toEntity(): ProductoEntity {
         precio3ImpuestoInterno = this.precio3ImpuestoInterno,
         precioCosto = this.precioCosto,
         fraccionado = this.fraccionado,
-        rg5329_23 = this.rg5329_23,
-        activo = this.activo,
-        textoPanel = this.textoPanel,
-        iibb = this.iibb,
-        codigoBarra2 = this.codigoBarra2,
-        oferta = this.oferta,
-        margenGanancia = this.margenGanancia,
-        favorito = this.favorito,
-        familiaId = this.familia?.id,
-        agrupacionId = this.agrupacion?.id,
-        proveedorId = this.proveedor?.id,
-        tipoId = this.tipo?.id,
-        unidadId = this.unidad?.id
+        rg5329_23 = this.rg5329_23
     )
 }
 fun List<Producto?>.toProductoEntityList(): List<ProductoEntity> = this.mapNotNull { it?.toEntity() }
