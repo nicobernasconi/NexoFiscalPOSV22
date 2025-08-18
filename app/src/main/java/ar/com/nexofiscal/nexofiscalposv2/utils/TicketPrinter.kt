@@ -40,10 +40,7 @@ class TicketPrinter {
 
     // --- Helpers de formato ---
     private val LINE_WIDTH = 32
-    // Para tabla con bordes: suma columnas + 4 bordes (|...|...|...|) = 32 -> columnas internas = 28
-    private val QTY_COL = 4
-    private val DESC_COL = 16
-    private val SUBT_COL = 8
+    private val SUBT_COL = 8 // ancho para valores numéricos a la derecha
 
     private fun padRight(text: String, width: Int): String {
         val t = if (text.length > width) text.substring(0, width) else text
@@ -57,6 +54,7 @@ class TicketPrinter {
 
     @Suppress("SameParameterValue")
     private fun wrapByWidth(text: String, maxWidth: Int): List<String> {
+        if (text.isBlank()) return emptyList()
         if (text.length <= maxWidth) return listOf(text)
         val words = text.split(" ")
         val lines = mutableListOf<String>()
@@ -78,13 +76,11 @@ class TicketPrinter {
         return lines
     }
 
-    // --- Tabla ASCII ---
-    private fun borderLine(): String = "+" + "-".repeat(QTY_COL) + "+" + "-".repeat(DESC_COL) + "+" + "-".repeat(SUBT_COL) + "+"
-    private fun rowLine(qty: String, desc: String, subtotal: String): String {
-        val q = padLeft(qty, QTY_COL)
-        val d = padRight(desc, DESC_COL)
-        val s = padLeft(subtotal, SUBT_COL)
-        return "|$q|$d|$s|"
+    private fun kvRight(left: String, right: String): String {
+        val leftTrim = if (left.length >= LINE_WIDTH) left.substring(0, LINE_WIDTH - 1) else left
+        val rightTrim = if (right.length > SUBT_COL) right.takeLast(SUBT_COL) else right
+        val spaces = (LINE_WIDTH - leftTrim.length - rightTrim.length).coerceAtLeast(1)
+        return leftTrim + " ".repeat(spaces) + rightTrim
     }
 
     @SuppressLint("DefaultLocale")
@@ -149,15 +145,10 @@ class TicketPrinter {
             printer!!.setPrintAppendString("Fecha: ${comprobante.fecha}", format)
             printDivider()
 
-            // --- Tabla de ítems ---
-            format.apply { textSize = 24; style = NORMAL; ali = Layout.Alignment.ALIGN_NORMAL }
-            // Borde superior
-            printer!!.setPrintAppendString(borderLine(), format)
-            // Encabezado
-            val header = rowLine("Cant", "Descripción", "Subtotal")
-            printer!!.setPrintAppendString(header, format)
-            // Separador de encabezado
-            printer!!.setPrintAppendString(borderLine(), format)
+            // --- Ítems con layout profesional ---
+            format.apply { textSize = 24; style = BOLD; ali = Layout.Alignment.ALIGN_CENTER }
+            printer!!.setPrintAppendString("Detalle de ítems", format)
+            printDivider()
 
             var totalCalculado = 0.0
             renglones.forEach { renglon ->
@@ -165,17 +156,56 @@ class TicketPrinter {
                 totalCalculado += subtotalValue
 
                 val qtyStr = formatQuantity(renglon.cantidad)
+                val unitStr = String.format(Locale.US, "$%.2f", renglon.precioUnitario)
                 val subtotalStr = String.format(Locale.US, "$%.2f", subtotalValue)
+                val ivaPct = (renglon.tasaIva).let { if (it % 1.0 == 0.0) String.format(Locale.US, "%.0f", it) else String.format(Locale.US, "%.2f", it) }
+                val descValue = renglon.descuento ?: 0.0
+                val descStr = if (descValue != 0.0) String.format(Locale.US, "-$%.2f", descValue) else null
 
-                val descLines = wrapByWidth(renglon.descripcion, DESC_COL)
-                descLines.forEachIndexed { idx, line ->
-                    val q = if (idx == 0) qtyStr else ""
-                    val s = if (idx == 0) subtotalStr else ""
-                    printer!!.setPrintAppendString(rowLine(q, line, s), format)
+                val codigo = renglon.producto.codigo?.takeIf { it.isNotBlank() }
+                val titulo = buildString {
+                    if (codigo != null) append("[$codigo] ")
+                    append(renglon.descripcion)
                 }
+
+                // Descripción (puede ocupar varias líneas)
+                format.apply { textSize = 26; style = BOLD; ali = Layout.Alignment.ALIGN_NORMAL }
+                val descLines = wrapByWidth(titulo, LINE_WIDTH)
+                if (descLines.isEmpty()) {
+                    printer!!.setPrintAppendString("(Sin descripción)", format)
+                } else {
+                    descLines.forEachIndexed { idx, line ->
+                        if (idx == 0) {
+                            printer!!.setPrintAppendString(line, format)
+                        } else {
+                            format.style = NORMAL
+                            format.textSize = 24
+                            printer!!.setPrintAppendString(line, format)
+                            format.style = BOLD
+                            format.textSize = 26
+                        }
+                    }
+                }
+
+                // Línea de cálculo principal: "Cant X x $Y" a la izquierda y "Imp $Z" a la derecha
+                format.apply { textSize = 24; style = NORMAL; ali = Layout.Alignment.ALIGN_NORMAL }
+                val leftCalc = "Cant ${qtyStr} x ${unitStr}"
+                val rightImp = "Imp ${subtotalStr}"
+                printer!!.setPrintAppendString(kvRight(leftCalc, rightImp), format)
+
+                // Línea secundaria: IVA y Descuento (si existe)
+                val leftIva = "IVA: ${ivaPct}%"
+                if (descStr != null) {
+                    printer!!.setPrintAppendString(kvRight(leftIva, "Desc ${descStr}"), format)
+                } else {
+                    printer!!.setPrintAppendString(leftIva, format)
+                }
+
+                // Separador fino entre ítems
+                format.apply { ali = Layout.Alignment.ALIGN_CENTER }
+                printer!!.setPrintAppendString("·".repeat(LINE_WIDTH), format)
+                format.ali = Layout.Alignment.ALIGN_NORMAL
             }
-            // Borde inferior de la tabla
-            printer!!.setPrintAppendString(borderLine(), format)
             printDivider()
 
             val total = comprobante.total?.toDoubleOrNull() ?: totalCalculado
@@ -188,6 +218,7 @@ class TicketPrinter {
             val lineIva = padRight("Total IVA:", LINE_WIDTH - SUBT_COL) + padLeft(String.format(Locale.US, "$%.2f", ivaTotal), SUBT_COL)
             val lineTotal = padRight("TOTAL:", LINE_WIDTH - SUBT_COL) + padLeft(String.format(Locale.US, "$%.2f", total), SUBT_COL)
             printer!!.setPrintAppendString(lineTotalSinIva, format)
+            format.apply { style = BOLD; textSize = 30 }
             printer!!.setPrintAppendString(lineIva, format)
             printer!!.setPrintAppendString(lineTotal, format)
 
