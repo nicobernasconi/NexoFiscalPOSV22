@@ -257,6 +257,9 @@ fun MainScreen(
         val recargosAcumulados = totalOriginal * (recargoPorcTotal / 100.0)
         val totalFinal = totalOriginal - montoDescuento + recargosAcumulados
 
+        // Prorrateo de descuentos/recargos por renglón para que bases/IVA coincidan con el total final
+        val factorAjuste = if (totalOriginal > 0) (totalFinal / totalOriginal) else 1.0
+
         var importeIva21: Double
         var importeIva105: Double
         var noGravadoTotal: Double
@@ -273,15 +276,16 @@ fun MainScreen(
 
         renglonesDeVenta.forEach { renglon ->
             val subtotal = renglon.totalLinea.toDoubleOrNull() ?: 0.0
+            val subtotalAjustado = subtotal * factorAjuste
             val tasa = renglon.tasaIva
-            val netoRenglon = if (tasa > 0) subtotal / (1 + tasa) else subtotal
-            val ivaRenglon = subtotal - netoRenglon
+            val netoRenglon = if (tasa > 0) subtotalAjustado / (1 + tasa) else subtotalAjustado
+            val ivaRenglon = subtotalAjustado - netoRenglon
             acumuladoNoGravadoTotal += netoRenglon
             when (tasa) {
                 0.21 -> { acumuladoImporteIva21 += ivaRenglon; acumuladoNoGravadoIva21 += netoRenglon }
                 0.105 -> { acumuladoImporteIva105 += ivaRenglon; acumuladoNoGravadoIva105 += netoRenglon }
                 else -> {
-                    noGravadoIva0 += netoRenglon
+                    acumuladoNoGravadoIva0 += netoRenglon
                 }
             }
         }
