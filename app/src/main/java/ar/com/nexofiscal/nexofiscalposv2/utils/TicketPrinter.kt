@@ -38,11 +38,12 @@ class TicketPrinter {
         return if (qty % 1 == 0.0) String.format(Locale.US, "%d", qty.toLong()) else DecimalFormat("#.###").format(qty)
     }
 
-    // --- Helpers de formato para columnas en 32 caracteres ---
+    // --- Helpers de formato ---
     private val LINE_WIDTH = 32
-    private val QTY_COL = 5 // ancho para Cantidad (alineado a derecha)
-    private val DESC_COL = 19 // ancho para Descripción
-    private val SUBT_COL = 8 // ancho para Subtotal (alineado a derecha)
+    // Para tabla con bordes: suma columnas + 4 bordes (|...|...|...|) = 32 -> columnas internas = 28
+    private val QTY_COL = 4
+    private val DESC_COL = 16
+    private val SUBT_COL = 8
 
     private fun padRight(text: String, width: Int): String {
         val t = if (text.length > width) text.substring(0, width) else text
@@ -75,6 +76,15 @@ class TicketPrinter {
         }
         if (current.isNotEmpty()) lines.add(current.toString())
         return lines
+    }
+
+    // --- Tabla ASCII ---
+    private fun borderLine(): String = "+" + "-".repeat(QTY_COL) + "+" + "-".repeat(DESC_COL) + "+" + "-".repeat(SUBT_COL) + "+"
+    private fun rowLine(qty: String, desc: String, subtotal: String): String {
+        val q = padLeft(qty, QTY_COL)
+        val d = padRight(desc, DESC_COL)
+        val s = padLeft(subtotal, SUBT_COL)
+        return "|$q|$d|$s|"
     }
 
     @SuppressLint("DefaultLocale")
@@ -139,30 +149,33 @@ class TicketPrinter {
             printer!!.setPrintAppendString("Fecha: ${comprobante.fecha}", format)
             printDivider()
 
-            // --- Cabecera de ítems alineada ---
-            format.apply { textSize = 24; style = BOLD; ali = Layout.Alignment.ALIGN_NORMAL }
-            val header = padRight("Cant", QTY_COL) + padRight("Descripción", DESC_COL) + padLeft("Subtotal", SUBT_COL)
-            printer!!.setPrintAppendString(header, format)
-            printDivider()
-
-            // --- Renglones alineados con wrapping de descripción ---
+            // --- Tabla de ítems ---
             format.apply { textSize = 24; style = NORMAL; ali = Layout.Alignment.ALIGN_NORMAL }
+            // Borde superior
+            printer!!.setPrintAppendString(borderLine(), format)
+            // Encabezado
+            val header = rowLine("Cant", "Descripción", "Subtotal")
+            printer!!.setPrintAppendString(header, format)
+            // Separador de encabezado
+            printer!!.setPrintAppendString(borderLine(), format)
+
             var totalCalculado = 0.0
             renglones.forEach { renglon ->
                 val subtotalValue = renglon.totalLinea.toDoubleOrNull() ?: 0.0
                 totalCalculado += subtotalValue
 
-                val qtyStr = padLeft(formatQuantity(renglon.cantidad), QTY_COL)
-                val subtotalStr = padLeft(String.format(Locale.US, "$%.2f", subtotalValue), SUBT_COL)
+                val qtyStr = formatQuantity(renglon.cantidad)
+                val subtotalStr = String.format(Locale.US, "$%.2f", subtotalValue)
 
                 val descLines = wrapByWidth(renglon.descripcion, DESC_COL)
                 descLines.forEachIndexed { idx, line ->
-                    val qtyCol = if (idx == 0) qtyStr else " ".repeat(QTY_COL)
-                    val descCol = padRight(line, DESC_COL)
-                    val subtCol = if (idx == 0) subtotalStr else " ".repeat(SUBT_COL)
-                    printer!!.setPrintAppendString(qtyCol + descCol + subtCol, format)
+                    val q = if (idx == 0) qtyStr else ""
+                    val s = if (idx == 0) subtotalStr else ""
+                    printer!!.setPrintAppendString(rowLine(q, line, s), format)
                 }
             }
+            // Borde inferior de la tabla
+            printer!!.setPrintAppendString(borderLine(), format)
             printDivider()
 
             val total = comprobante.total?.toDoubleOrNull() ?: totalCalculado
@@ -197,7 +210,6 @@ class TicketPrinter {
             } else {
                 printer!!.setPrintAppendString("Este comprobante no tiena validez fiscal", format)
             }
-
 
 
             printer!!.setPrintAppendString("\n\n\n\n", format)
