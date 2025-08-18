@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import android.content.Context
 import androidx.room.TypeConverters
 import ar.com.nexofiscal.nexofiscalposv2.db.converter.DateConverter
+import ar.com.nexofiscal.nexofiscalposv2.db.converter.SyncStatusConverter
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.AgrupacionDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.CategoriaDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.CierreCajaDao
@@ -115,7 +116,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity
     version = 10,    // Incrementar versión por nueva entidad Notificacion
     exportSchema = false
 )
-@TypeConverters(DateConverter::class)
+@TypeConverters(DateConverter::class, SyncStatusConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun agrupacionDao(): AgrupacionDao

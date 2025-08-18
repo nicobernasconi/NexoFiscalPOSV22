@@ -39,4 +39,7 @@ interface NotificacionDao {
             insert(entidadParaInsertar)
         }
     }
+
+    @Query("SELECT * FROM notificaciones WHERE (activo = 1) AND syncStatus != :statusDeleted ORDER BY tipoNotificacionId DESC, id DESC")
+    suspend fun getActivas(statusDeleted: SyncStatus = SyncStatus.DELETED): List<NotificacionEntity>
 }

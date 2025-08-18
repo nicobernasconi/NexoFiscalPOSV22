@@ -29,6 +29,11 @@
         <activity
             android:name=".MainActivity"
             android:exported="false"/>
+        <activity
+            android:name=".services.NotificacionDialogActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity="" />
         <receiver
             android:name=".AdminReceiver"
             android:description="@string/app_name"
@@ -47,6 +52,10 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <service
+            android:name=".services.NotificacionService"
+            android:enabled="true"
+            android:exported="false" />
     </application>
     <!-- Permisos necesarios -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

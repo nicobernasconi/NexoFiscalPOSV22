@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import ar.com.nexofiscal.nexofiscalposv2.services.BackupScheduler
+import ar.com.nexofiscal.nexofiscalposv2.services.NotificacionService
 
 class LoginActivity : ComponentActivity() {
 
@@ -76,6 +77,9 @@ class LoginActivity : ComponentActivity() {
         // Programar backups (cada hora) y verificar inmediatamente al entrar
         BackupScheduler.scheduleHourly(applicationContext)
         BackupScheduler.runNow(applicationContext)
+
+        // Iniciar el servicio de notificaciones (usa DB local; aplica también en offline)
+        startService(Intent(this, NotificacionService::class.java))
 
         // Iniciar el servicio en segundo plano si no estamos en modo offline
         if (!isOffline) {
