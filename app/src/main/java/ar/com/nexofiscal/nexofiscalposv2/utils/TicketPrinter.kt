@@ -35,7 +35,46 @@ class TicketPrinter {
     }
 
     private fun formatQuantity(qty: Double): String {
-        return if (qty % 1 == 0.0) String.format("%d", qty.toLong()) else DecimalFormat("#.###").format(qty)
+        return if (qty % 1 == 0.0) String.format(Locale.US, "%d", qty.toLong()) else DecimalFormat("#.###").format(qty)
+    }
+
+    // --- Helpers de formato para columnas en 32 caracteres ---
+    private val LINE_WIDTH = 32
+    private val QTY_COL = 5 // ancho para Cantidad (alineado a derecha)
+    private val DESC_COL = 19 // ancho para Descripción
+    private val SUBT_COL = 8 // ancho para Subtotal (alineado a derecha)
+
+    private fun padRight(text: String, width: Int): String {
+        val t = if (text.length > width) text.substring(0, width) else text
+        return t + " ".repeat((width - t.length).coerceAtLeast(0))
+    }
+
+    private fun padLeft(text: String, width: Int): String {
+        val t = if (text.length > width) text.takeLast(width) else text
+        return " ".repeat((width - t.length).coerceAtLeast(0)) + t
+    }
+
+    @Suppress("SameParameterValue")
+    private fun wrapByWidth(text: String, maxWidth: Int): List<String> {
+        if (text.length <= maxWidth) return listOf(text)
+        val words = text.split(" ")
+        val lines = mutableListOf<String>()
+        var current = StringBuilder()
+        for (w in words) {
+            if (current.isEmpty()) {
+                if (w.length <= maxWidth) current.append(w) else lines.add(w.substring(0, maxWidth))
+            } else {
+                if (current.length + 1 + w.length <= maxWidth) {
+                    current.append(' ').append(w)
+                } else {
+                    lines.add(current.toString())
+                    current = StringBuilder()
+                    if (w.length <= maxWidth) current.append(w) else lines.add(w.substring(0, maxWidth))
+                }
+            }
+        }
+        if (current.isNotEmpty()) lines.add(current.toString())
+        return lines
     }
 
     @SuppressLint("DefaultLocale")
@@ -53,7 +92,7 @@ class TicketPrinter {
             }
             fun printDivider() {
                 format.ali = Layout.Alignment.ALIGN_CENTER
-                printer!!.setPrintAppendString("--------------------------------", format)
+                printer!!.setPrintAppendString("-".repeat(LINE_WIDTH), format)
             }
 
             // --- CAMBIO: Datos obtenidos del SessionManager ---
@@ -100,17 +139,29 @@ class TicketPrinter {
             printer!!.setPrintAppendString("Fecha: ${comprobante.fecha}", format)
             printDivider()
 
-            format.apply { textSize = 24; style = NORMAL; ali = Layout.Alignment.ALIGN_NORMAL }
-            printer!!.setPrintAppendString(String.format("%-4s%-20s%8s", "Cant", "Producto", "Subtotal"), format)
+            // --- Cabecera de ítems alineada ---
+            format.apply { textSize = 24; style = BOLD; ali = Layout.Alignment.ALIGN_NORMAL }
+            val header = padRight("Cant", QTY_COL) + padRight("Descripción", DESC_COL) + padLeft("Subtotal", SUBT_COL)
+            printer!!.setPrintAppendString(header, format)
             printDivider()
 
+            // --- Renglones alineados con wrapping de descripción ---
+            format.apply { textSize = 24; style = NORMAL; ali = Layout.Alignment.ALIGN_NORMAL }
             var totalCalculado = 0.0
             renglones.forEach { renglon ->
-                totalCalculado += renglon.totalLinea.toDoubleOrNull() ?: 0.0
-                val formattedQty = formatQuantity(renglon.cantidad)
-                val descCorta = renglon.descripcion.take(20)
-                val formattedSubtotal = String.format("$%.2f", renglon.totalLinea.toDoubleOrNull() ?: 0.0)
-                printer!!.setPrintAppendString(String.format(Locale.US, "%-4s%-20s%8s", formattedQty, descCorta, formattedSubtotal), format)
+                val subtotalValue = renglon.totalLinea.toDoubleOrNull() ?: 0.0
+                totalCalculado += subtotalValue
+
+                val qtyStr = padLeft(formatQuantity(renglon.cantidad), QTY_COL)
+                val subtotalStr = padLeft(String.format(Locale.US, "$%.2f", subtotalValue), SUBT_COL)
+
+                val descLines = wrapByWidth(renglon.descripcion, DESC_COL)
+                descLines.forEachIndexed { idx, line ->
+                    val qtyCol = if (idx == 0) qtyStr else " ".repeat(QTY_COL)
+                    val descCol = padRight(line, DESC_COL)
+                    val subtCol = if (idx == 0) subtotalStr else " ".repeat(SUBT_COL)
+                    printer!!.setPrintAppendString(qtyCol + descCol + subtCol, format)
+                }
             }
             printDivider()
 
@@ -118,10 +169,15 @@ class TicketPrinter {
             val ivaTotal = comprobante.importeIva ?: 0.0
             val totalSinIva = total - ivaTotal
 
-            format.apply { textSize = 30; style = NORMAL; ali = Layout.Alignment.ALIGN_NORMAL }
-            printer!!.setPrintAppendString(String.format("%-16s%16s", "Total s/IVA:", String.format("$%.2f", totalSinIva)), format)
-            printer!!.setPrintAppendString(String.format("%-16s%16s", "Total IVA:", String.format("$%.2f", ivaTotal)), format)
-            printer!!.setPrintAppendString(String.format("%-16s%16s", "TOTAL:", String.format("$%.2f", total)), format)
+            // --- Totales alineados derecha ---
+            format.apply { textSize = 28; style = NORMAL; ali = Layout.Alignment.ALIGN_NORMAL }
+            val lineTotalSinIva = padRight("Total s/IVA:", LINE_WIDTH - SUBT_COL) + padLeft(String.format(Locale.US, "$%.2f", totalSinIva), SUBT_COL)
+            val lineIva = padRight("Total IVA:", LINE_WIDTH - SUBT_COL) + padLeft(String.format(Locale.US, "$%.2f", ivaTotal), SUBT_COL)
+            val lineTotal = padRight("TOTAL:", LINE_WIDTH - SUBT_COL) + padLeft(String.format(Locale.US, "$%.2f", total), SUBT_COL)
+            printer!!.setPrintAppendString(lineTotalSinIva, format)
+            printer!!.setPrintAppendString(lineIva, format)
+            printer!!.setPrintAppendString(lineTotal, format)
+
             val cae = comprobante.cae ?: ""
             format.apply { textSize = 30; style = NORMAL; ali = Layout.Alignment.ALIGN_CENTER }
             if (!comprobante.qr.isNullOrBlank() && comprobante.tipoComprobanteId == 1) {
@@ -129,7 +185,7 @@ class TicketPrinter {
                 printer!!.setPrintAppendString("CAE: $cae", format)
                 printer!!.setPrintAppendString("Vencimiento: ${comprobante.fechaVencimiento ?: ""}", format)
                 try {
-                    val qrBitmap = QrCodeGenerator.generateQrBitmap(comprobante.qr!!, 400, 400)
+                    val qrBitmap = QrCodeGenerator.generateQrBitmap(comprobante.qr, 400, 400)
                     if (qrBitmap != null) {
                         printer!!.setPrintAppendBitmap(qrBitmap, Layout.Alignment.ALIGN_CENTER)
                     }
@@ -138,7 +194,7 @@ class TicketPrinter {
                 }
                 format.apply { style = BOLD; textSize = 23 }
                 printer!!.setPrintAppendString("Régimen de Transparencia Fiscal al Consumidor Ley 27.743", format)
-            }else {
+            } else {
                 printer!!.setPrintAppendString("Este comprobante no tiena validez fiscal", format)
             }
 
