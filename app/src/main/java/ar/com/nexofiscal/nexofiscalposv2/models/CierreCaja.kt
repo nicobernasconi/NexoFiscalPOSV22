@@ -23,7 +23,12 @@ data class CierreCajaResumen(
     val cantidadComprobantes: Int,
     val cantidadNC: Int,
     val cancelados: Int,
-    val totalEsperadoEnCaja: Double
+    val totalEsperadoEnCaja: Double,
+    // Campos adicionales para impresión
+    val efectivoInicial: Double? = null,
+    val efectivoFinal: Double? = null,
+    val cierreId: Int? = null,
+    val usuarioNombre: String? = null
 )
 
 // Modelo de dominio de Cierre de Caja
@@ -38,13 +43,4 @@ class CierreCaja {
     var usuario: Usuario? = null
 }
 
-// Request para subida/sincronización de cierres
-data class CierreCajaUploadRequest(
-    val fecha: String?,
-    val totalVentas: Double?,
-    val totalGastos: Double?,
-    val efectivoInicial: Double?,
-    val efectivoFinal: Double?,
-    val tipoCajaId: Int?,
-    val usuarioId: Int?
-)
+

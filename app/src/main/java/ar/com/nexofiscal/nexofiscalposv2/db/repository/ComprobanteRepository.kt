@@ -48,4 +48,8 @@ class ComprobanteRepository(private val dao: ComprobanteDao) {
 
     suspend fun sumarPendienteDeCierre(usuarioId: Int): Double =
         dao.sumarTotalPendienteDeCierre(usuarioId)
+
+    // --- NUEVO: Listar comprobantes por cierre (con pagos) ---
+    suspend fun listarPorCierre(cierreId: Int): List<ComprobanteConDetalles> =
+        dao.getComprobantesPorCierre(cierreId)
 }

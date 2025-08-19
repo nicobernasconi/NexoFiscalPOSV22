@@ -74,6 +74,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.UnidadEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.UsuarioEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaResumenView
 
 @Database(
     entities = [
@@ -113,7 +114,8 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity
 
 
     ],
-    version = 11,    // Incrementar versión por nuevo campo cierreCajaId en ComprobanteEntity
+    views = [CierreCajaResumenView::class],
+    version = 15,    // Bump a 15 para recreación limpia
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SyncStatusConverter::class)
@@ -165,8 +167,9 @@ abstract class AppDatabase : RoomDatabase() {
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "nexofiscal.db"
-                ).fallbackToDestructiveMigration()
+                    "nexofiscal_v15.db" // nuevo nombre para forzar archivo nuevo
+                )
+                    .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }
     }

@@ -115,8 +115,18 @@ object PrintingManager {
                 cierrePrinter.print(filtros, resumen)
             } catch (e: Exception) {
                 Log.e("PrintingManager", "Error al imprimir el cierre de caja", e)
-                withContext(Dispatchers.Main) {
-                    NotificationManager.show("Error al imprimir el cierre de caja.", NotificationType.ERROR)
+                // Fallback: generar y guardar PDF automáticamente
+                try {
+                    val pdfGenerator = CierreCajaPdfGenerator()
+                    val file = pdfGenerator.createPdfCierreCaja(context, filtros, resumen)
+                    withContext(Dispatchers.Main) {
+                        NotificationManager.show("Cierre de caja guardado en PDF: ${'$'}{file.absolutePath}", NotificationType.SUCCESS)
+                    }
+                } catch (pdfError: Exception) {
+                    Log.e("PrintingManager", "Error al generar el PDF del cierre de caja", pdfError)
+                    withContext(Dispatchers.Main) {
+                        NotificationManager.show("No se pudo imprimir ni guardar el cierre en PDF.", NotificationType.ERROR)
+                    }
                 }
             }
         }

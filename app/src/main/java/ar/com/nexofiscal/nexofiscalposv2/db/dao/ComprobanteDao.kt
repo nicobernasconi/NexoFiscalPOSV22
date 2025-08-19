@@ -2,6 +2,7 @@ package ar.com.nexofiscal.nexofiscalposv2.db.dao
 
 import androidx.paging.PagingSource
 import androidx.room.*
+import androidx.room.SkipQueryVerification
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteConDetalles
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
@@ -84,14 +85,22 @@ interface ComprobanteDao {
             SET cierreCajaId = :cierreId
             WHERE cierreCajaId IS NULL
               AND (fechaBaja IS NULL OR fechaBaja = '')
-              AND vendedorId = :usuarioId
+              AND usuarioId = :usuarioId
         """)
+        @SkipQueryVerification
         suspend fun asignarCierreAComprobantesDeUsuario(usuarioId: Int, cierreId: Int): Int
 
         // Métricas útiles para el cierre (opcional)
-        @Query("SELECT COUNT(*) FROM comprobantes WHERE cierreCajaId IS NULL AND (fechaBaja IS NULL OR fechaBaja = '') AND vendedorId = :usuarioId")
+        @Query("SELECT COUNT(*) FROM comprobantes WHERE cierreCajaId IS NULL AND (fechaBaja IS NULL OR fechaBaja = '') AND usuarioId = :usuarioId")
+        @SkipQueryVerification
         suspend fun contarComprobantesPendientesDeCierre(usuarioId: Int): Int
 
-        @Query("SELECT IFNULL(SUM(CAST(total AS REAL)),0) FROM comprobantes WHERE cierreCajaId IS NULL AND (fechaBaja IS NULL OR fechaBaja = '') AND vendedorId = :usuarioId")
+        @Query("SELECT IFNULL(SUM(CAST(total AS REAL)),0) FROM comprobantes WHERE cierreCajaId IS NULL AND (fechaBaja IS NULL OR fechaBaja = '') AND usuarioId = :usuarioId")
+        @SkipQueryVerification
         suspend fun sumarTotalPendienteDeCierre(usuarioId: Int): Double
+
+        // --- NUEVO: Obtener comprobantes (con pagos) por cierre de caja ---
+        @Transaction
+        @Query("SELECT * FROM comprobantes WHERE cierreCajaId = :cierreId")
+        suspend fun getComprobantesPorCierre(cierreId: Int): List<ComprobanteConDetalles>
 }

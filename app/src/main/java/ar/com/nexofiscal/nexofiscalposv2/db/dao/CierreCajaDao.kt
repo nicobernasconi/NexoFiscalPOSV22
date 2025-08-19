@@ -4,6 +4,7 @@ import androidx.paging.PagingSource
 import androidx.room.*
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaResumenView
 
 @Dao
 interface CierreCajaDao {
@@ -17,6 +18,10 @@ interface CierreCajaDao {
 
     @Query("SELECT * FROM cierres_caja WHERE id = :id")
     suspend fun getById(id: Int): CierreCajaEntity?
+
+    // --- NUEVO: vista de resumen de cierres de caja ---
+    @Query("SELECT * FROM vw_cierres_caja ORDER BY id DESC")
+    suspend fun getResumen(): List<CierreCajaResumenView>
 
     // --- FUNCIONES NUEVAS PARA SINCRONIZACIÓN ---
 

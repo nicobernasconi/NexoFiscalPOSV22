@@ -170,6 +170,7 @@ fun MainScreen(
     var isProveedorCreateMode by remember { mutableStateOf(false) }
     var proveedorInScreen by remember { mutableStateOf<Proveedor?>(null) }
     var showProductStockScreen by remember { mutableStateOf(false) }
+    var showCierreCajaListScreen by remember { mutableStateOf(false) }
     LaunchedEffect(total) { onTotalUpdated(total) }
 
 
@@ -260,6 +261,16 @@ fun MainScreen(
         // Prorrateo de descuentos/recargos por renglón para que bases/IVA coincidan con el total final
         val factorAjuste = if (totalOriginal > 0) (totalFinal / totalOriginal) else 1.0
 
+        // NUEVO: ajustar renglones para reflejar descuento/recargo en impresión y guardado
+        val renglonesAjustados = renglonesDeVenta.map { r ->
+            val precioAjustado = ((r.precioUnitario * factorAjuste) * 100.0).toInt() / 100.0
+            val totalAjustado = ((precioAjustado * r.cantidad) * 100.0).toInt() / 100.0
+            r.copy(
+                precioUnitario = precioAjustado,
+                totalLinea = String.format(Locale.US, "%.2f", totalAjustado)
+            )
+        }
+
         var importeIva21: Double
         var importeIva105: Double
         var noGravadoTotal: Double
@@ -274,16 +285,18 @@ fun MainScreen(
         var acumuladoNoGravadoIva105 = 0.0
         var acumuladoNoGravadoIva0 = 0.0
 
+        // Calcular bases e IVA usando subtotales ajustados por renglón y tasa normalizada (0.21 o 21)
         renglonesDeVenta.forEach { renglon ->
             val subtotal = renglon.totalLinea.toDoubleOrNull() ?: 0.0
             val subtotalAjustado = subtotal * factorAjuste
-            val tasa = renglon.tasaIva
+            val tasaRaw = renglon.tasaIva
+            val tasa = if (tasaRaw > 1.0) tasaRaw / 100.0 else tasaRaw
             val netoRenglon = if (tasa > 0) subtotalAjustado / (1 + tasa) else subtotalAjustado
             val ivaRenglon = subtotalAjustado - netoRenglon
             acumuladoNoGravadoTotal += netoRenglon
-            when (tasa) {
-                0.21 -> { acumuladoImporteIva21 += ivaRenglon; acumuladoNoGravadoIva21 += netoRenglon }
-                0.105 -> { acumuladoImporteIva105 += ivaRenglon; acumuladoNoGravadoIva105 += netoRenglon }
+            when {
+                kotlin.math.abs(tasa - 0.21) < 1e-6 -> { acumuladoImporteIva21 += ivaRenglon; acumuladoNoGravadoIva21 += netoRenglon }
+                kotlin.math.abs(tasa - 0.105) < 1e-6 -> { acumuladoImporteIva105 += ivaRenglon; acumuladoNoGravadoIva105 += netoRenglon }
                 else -> {
                     acumuladoNoGravadoIva0 += netoRenglon
                 }
@@ -310,7 +323,7 @@ fun MainScreen(
             noGravadoIva105 = noGravadoIva105, noGravadoIva0 = noGravadoIva0,
             numero = numeroDeComprobante, puntoVenta = SessionManager.puntoVentaNumero,
             empresaId = SessionManager.empresaId, sucursalId = SessionManager.sucursalId,
-            vendedorId = null, formas_de_pago = formasDePagoComprobante, promociones = resultado.promociones,
+            vendedorId = SessionManager.usuarioId, formas_de_pago = formasDePagoComprobante, promociones = resultado.promociones,
             cuotas = null, remito = null, persona = null, provinciaId = null, fechaBaja = null, motivoBaja = null,
             fechaProceso = null, letra = null, numeroFactura = null, prefijoFactura = null, operacionNegocioId = null, retencionIva = null,
             retencionIibb = null, retencionGanancias = null, porcentajeGanancias = null, porcentajeIibb = null, porcentajeIva = null,
@@ -431,7 +444,7 @@ fun MainScreen(
 
         if (imprimir) {
             try {
-                PrintingManager.print(context, comprobanteParaGestionar, renglonesDeVenta)
+                PrintingManager.print(context, comprobanteParaGestionar, renglonesAjustados)
                 Log.d("FinalizarVenta", "Impresión realizada con éxito.")
             } catch (e: Exception) {
                 Log.e("FinalizarVenta", "Error durante la impresión: ${e.message}")
@@ -442,7 +455,7 @@ fun MainScreen(
         scope.launch(Dispatchers.IO) {
             val nuevoId = comprobanteViewModel.saveVentaCompleta(
                 comprobante = comprobanteParaGestionar,
-                renglones = renglonesDeVenta,
+                renglones = renglonesAjustados,
                 pagos = resultado.pagos,
                 promociones = resultado.promociones
             )
@@ -621,6 +634,7 @@ fun MainScreen(
                 "Usuarios" -> showUsuarioScreen = true
                 "Modo Kiosco" -> showKioskConfigScreen = true
                 "Configuración General" -> showConfiguracionScreen = true
+                "Listar Cierres de Caja" -> { showCierreCajaListScreen = true }
             }
         }
 
@@ -641,6 +655,15 @@ fun MainScreen(
         if (showAgrupacionesScreen) { Surface(Modifier.fillMaxSize()) { AgrupacionScreen(agrupacionViewModel) { showAgrupacionesScreen = false } } }
         if (showCategoriaScreen) { Surface(Modifier.fillMaxSize()) { CategoriaScreen(categoriaViewModel) { showCategoriaScreen = false } } }
         if (showCierreCajaScreen) { Surface(Modifier.fillMaxSize()) { CierreCajaScreen(cierreCajaViewModel) { showCierreCajaScreen = false } } }
+
+        // Nuevo: render de la pantalla de listado de cierres
+        if (showCierreCajaListScreen) {
+            Surface(Modifier.fillMaxSize()) {
+                CierreCajaListScreen(viewModel = cierreCajaViewModel) {
+                    showCierreCajaListScreen = false
+                }
+            }
+        }
 
         // --- NUEVO: Lista de Clientes ---
         if (showClienteListDialog) {
@@ -665,7 +688,8 @@ fun MainScreen(
         // --- NUEVO: Edición/Creación de Cliente ---
         if (showClienteEditScreen && (isClientCreateMode || clientInScreen != null)) {
             val initialCliente = if (isClientCreateMode) Cliente() else clientInScreen!!
-            val title = if (isClientCreateMode) "Crear Cliente" else "Editar Cliente: ${initialCliente.nombre ?: ""}"
+            val title = if (isClientCreateMode) "Crear Cliente" else "Editar Cliente: ${initialCliente.nombre}"
+
             Surface(modifier = Modifier.fillMaxSize()) {
                 EntityEditScreen(
                     title = title,

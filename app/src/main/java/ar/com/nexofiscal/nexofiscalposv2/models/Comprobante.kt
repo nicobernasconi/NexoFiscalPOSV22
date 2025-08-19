@@ -87,6 +87,7 @@ class Comprobante(
     @SerializedName("fecha_entrega") val fechaEntrega: String?,
     @SerializedName("hora_entrega") val horaEntrega: String?,
     @SerializedName("empresa_id") val empresaId: Int?,
+    @SerializedName("usuario_id") val usuarioId: Int? = null, // Nuevo campo opcional
     @SerializedName("punto_venta") val puntoVenta: Int?,
     @SerializedName("tipo_factura") var tipoFactura: Int?,
     @SerializedName("tipo_documento") val tipoDocumento: Int?,
@@ -195,6 +196,7 @@ class Comprobante(
         fechaEntrega: String? = this.fechaEntrega,
         horaEntrega: String? = this.horaEntrega,
         empresaId: Int? = this.empresaId,
+        usuarioId: Int? = null, // Nuevo campo opcional
         puntoVenta: Int? = this.puntoVenta,
         tipoFactura: Int? = this.tipoFactura,
         tipoDocumento: Int? = this.tipoDocumento,
@@ -227,7 +229,7 @@ class Comprobante(
             comprobanteFinal, numeroGuia1, numeroGuia2, numeroGuia3, tipoAlicuota1,
             tipoAlicuota2, tipoAlicuota3, importeIva105, importeIva21, importeIva0,
             noGravadoIva105, noGravadoIva21, noGravadoIva0, direccionEntrega, fechaEntrega,
-            horaEntrega, empresaId, puntoVenta, tipoFactura, tipoDocumento, numeroDeDocumento,
+            horaEntrega, empresaId, usuarioId, puntoVenta, tipoFactura, tipoDocumento, numeroDeDocumento,
             qr, comprobanteIdBaja, sucursalId, descuentoTotal, incrementoTotal,
             cliente = cliente?.copy(),
             vendedor = vendedor?.copy(),

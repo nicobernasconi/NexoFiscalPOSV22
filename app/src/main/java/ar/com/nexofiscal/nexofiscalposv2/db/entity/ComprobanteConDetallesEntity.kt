@@ -18,6 +18,12 @@ data class ComprobanteConDetalles(
     val cliente: ClienteEntity?,
 
     @Relation(
+        parentColumn = "usuarioId",
+        entityColumn = "serverId"
+    )
+    val usuario: UsuarioEntity?,
+
+    @Relation(
         parentColumn = "vendedorId",
         entityColumn = "serverId"
     )

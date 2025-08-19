@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import ar.com.nexofiscal.nexofiscalposv2.db.converter.ListIntegerConverter
 import ar.com.nexofiscal.nexofiscalposv2.db.converter.SyncStatusConverter
+import androidx.room.ColumnInfo
 
 // --- CAMBIO: Se añaden serverId, syncStatus, el índice y el nuevo TypeConverter ---
 @Entity(tableName = "comprobantes", indices = [Index(value = ["serverId"])])
@@ -42,6 +43,7 @@ data class ComprobanteEntity(
     val totalPagado: Double?,
     val condicionVentaId: Int?,
     val descripcionFlete: String?,
+    val usuarioId: Int?,
     val vendedorId: Int?,
     val recibo: String?,
     val observaciones1: String?,

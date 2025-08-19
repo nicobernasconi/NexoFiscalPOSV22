@@ -8,6 +8,7 @@ import ar.com.nexofiscal.nexofiscalposv2.models.CierreCajaUploadRequest
 import ar.com.nexofiscal.nexofiscalposv2.screens.Pago
 import com.google.gson.Gson
 import java.util.Locale
+import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
 
 // MAPPERS DE ENTIDAD A MODELO DE DOMINIO (API)
 // Nota: Se han corregido los mappers para que solo asignen los campos que realmente existen en el modelo de dominio.
@@ -174,6 +175,7 @@ fun ComprobanteEntity.toDomainModel(): Comprobante {
         fechaEntrega = this.fechaEntrega,
         horaEntrega = this.horaEntrega,
         empresaId = this.empresaId,
+        usuarioId = this.usuarioId,
         puntoVenta = this.puntoVenta,
         tipoFactura = this.tipoFactura,
         tipoDocumento = this.tipoDocumento,
@@ -190,6 +192,7 @@ fun ComprobanteEntity.toDomainModel(): Comprobante {
         formas_de_pago = emptyList(),
         promociones = null,
         tipoComprobanteId = this.tipoComprobanteId,
+
 
 
 
@@ -714,6 +717,8 @@ fun Comprobante.toEntity(): ComprobanteEntity {
         totalPagado = this.totalPagado,
         condicionVentaId = this.condicionVentaId,
         descripcionFlete = this.descripcionFlete,
+        // NUEVO: persistir usuario_id con el usuario actual
+        usuarioId = SessionManager.usuarioId,
         vendedorId = this.vendedorId,
         recibo = this.recibo,
         observaciones1 = this.observaciones1,
@@ -889,7 +894,19 @@ fun Producto.toEntity(): ProductoEntity {
         precio3ImpuestoInterno = this.precio3ImpuestoInterno,
         precioCosto = this.precioCosto,
         fraccionado = this.fraccionado,
-        rg5329_23 = this.rg5329_23
+        codigoBarra2 = this.codigoBarra2,
+        oferta = this.oferta,
+        margenGanancia = this.margenGanancia,
+        favorito = this.favorito,
+        familiaId = this.familia?.id,
+        agrupacionId = this.agrupacion?.id,
+        proveedorId = this.proveedor?.id,
+        tipoId = this.tipo?.id,
+        unidadId = this.unidad?.id,
+        activo = this.activo,
+        textoPanel = this.textoPanel,
+        iibb = this.iibb,
+        rg5329_23 = this.rg5329_23,
     )
 }
 fun List<Producto?>.toProductoEntityList(): List<ProductoEntity> = this.mapNotNull { it?.toEntity() }
