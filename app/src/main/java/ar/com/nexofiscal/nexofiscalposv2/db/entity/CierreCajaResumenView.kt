@@ -17,7 +17,7 @@ import androidx.room.DatabaseView
             u.nombreCompleto AS usuario_nombre_completo,
             cc.totalVentas AS total_ventas,
             CAST(NULL AS INTEGER) AS empresa_id,
-            CAST(NULL AS TEXT) AS comentarios,
+            cc.comentarios AS comentarios,
             u.sucursalId AS sucursal_id
         FROM cierres_caja cc
         LEFT JOIN usuarios u ON u.id = cc.usuarioId
@@ -47,7 +47,7 @@ import androidx.room.DatabaseView
                 ), 0)
             ) AS total_ventas,
             CAST(NULL AS INTEGER) AS empresa_id,
-            CAST(NULL AS TEXT) AS comentarios,
+            cc.comentarios AS comentarios,
             u.sucursalId AS sucursal_id
         FROM cierres_caja cc
         LEFT JOIN usuarios u ON u.id = cc.usuarioId

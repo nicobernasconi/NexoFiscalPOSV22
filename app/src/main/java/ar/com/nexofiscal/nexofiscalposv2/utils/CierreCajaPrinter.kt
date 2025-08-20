@@ -30,16 +30,6 @@ class CierreCajaPrinter {
     private val LINE_WIDTH = 32
     private val SUBT_COL = 12
 
-    private fun padRight(text: String, width: Int): String {
-        val t = if (text.length > width) text.substring(0, width) else text
-        return t + " ".repeat((width - t.length).coerceAtLeast(0))
-    }
-
-    private fun padLeft(text: String, width: Int): String {
-        val t = if (text.length > width) text.takeLast(width) else text
-        return " ".repeat((width - t.length).coerceAtLeast(0)) + t
-    }
-
     private fun kvRight(left: String, right: String): String {
         val leftTrim = if (left.length >= LINE_WIDTH) left.substring(0, LINE_WIDTH - 1) else left
         val rightTrim = if (right.length > SUBT_COL) right.takeLast(SUBT_COL) else right
@@ -89,10 +79,13 @@ class CierreCajaPrinter {
             val efIni = resumen.efectivoInicial ?: 0.0
             val efFin = resumen.efectivoFinal ?: 0.0
             val dif = efFin - efIni
+            val efIniStr = "$" + MoneyUtils.format(efIni)
+            val efFinStr = "$" + MoneyUtils.format(efFin)
+            val difStr = if (dif < 0) "-$" + MoneyUtils.format(kotlin.math.abs(dif)) else "$" + MoneyUtils.format(dif)
             format.ali = Layout.Alignment.ALIGN_NORMAL
-            printer!!.setPrintAppendString(kvRight("Efectivo inicial:", String.format(Locale.US, "$%.2f", efIni)), format)
-            printer!!.setPrintAppendString(kvRight("Efectivo final:", String.format(Locale.US, "$%.2f", efFin)), format)
-            printer!!.setPrintAppendString(kvRight("Diferencia:", String.format(Locale.US, "$%.2f", dif)), format)
+            printer!!.setPrintAppendString(kvRight("Efectivo inicial:", efIniStr), format)
+            printer!!.setPrintAppendString(kvRight("Efectivo final:", efFinStr), format)
+            printer!!.setPrintAppendString(kvRight("Diferencia:", difStr), format)
             divider()
 
             // Resumen de comprobantes
@@ -105,12 +98,14 @@ class CierreCajaPrinter {
             divider()
 
             // Totales
-            printer!!.setPrintAppendString(kvRight("Ventas brutas:", String.format(Locale.US, "$%.2f", resumen.ventasBrutas)), format)
-            printer!!.setPrintAppendString(kvRight("Descuentos:", String.format(Locale.US, "$%.2f", resumen.descuentos)), format)
-            printer!!.setPrintAppendString(kvRight("Notas de crédito:", String.format(Locale.US, "$%.2f", resumen.notasCredito)), format)
-            printer!!.setPrintAppendString(kvRight("IVA total:", String.format(Locale.US, "$%.2f", resumen.ivaTotal)), format)
+            printer!!.setPrintAppendString(kvRight("Ventas brutas:", "$" + MoneyUtils.format(resumen.ventasBrutas)), format)
+            printer!!.setPrintAppendString(kvRight("Descuentos:", "$" + MoneyUtils.format(resumen.descuentos)), format)
+            printer!!.setPrintAppendString(kvRight("Notas de crédito:", "$" + MoneyUtils.format(resumen.notasCredito)), format)
+            printer!!.setPrintAppendString(kvRight("IVA total:", "$" + MoneyUtils.format(resumen.ivaTotal)), format)
+            // Mostrar gastos como egreso (negativo)
+            printer!!.setPrintAppendString(kvRight("Gastos:", "-$" + MoneyUtils.format(resumen.totalGastos)), format)
             format.apply { style = BOLD }
-            printer!!.setPrintAppendString(kvRight("Ventas netas:", String.format(Locale.US, "$%.2f", resumen.ventasNetas)), format)
+            printer!!.setPrintAppendString(kvRight("Ventas netas:", "$" + MoneyUtils.format(resumen.ventasNetas)), format)
             format.style = NORMAL
             divider()
 
@@ -123,11 +118,11 @@ class CierreCajaPrinter {
             var totalPagos = 0.0
             resumen.porMedioPago.toSortedMap().forEach { (nombrePago, importe) ->
                 totalPagos += importe
-                printer!!.setPrintAppendString(kvRight(nombrePago, String.format(Locale.US, "$%.2f", importe)), format)
+                printer!!.setPrintAppendString(kvRight(nombrePago, "$" + MoneyUtils.format(importe)), format)
             }
             divider()
             format.style = BOLD
-            printer!!.setPrintAppendString(kvRight("Total cobrado:", String.format(Locale.US, "$%.2f", totalPagos)), format)
+            printer!!.setPrintAppendString(kvRight("Total cobrado:", "$" + MoneyUtils.format(totalPagos)), format)
             format.style = NORMAL
 
             // Final

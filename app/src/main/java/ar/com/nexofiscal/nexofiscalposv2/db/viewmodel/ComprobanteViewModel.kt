@@ -134,7 +134,7 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
             if (promociones.isNotEmpty()) {
                 val promocionEntities = promociones.map { promocion ->
                     ComprobantePromocionEntity(
-                        comprobanteLocalId = newComprobanteId,
+                        comprobanteLocalId = newComprobanteId.toInt(),
                         promocionId = promocion.id
                     )
                 }

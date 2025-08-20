@@ -108,6 +108,9 @@ class Comprobante(
     var formas_de_pago: List<FormaPagoComprobante>,
     var tipoComprobanteId: Int?
 ) {
+    @SerializedName("cierre_caja_id")
+    var cierreCajaId: Int? = null
+
     override fun toString(): String {
         return "Comprobante(id=$id, numero=$numero, numeroFactura=$numeroFactura)"
     }
@@ -224,20 +227,14 @@ class Comprobante(
             descuento3, descuento4, iva2, impresa, cancelado, nombreCliente, direccionCliente,
             localidadCliente, garantia, concepto, notas, lineaPagoUltima, relacionTk, totalIibb,
             importeIibb, provinciaCategoriaIibbId, importeRetenciones, provinciaIvaProveedorId,
-            gananciasProveedorId, importeGanancias, numeroIibb, numeroGanancias,
-            gananciasProveedor, cae, fechaVencimiento, remitoCliente, textoDolares,
-            comprobanteFinal, numeroGuia1, numeroGuia2, numeroGuia3, tipoAlicuota1,
-            tipoAlicuota2, tipoAlicuota3, importeIva105, importeIva21, importeIva0,
-            noGravadoIva105, noGravadoIva21, noGravadoIva0, direccionEntrega, fechaEntrega,
-            horaEntrega, empresaId, usuarioId, puntoVenta, tipoFactura, tipoDocumento, numeroDeDocumento,
-            qr, comprobanteIdBaja, sucursalId, descuentoTotal, incrementoTotal,
-            cliente = cliente?.copy(),
-            vendedor = vendedor?.copy(),
-            provincia = provincia?.copy(),
-            tipoComprobante = tipoComprobante?.copy(),
-            promociones = promociones?.map { it.copy() } ?: emptyList(),
-            formas_de_pago = formas_de_pago?.map { it.copy() } ?: emptyList(),
-            tipoComprobanteId = tipoComprobanteId
+            gananciasProveedorId, importeGanancias, numeroIibb, numeroGanancias, gananciasProveedor,
+            cae, fechaVencimiento, remitoCliente, textoDolares, comprobanteFinal, numeroGuia1,
+            numeroGuia2, numeroGuia3, tipoAlicuota1, tipoAlicuota2, tipoAlicuota3, importeIva105,
+            importeIva21, importeIva0, noGravadoIva105, noGravadoIva21, noGravadoIva0,
+            direccionEntrega, fechaEntrega, horaEntrega, empresaId, usuarioId, puntoVenta,
+            tipoFactura, tipoDocumento, numeroDeDocumento, qr, comprobanteIdBaja, sucursalId,
+            descuentoTotal, incrementoTotal, cliente, vendedor, provincia, tipoComprobante,
+            promociones, formas_de_pago!!, tipoComprobanteId
         )
     }
 }

@@ -70,16 +70,14 @@ fun LogoutConfirmationDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onDismiss) {
+                    TextButton(onClick = onDismiss, shape = RoundedCornerShape(5.dp)) {
                         Text("Cancelar")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = onConfirm,
                         enabled = isChecked,
-                        shape = RoundedCornerShape(5.dp),
-
-
+                        shape = RoundedCornerShape(5.dp)
                     ) {
                         Text("Confirmar")
                     }

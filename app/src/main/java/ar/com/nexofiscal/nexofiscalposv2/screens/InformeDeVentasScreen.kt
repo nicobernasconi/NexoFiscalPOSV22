@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -62,8 +63,8 @@ fun InformeDeVentasScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Informe de Ventas") },
-                navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
-                actions = { IconButton(onClick = { /* Lógica de impresión */ }) { Icon(Icons.Default.Print, "Imprimir") } }
+                navigationIcon = { IconButton(onClick = onDismiss, modifier = Modifier.clip(RoundedCornerShape(5.dp))) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
+                actions = { IconButton(onClick = { /* Lógica de impresión */ }, modifier = Modifier.clip(RoundedCornerShape(5.dp))) { Icon(Icons.Default.Print, "Imprimir") } }
             )
         }
     ) { paddingValues ->

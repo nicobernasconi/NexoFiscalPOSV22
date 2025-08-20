@@ -28,7 +28,11 @@ data class CierreCajaResumen(
     val efectivoInicial: Double? = null,
     val efectivoFinal: Double? = null,
     val cierreId: Int? = null,
-    val usuarioNombre: String? = null
+    val usuarioNombre: String? = null,
+    // Nuevo: total de gastos asociados al cierre
+    val totalGastos: Double = 0.0,
+    // Nuevo: comentarios del cierre (opcional)
+    val comentarios: String? = null
 )
 
 // Modelo de dominio de Cierre de Caja
@@ -42,5 +46,3 @@ class CierreCaja {
     var tipoCajaId: Int? = null
     var usuario: Usuario? = null
 }
-
-

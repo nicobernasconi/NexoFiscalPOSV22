@@ -4,6 +4,7 @@ package ar.com.nexofiscal.nexofiscalposv2.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -192,11 +193,11 @@ fun <T> FormScreen(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                TextButton(onClick = onCancel) {
+                TextButton(onClick = onCancel, shape = RoundedCornerShape(5.dp)) {
                     Text("Cancelar")
                 }
                 Spacer(Modifier.width(16.dp))
-                Button(onClick = { onSubmit(mapper(values)) }) {
+                Button(onClick = { onSubmit(mapper(values)) }, shape = RoundedCornerShape(5.dp)) {
                     Text(if (isCreate) "Crear" else "Guardar")
                 }
             }

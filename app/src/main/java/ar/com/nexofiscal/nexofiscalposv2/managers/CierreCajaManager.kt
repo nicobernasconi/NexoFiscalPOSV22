@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 object CierreCajaManager {
     private const val TAG = "CierreCajaManager"
@@ -38,6 +39,22 @@ object CierreCajaManager {
                     callback.onError(e.message)
                 }
             }
+        }
+    }
+
+    // Nuevo: imprimir cierre con fallback a PDF
+    suspend fun imprimirCierre(
+        context: Context,
+        cierreId: Int,
+        printFunc: (String) -> Boolean
+    ): File? {
+        return try {
+            val texto = CierreCajaService.generarTextoImpresion(context, cierreId)
+            val ok = try { printFunc(texto) } catch (_: Exception) { false }
+            if (ok) null else CierreCajaService.generarInformeCierreEnPdf(context, cierreId).file
+        } catch (e: Exception) {
+            Log.e(TAG, "Fallo al generar texto de impresión, generando PDF: ${e.message}")
+            CierreCajaService.generarInformeCierreEnPdf(context, cierreId).file
         }
     }
 

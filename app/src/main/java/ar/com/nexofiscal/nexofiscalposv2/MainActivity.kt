@@ -74,7 +74,24 @@ class MainActivity : ComponentActivity() {
     private lateinit var monedaViewModel: MonedaViewModel
     private lateinit var stockViewModel: StockViewModel
 
+    // Listener para cambios en pantallas de presentación
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) {
+            Log.i("MainActivity", "Display agregado: $displayId")
+            ensureSecondScreenVisible()
+        }
 
+        override fun onDisplayRemoved(displayId: Int) {
+            Log.i("MainActivity", "Display removido: $displayId")
+            xmlPresentationScreen?.dismiss()
+            xmlPresentationScreen = null
+        }
+
+        override fun onDisplayChanged(displayId: Int) {
+            Log.i("MainActivity", "Display cambiado: $displayId")
+            ensureSecondScreenVisible()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -124,9 +141,6 @@ class MainActivity : ComponentActivity() {
         monedaViewModel = ViewModelProvider(this)[MonedaViewModel::class.java]
         stockViewModel = ViewModelProvider(this)[StockViewModel::class.java]
 
-
-
-
         currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "AR")).apply {
             maximumFractionDigits = 2
             minimumFractionDigits = 2
@@ -169,7 +183,35 @@ class MainActivity : ComponentActivity() {
             }
         }
         setupSecondScreen()
+        // Registrar listener para asegurar visibilidad al conectar/desconectar
+        val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        dm.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
     }
+
+    // Asegura que la presentación esté visible si hay una pantalla secundaria disponible
+    private fun ensureSecondScreenVisible() {
+        val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        val presentationDisplays = dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+        if (presentationDisplays.isNotEmpty()) {
+            if (xmlPresentationScreen == null || xmlPresentationScreen?.isShowing != true) {
+                Log.i("MainActivity", "(Re)creando pantalla secundaria")
+                setupSecondScreen()
+            }
+        } else {
+            if (xmlPresentationScreen != null) {
+                Log.i("MainActivity", "No hay presentación disponible, cerrando existente")
+                xmlPresentationScreen?.dismiss()
+                xmlPresentationScreen = null
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Revalidar en cada regreso/transition
+        ensureSecondScreenVisible()
+    }
+
     private fun observeSyncProgress() {
         lifecycleScope.launch {
             SyncManager.progressState.collectLatest { progress ->
@@ -179,7 +221,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
 
     private fun setupSecondScreen() {
         val displayManager = getSystemService(DISPLAY_SERVICE) as DisplayManager
@@ -211,13 +252,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        xmlPresentationScreen?.dismiss()
-        xmlPresentationScreen = null
-        Log.i("MainActivity", "Segunda pantalla XML liberada en onStop.")
+        // No descartar aquí para mantenerla visible durante transiciones; solo en onDestroy.
+        Log.i("MainActivity", "onStop: se mantiene la segunda pantalla activa.")
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        // Desregistrar listener y cerrar presentación
+        val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        try { dm.unregisterDisplayListener(displayListener) } catch (_: Exception) {}
         xmlPresentationScreen?.dismiss()
         xmlPresentationScreen = null
     }

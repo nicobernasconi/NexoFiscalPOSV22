@@ -91,7 +91,8 @@ fun List<CombinacionEntity>.toCombinacionDomainModelList(): List<Combinacion> {
 }
 
 fun ComprobanteEntity.toDomainModel(): Comprobante {
-    return Comprobante(
+    // Construimos primero el modelo de dominio
+    val domain = Comprobante(
         localId = this.id,
         id = this.serverId ?: 0,
         serverId = this.serverId,
@@ -192,12 +193,10 @@ fun ComprobanteEntity.toDomainModel(): Comprobante {
         formas_de_pago = emptyList(),
         promociones = null,
         tipoComprobanteId = this.tipoComprobanteId,
-
-
-
-
-
     )
+    // Asignamos campos adicionales no incluidos en el constructor
+    domain.cierreCajaId = this.cierreCajaId
+    return domain
 }
 
 fun List<ComprobanteEntity>.toComprobanteDomainModelList(): List<Comprobante> {
@@ -782,7 +781,7 @@ fun Comprobante.toEntity(): ComprobanteEntity {
         descuentoTotal = this.descuentoTotal,
         incrementoTotal = this.incrementoTotal,
         tipoComprobanteId = this.tipoComprobante?.id,
-        cierreCajaId = null
+        cierreCajaId = this.cierreCajaId
     )
 }
 fun List<Comprobante?>.toComprobanteEntityList(): List<ComprobanteEntity> = this.mapNotNull { it?.toEntity() }
@@ -1423,3 +1422,20 @@ fun List<ar.com.nexofiscal.nexofiscalposv2.models.Notificacion?>.toNotificacionE
 fun List<ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity>.toNotificacionDomainModelList(): List<ar.com.nexofiscal.nexofiscalposv2.models.Notificacion> {
     return this.map { it.toDomainModel() }
 }
+
+fun Gasto.toEntity(): GastoEntity {
+    return GastoEntity(
+        id = 0,
+        serverId = this.id,
+        syncStatus = SyncStatus.SYNCED,
+        descripcion = this.descripcion,
+        monto = this.monto,
+        fecha = this.fecha,
+        usuarioId = this.usuarioId,
+        empresaId = this.empresaId,
+        tipoGastoId = this.tipoGastoId,
+        tipoGasto = this.tipoGasto,
+        cierreCajaId = this.cierreCajaId
+    )
+}
+fun List<Gasto?>.toGastoEntityList(): List<GastoEntity> = this.mapNotNull { it?.toEntity() }

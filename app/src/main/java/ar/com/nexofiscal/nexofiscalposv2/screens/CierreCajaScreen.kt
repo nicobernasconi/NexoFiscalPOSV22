@@ -14,6 +14,8 @@ import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 import ar.com.nexofiscal.nexofiscalposv2.utils.PrintingManager
 import kotlinx.coroutines.launch
+import java.util.Locale
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun CierreCajaScreen(
@@ -22,9 +24,18 @@ fun CierreCajaScreen(
 ) {
     var efectivoInicial by remember { mutableStateOf("") }
     var efectivoFinal by remember { mutableStateOf("") }
+    var comentarios by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // Precargar efectivo inicial sugerido desde el último cierre del usuario
+    LaunchedEffect(Unit) {
+        try {
+            val sugerido = viewModel.sugerirEfectivoInicial()
+            efectivoInicial = String.format(Locale.US, "%.2f", sugerido)
+        } catch (_: Exception) { /* ignore */ }
+    }
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -54,6 +65,15 @@ fun CierreCajaScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            OutlinedTextField(
+                value = comentarios,
+                onValueChange = { comentarios = it },
+                label = { Text("Comentarios (opcional)") },
+                singleLine = false,
+                minLines = 2,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Spacer(Modifier.height(8.dp))
 
             Row(
@@ -63,7 +83,8 @@ fun CierreCajaScreen(
             ) {
                 OutlinedButton(
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(5.dp)
                 ) { Text("Cancelar") }
 
                 Button(
@@ -71,17 +92,18 @@ fun CierreCajaScreen(
                         if (isLoading) return@Button
                         val ini = efectivoInicial.toDoubleOrNull() ?: 0.0
                         val fin = efectivoFinal.toDoubleOrNull() ?: 0.0
+                        val com = comentarios.trim().ifBlank { null }
                         isLoading = true
                         scope.launch {
                             try {
-                                val result = viewModel.cerrarCaja(ini, fin)
+                                val result = viewModel.cerrarCaja(ini, fin, com)
 
                                 // Generar resumen y enviar a imprimir
                                 val (filtros, resumen) = viewModel.generarResumenCierre(result.cierreId)
                                 PrintingManager.printCierreCaja(context, filtros, resumen)
 
                                 NotificationManager.show(
-                                    "Cierre #${result.cierreId} realizado e impreso. Asignados: ${result.comprobantesAsignados}.",
+                                    "Cierre #${result.cierreId} realizado e impreso. Comprobantes asignados: ${result.comprobantesAsignados}. Gastos asignados: ${result.gastosAsignados}.",
                                     NotificationType.SUCCESS
                                 )
                                 onDismiss()
@@ -96,7 +118,8 @@ fun CierreCajaScreen(
                         }
                     },
                     modifier = Modifier.weight(1f),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(5.dp)
                 ) {
                     Text(if (isLoading) "Cerrando..." else "Cerrar caja")
                 }

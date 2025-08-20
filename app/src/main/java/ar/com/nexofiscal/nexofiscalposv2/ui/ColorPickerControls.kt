@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.BordeSuave
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 /**
  * Intenta convertir un String hexadecimal (ej: "#FF0000") a un objeto Color.
@@ -172,9 +173,9 @@ fun ColorPickerDialog(
                 Spacer(Modifier.height(24.dp))
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("Cancelar") }
+                    TextButton(onClick = onDismiss, shape = RoundedCornerShape(5.dp)) { Text("Cancelar") }
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = { onColorSelected(customColorHex.uppercase()) }) {
+                    Button(onClick = { onColorSelected(customColorHex.uppercase()) }, shape = RoundedCornerShape(5.dp)) {
                         Text("Confirmar")
                     }
                 }

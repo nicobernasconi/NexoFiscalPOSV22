@@ -80,20 +80,20 @@ object ComprobanteManager {
                         val comprobanteEntity = comprobante.toEntity()
                         val existente = comprobanteEntity.serverId?.let { comprobanteDao.getByServerId(it) }
 
-                        val idFinalParaRenglones: Int
+                        val idLocal: Int
 
                         if (existente != null) {
                             // --- LÓGICA DE ACTUALIZACIÓN ---
-                            idFinalParaRenglones = existente.id
-                            renglonDao.deleteByComprobanteId(idFinalParaRenglones)
-                            pagoDao.deletePromocionesForComprobante(idFinalParaRenglones) // <-- AÑADIDO
-                            promocionDao.deletePromocionesForComprobante(idFinalParaRenglones) // <-- AÑADIDO
-                            val entidadParaActualizar = comprobanteEntity.copy(id = idFinalParaRenglones)
+                            idLocal = existente.id
+                            renglonDao.deleteByComprobanteId(idLocal)
+                            pagoDao.deletePagosForComprobante(idLocal)
+                            promocionDao.deletePromocionesForComprobante(idLocal)
+                            val entidadParaActualizar = comprobanteEntity.copy(id = idLocal)
                             comprobanteDao.insert(entidadParaActualizar)
                         } else {
                             // --- LÓGICA DE INSERCIÓN ---
                             val nuevoIdLargo = comprobanteDao.insert(comprobanteEntity)
-                            idFinalParaRenglones = nuevoIdLargo.toInt()
+                            idLocal = nuevoIdLargo.toInt()
                         }
 
 
@@ -110,7 +110,7 @@ object ComprobanteManager {
                         if (renglonesUnicos.isNotEmpty()) {
                             val renglonEntities = renglonesUnicos.map { renglon ->
                                 RenglonComprobanteEntity(
-                                    comprobanteLocalId = idFinalParaRenglones,
+                                    comprobanteLocalId = idLocal,
                                     data = gson.toJson(renglon)
                                 )
                             }
@@ -121,7 +121,7 @@ object ComprobanteManager {
                         if (nuevosPagos.isNotEmpty()) {
                             val pagoEntities = nuevosPagos.map { pago ->
                                 ComprobantePagoEntity(
-                                    comprobanteLocalId = idFinalParaRenglones.toLong(),
+                                    comprobanteLocalId = idLocal.toLong(),
                                     formaPagoId = pago.id,
                                     importe = pago.importe.toDoubleOrNull() ?: 0.0,
                                     syncStatus = SyncStatus.SYNCED
@@ -134,7 +134,7 @@ object ComprobanteManager {
                         if (nuevasPromociones.isNotEmpty()) {
                             val promocionEntities = nuevasPromociones.map { promocion ->
                                 ComprobantePromocionEntity(
-                                    comprobanteLocalId = idFinalParaRenglones.toLong(),
+                                    comprobanteLocalId = idLocal,
                                     promocionId = promocion.id
                                 )
                             }

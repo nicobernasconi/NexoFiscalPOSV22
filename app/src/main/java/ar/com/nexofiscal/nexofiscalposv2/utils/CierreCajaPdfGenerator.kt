@@ -16,6 +16,7 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
 class CierreCajaPdfGenerator {
 
@@ -48,7 +49,6 @@ class CierreCajaPdfGenerator {
             textSize = 10f
             color = Color.DKGRAY
         }
-        val rightAlign = Paint().apply { textAlign = Paint.Align.RIGHT }
 
         var y = MARGIN
 
@@ -75,21 +75,70 @@ class CierreCajaPdfGenerator {
             canvas.drawText(value, (PAGE_WIDTH - MARGIN), y, TextPaint(bodyPaint).apply { textAlign = Paint.Align.RIGHT })
             y += bodyPaint.textSize * 1.4f
         }
-        row("Ventas Brutas", "$${format(resumen.ventasBrutas)}")
-        row("Descuentos", "-$${format(resumen.descuentos)}")
-        row("Notas de Crédito", "-$${format(resumen.notasCredito)}")
-        row("Ventas Netas", "$${format(resumen.ventasNetas)}")
-        row("IVA Total", "$${format(resumen.ivaTotal)}")
-        row("Ingresos de Caja", "$${format(resumen.movimientosCajaIngreso)}")
-        row("Egresos de Caja", "-$${format(resumen.movimientosCajaEgreso)}")
-        row("Total Esperado en Caja", "$${format(resumen.totalEsperadoEnCaja)}")
-        resumen.efectivoInicial?.let { row("Efectivo Inicial", "$${format(it)}") }
-        resumen.efectivoFinal?.let { row("Efectivo Final", "$${format(it)}") }
+        row("Ventas Brutas", "$${MoneyUtils.format(resumen.ventasBrutas)}")
+        row("Descuentos", "-$${MoneyUtils.format(resumen.descuentos)}")
+        row("Notas de Crédito", "-$${MoneyUtils.format(resumen.notasCredito)}")
+        // Ventas netas puede ser negativa; manejar signo -$ correctamente
+        row("Ventas Netas", (if (resumen.ventasNetas < 0) "-$" + MoneyUtils.format(abs(resumen.ventasNetas)) else "$" + MoneyUtils.format(resumen.ventasNetas)))
+        row("IVA Total", "$${MoneyUtils.format(resumen.ivaTotal)}")
+        row("Ingresos de Caja", "$${MoneyUtils.format(resumen.movimientosCajaIngreso)}")
+        row("Egresos de Caja", "-$${MoneyUtils.format(resumen.movimientosCajaEgreso)}")
+        // Gastos (egreso)
+        row("Gastos", "-$${MoneyUtils.format(resumen.totalGastos)}")
+        row("Total Esperado en Caja", "$${MoneyUtils.format(resumen.totalEsperadoEnCaja)}")
+        resumen.efectivoInicial?.let { row("Efectivo Inicial", "$${MoneyUtils.format(it)}") }
+        resumen.efectivoFinal?.let { row("Efectivo Final", "$${MoneyUtils.format(it)}") }
         resumen.cierreId?.let { row("ID de Cierre", "$it") }
         resumen.usuarioNombre?.let { row("Usuario", it) }
-        // NUEVO: total por medios de pago en el resumen
         val totalPorMedios = resumen.porMedioPago.values.sum()
-        row("Total por Medios de Pago", "$${format(totalPorMedios)}")
+        row("Total por Medios de Pago", "$${MoneyUtils.format(totalPorMedios)}")
+
+        // Comentarios (opcional, multilínea)
+        resumen.comentarios?.takeIf { it.isNotBlank() }?.let { txt ->
+            y += bodyPaint.textSize
+            canvas.drawText("Comentarios", MARGIN, y, headerPaint); y += headerPaint.textSize * 1.3f
+            val maxWidth = (PAGE_WIDTH - 2 * MARGIN)
+            val words = txt.split(Regex("\\s+")).filter { it.isNotBlank() }
+            var line = StringBuilder()
+            fun flushLine() {
+                if (line.isNotEmpty()) {
+                    val l = line.toString().trim()
+                    canvas.drawText(l, MARGIN, y, bodyPaint)
+                    y += bodyPaint.textSize * 1.3f
+                    line = StringBuilder()
+                }
+            }
+            for (word in words) {
+                val candidate = if (line.isEmpty()) word else line.toString() + " " + word
+                if (bodyPaint.measureText(candidate) <= maxWidth) {
+                    line.clear(); line.append(candidate)
+                } else {
+                    flushLine()
+                    if (bodyPaint.measureText(word) > maxWidth) {
+                        var start = 0
+                        while (start < word.length) {
+                            var end = word.length
+                            while (end > start && bodyPaint.measureText(word.substring(start, end)) > maxWidth) {
+                                end--
+                            }
+                            val chunk = word.substring(start, end)
+                            canvas.drawText(chunk, MARGIN, y, bodyPaint)
+                            y += bodyPaint.textSize * 1.3f
+                            start = end
+                        }
+                    } else {
+                        line.append(word)
+                    }
+                }
+                if (y > PAGE_HEIGHT - MARGIN) {
+                    document.finishPage(page)
+                    page = document.startPage(pageInfo)
+                    canvas = page.canvas
+                    y = MARGIN
+                }
+            }
+            flushLine()
+        }
 
         y += bodyPaint.textSize
         canvas.drawLine(MARGIN, y, (PAGE_WIDTH - MARGIN), y, headerPaint); y += headerPaint.textSize
@@ -103,7 +152,7 @@ class CierreCajaPdfGenerator {
         // Desglose por medio de pago
         canvas.drawText("Por Medio de Pago", MARGIN, y, headerPaint); y += headerPaint.textSize * 1.5f
         for ((medio, monto) in resumen.porMedioPago) {
-            row("• $medio", "$${format(monto)}")
+            row("• $medio", "$${MoneyUtils.format(monto)}")
             if (y > PAGE_HEIGHT - MARGIN) {
                 document.finishPage(page)
                 page = document.startPage(pageInfo)
@@ -111,11 +160,11 @@ class CierreCajaPdfGenerator {
                 y = MARGIN
             }
         }
-        // NUEVO: total al final del desglose
+        // Total final del desglose
         y += bodyPaint.textSize
         canvas.drawLine(MARGIN, y, (PAGE_WIDTH - MARGIN), y, headerPaint); y += headerPaint.textSize * 1.2f
         canvas.drawText("TOTAL COBRADO:", (PAGE_WIDTH - MARGIN - 150), y, headerPaint)
-        canvas.drawText("$${format(totalPorMedios)}", (PAGE_WIDTH - MARGIN), y, TextPaint(headerPaint).apply { textAlign = Paint.Align.RIGHT })
+        canvas.drawText("$${MoneyUtils.format(totalPorMedios)}", (PAGE_WIDTH - MARGIN), y, TextPaint(headerPaint).apply { textAlign = Paint.Align.RIGHT })
 
         document.finishPage(page)
 
@@ -132,6 +181,4 @@ class CierreCajaPdfGenerator {
         }
         return file
     }
-
-    private fun format(value: Double): String = String.format(Locale.getDefault(), "%.2f", value)
 }

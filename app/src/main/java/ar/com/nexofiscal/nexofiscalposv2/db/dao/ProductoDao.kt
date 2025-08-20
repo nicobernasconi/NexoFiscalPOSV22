@@ -120,4 +120,7 @@ interface ProductoDao {
     // Conteo de referencias en stock_actualizaciones (usa productoId = id local del producto)
     @Query("SELECT COUNT(*) FROM stock_actualizaciones WHERE productoId = :productoLocalId")
     suspend fun countActualizacionesByProductoLocalId(productoLocalId: Int): Int
+
+    @Query("SELECT * FROM productos WHERE codigo = :codigo AND syncStatus != :statusDeleted LIMIT 1")
+    suspend fun findByCodigo(codigo: String, statusDeleted: SyncStatus = SyncStatus.DELETED): ProductoEntity?
 }

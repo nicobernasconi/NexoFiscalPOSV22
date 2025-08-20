@@ -62,7 +62,7 @@ fun PrintingStatusDialog() {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(state.message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { PrintingUiManager.finishPrinting() }) {
+                        Button(onClick = { PrintingUiManager.finishPrinting() }, shape = RoundedCornerShape(5.dp)) {
                             Text("Aceptar")
                         }
                     }

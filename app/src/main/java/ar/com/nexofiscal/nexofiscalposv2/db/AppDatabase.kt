@@ -8,73 +8,8 @@ import android.content.Context
 import androidx.room.TypeConverters
 import ar.com.nexofiscal.nexofiscalposv2.db.converter.DateConverter
 import ar.com.nexofiscal.nexofiscalposv2.db.converter.SyncStatusConverter
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.AgrupacionDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.CategoriaDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.CierreCajaDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.ClienteDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.CombinacionDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.ComprobanteDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.ComprobantePagoDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.ComprobantePromocionDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.FamiliaDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.FormaPagoDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.LocalidadDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.MonedaDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.NotificacionDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.PaisDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.ProductoDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.PromocionDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.ProveedorDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.ProvinciaDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.RenglonComprobanteDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.RolDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.StockProductoDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.StockActualizacionDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.SubcategoriaDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.SucursalDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.TasaIvaDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.TipoComprobanteDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.TipoDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.TipoDocumentoDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.TipoFormaPagoDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.TipoIvaDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.UnidadDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.UsuarioDao
-import ar.com.nexofiscal.nexofiscalposv2.db.dao.VendedorDao
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.AgrupacionEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.CategoriaEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.ClienteEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.CombinacionEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobantePagoEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobantePromocionEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.FamiliaEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.FormaPagoEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.LocalidadEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.MonedaEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.PaisEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.PromocionEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProveedorEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProvinciaEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.RenglonComprobanteEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.RolEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.StockProductoEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.StockActualizacionEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.SubcategoriaEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.SucursalEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.TasaIvaEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoComprobanteEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoDocumentoEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoFormaPagoEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.TipoIvaEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.UnidadEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.UsuarioEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.VendedorEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.NotificacionEntity
-import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaResumenView
+import ar.com.nexofiscal.nexofiscalposv2.db.dao.*
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.*
 
 @Database(
     entities = [
@@ -108,14 +43,14 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaResumenView
         VendedorEntity::class,
         ComprobanteEntity::class,
         RenglonComprobanteEntity::class,
-        ComprobantePagoEntity::class,      // Se añade la nueva entidad
+        ComprobantePagoEntity::class,
         ComprobantePromocionEntity::class,
-        NotificacionEntity::class
-
-
+        NotificacionEntity::class,
+        GastoEntity::class,
+        TipoGastoEntity::class
     ],
-    views = [CierreCajaResumenView::class],
-    version = 15,    // Bump a 15 para recreación limpia
+    views = [CierreCajaResumenView::class, CierreCajaInformeView::class],
+    version = 21,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SyncStatusConverter::class)
@@ -151,12 +86,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun vendedorDao(): VendedorDao
     abstract fun comprobanteDao(): ComprobanteDao
     abstract fun renglonComprobanteDao(): RenglonComprobanteDao
-    abstract fun comprobantePagoDao(): ComprobantePagoDao // Añadido para manejar pagos
-    abstract fun comprobantePromocionDao(): ComprobantePromocionDao // Añadido para manejar promociones en comprobantes
-    abstract fun notificacionDao(): NotificacionDao // Añadido para notificaciones
-
-
-
+    abstract fun comprobantePagoDao(): ComprobantePagoDao
+    abstract fun comprobantePromocionDao(): ComprobantePromocionDao
+    abstract fun notificacionDao(): NotificacionDao
+    abstract fun gastoDao(): GastoDao
+    abstract fun tipoGastoDao(): TipoGastoDao
 
     companion object {
         @Volatile
@@ -167,9 +101,72 @@ abstract class AppDatabase : RoomDatabase() {
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "nexofiscal_v15.db" // nuevo nombre para forzar archivo nuevo
+                    "nexofiscal_v21.db"
                 )
                     .fallbackToDestructiveMigration()
+                    .addCallback(object : RoomDatabase.Callback() {
+                        override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                            super.onCreate(db)
+                            // Pre-poblar tipos_gastos
+                            val inserts = listOf(
+                                // Recursos Humanos y Personal (100s)
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (101, 'Sueldos y Salarios')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (102, 'Cargas Sociales y Aportes Patronales')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (103, 'Beneficios y Compensaciones')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (104, 'Bonos y Premios')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (105, 'Capacitación y Formación')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (106, 'Viáticos y Movilidad de Personal')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (107, 'Seguros de Vida y ART')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (108, 'Indumentaria y Equipo de Trabajo')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (109, 'Honorarios por Búsqueda y Selección')",
+                                // Operativos e Infraestructura (200s)
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (201, 'Alquiler de Oficina o Local')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (202, 'Expensas y Gastos Comunes')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (203, 'Servicios Públicos (Luz, Agua, Gas)')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (204, 'Internet y Telefonía')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (205, 'Limpieza y Mantenimiento')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (206, 'Seguridad y Vigilancia')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (207, 'Insumos de Producción / Materia Prima')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (208, 'Fletes, Envíos y Logística')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (209, 'Reparación de Maquinaria y Equipos')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (210, 'Seguros Generales (incendio, robo)')",
+                                // Administrativos (300s)
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (301, 'Útiles de Oficina y Papelería')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (302, 'Software, Licencias y Suscripciones')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (303, 'Hosting y Servicios en la Nube')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (304, 'Gastos Legales y Notariales')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (305, 'Honorarios Contables y de Auditoría')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (306, 'Gastos de Representación')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (307, 'Correo y Mensajería')",
+                                // Marketing y Ventas (400s)
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (401, 'Publicidad y Promoción')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (402, 'Comisiones sobre Ventas')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (403, 'Eventos, Ferias y Exposiciones')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (404, 'Material Promocional y Merchandising')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (405, 'Viajes y Viáticos Comerciales')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (406, 'Herramientas de Marketing y CRM')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (407, 'Diseño Gráfico y Contenido')",
+                                // Financieros e Impuestos (500s)
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (501, 'Comisiones y Gastos Bancarios')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (502, 'Intereses sobre Préstamos')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (503, 'Impuestos Nacionales')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (504, 'Impuestos Provinciales')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (505, 'Tasas Municipales')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (506, 'Diferencias de Cambio')",
+                                // Movilidad y Transporte (600s)
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (601, 'Combustible')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (602, 'Mantenimiento y Reparación de Vehículos')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (603, 'Patentes y Seguros de Vehículos')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (604, 'Peajes y Estacionamiento')",
+                                // Otros Gastos (900s)
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (901, 'Depreciación de Activos Fijos')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (902, 'Amortización de Intangibles')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (903, 'Donaciones y Responsabilidad Social')",
+                                "INSERT INTO tipos_gastos (id, nombre) VALUES (999, 'Gastos Varios / Sin Categorizar')"
+                            )
+                            inserts.forEach { sql -> db.execSQL(sql) }
+                        }
+                    })
                     .build().also { INSTANCE = it }
             }
     }

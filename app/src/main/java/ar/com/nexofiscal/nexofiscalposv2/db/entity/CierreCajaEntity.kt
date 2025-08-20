@@ -17,5 +17,7 @@ data class CierreCajaEntity(
     val efectivoInicial: Double?,
     val efectivoFinal: Double?,
     val tipoCajaId: Int?,
-    val usuarioId: Int?
+    val usuarioId: Int?,
+    // Nuevo: comentarios u observaciones del cierre
+    val comentarios: String? = null
 )

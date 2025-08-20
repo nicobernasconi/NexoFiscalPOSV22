@@ -171,6 +171,10 @@ fun MainScreen(
     var proveedorInScreen by remember { mutableStateOf<Proveedor?>(null) }
     var showProductStockScreen by remember { mutableStateOf(false) }
     var showCierreCajaListScreen by remember { mutableStateOf(false) }
+    var showGastoAddScreen by remember { mutableStateOf(false) }
+    var showGastoListScreen by remember { mutableStateOf(false) }
+    // Nuevo: Ajuste de Stock
+    var showStockAjusteScreen by remember { mutableStateOf(false) }
     LaunchedEffect(total) { onTotalUpdated(total) }
 
 
@@ -635,6 +639,10 @@ fun MainScreen(
                 "Modo Kiosco" -> showKioskConfigScreen = true
                 "Configuración General" -> showConfiguracionScreen = true
                 "Listar Cierres de Caja" -> { showCierreCajaListScreen = true }
+                "Listar Gastos" -> { showGastoListScreen = true }
+                "Agregar Gasto" -> { showGastoAddScreen = true }
+                // Nuevo: abrir Ajuste de Stock
+                "Ajuste de Stock" -> { showStockAjusteScreen = true }
             }
         }
 
@@ -662,6 +670,27 @@ fun MainScreen(
                 CierreCajaListScreen(viewModel = cierreCajaViewModel) {
                     showCierreCajaListScreen = false
                 }
+            }
+        }
+
+        // NUEVO: Agregar Gasto
+        if (showGastoAddScreen) {
+            Surface(Modifier.fillMaxSize()) {
+                GastoAddScreen(onDismiss = { showGastoAddScreen = false })
+            }
+        }
+
+        // NUEVO: Listado de Gastos
+        if (showGastoListScreen) {
+            Surface(Modifier.fillMaxSize()) {
+                GastoListScreen(onDismiss = { showGastoListScreen = false })
+            }
+        }
+
+        // NUEVO: Ajuste de Stock
+        if (showStockAjusteScreen) {
+            Surface(Modifier.fillMaxSize()) {
+                StockAjusteScreen(onDismiss = { showStockAjusteScreen = false })
             }
         }
 

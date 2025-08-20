@@ -5,6 +5,7 @@ import androidx.room.*
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaResumenView
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaInformeView
 
 @Dao
 interface CierreCajaDao {
@@ -22,6 +23,21 @@ interface CierreCajaDao {
     // --- NUEVO: vista de resumen de cierres de caja ---
     @Query("SELECT * FROM vw_cierres_caja ORDER BY id DESC")
     suspend fun getResumen(): List<CierreCajaResumenView>
+
+    // Nuevo: PagingSource desde la vista para listado con usuario/comentarios
+    @Query("SELECT * FROM vw_cierres_caja ORDER BY id DESC")
+    fun getResumenPaging(): PagingSource<Int, CierreCajaResumenView>
+
+    // --- NUEVO: informe por cierre con JSON de ventas_por_forma_pago ---
+    @Query("SELECT * FROM vw_informe_cierre ORDER BY id DESC")
+    suspend fun getInformes(): List<CierreCajaInformeView>
+
+    @Query("SELECT * FROM vw_informe_cierre WHERE id = :id LIMIT 1")
+    suspend fun getInformeById(id: Int): CierreCajaInformeView?
+
+    // --- NUEVO: último efectivo final del usuario ---
+    @Query("SELECT efectivoFinal FROM cierres_caja WHERE usuarioId = :usuarioId AND syncStatus != :statusDeleted ORDER BY fecha DESC LIMIT 1")
+    suspend fun getUltimoEfectivoFinal(usuarioId: Int, statusDeleted: SyncStatus = SyncStatus.DELETED): Double?
 
     // --- FUNCIONES NUEVAS PARA SINCRONIZACIÓN ---
 

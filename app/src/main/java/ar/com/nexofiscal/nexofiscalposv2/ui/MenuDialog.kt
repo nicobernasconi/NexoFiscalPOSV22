@@ -1,20 +1,20 @@
 package ar.com.nexofiscal.nexofiscalposv2.ui
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +37,8 @@ val menuItems = listOf(
         MenuItemModel(R.drawable.ic_add, "Crear Producto"),
         MenuItemModel(R.drawable.ic_list, "Listar Productos"),
         MenuItemModel(R.drawable.ic_inventory, "Stock de Productos"),
+        // Nuevo: Ajuste de Stock
+        MenuItemModel(R.drawable.ic_inventory, "Ajuste de Stock"),
     )),
     MenuItemModel(R.drawable.ic_people, "Clientes", listOf(
         MenuItemModel(R.drawable.ic_add, "Crear Cliente"),
@@ -45,8 +47,13 @@ val menuItems = listOf(
     MenuItemModel(R.drawable.ic_pos, "Ventas", listOf(
         MenuItemModel(R.drawable.ic_list, "Listar Ventas"),
         MenuItemModel(R.drawable.ic_list, "Informe de Ventas"),
+    )),
+    // Nuevo submenú Caja: todo lo referente a cierres y gastos
+    MenuItemModel(R.drawable.ic_list, "Caja", listOf(
         MenuItemModel(R.drawable.ic_list, "Cierres de Caja"),
         MenuItemModel(R.drawable.ic_list, "Listar Cierres de Caja"),
+        MenuItemModel(R.drawable.ic_list, "Listar Gastos"),
+        MenuItemModel(R.drawable.ic_add, "Agregar Gasto"),
 
     )),
     MenuItemModel(R.drawable.ic_shipping, "Proveedores", listOf(
@@ -107,9 +114,9 @@ fun MenuDialog(
                             val last = history.last()
                             history = history.dropLast(1)
                             currentItems = last.second
-                        }) {
+                        }, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
                             Icon(
-                                imageVector = Icons.Filled.ArrowBack,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Atrás"
                             )
                         }
@@ -120,14 +127,14 @@ fun MenuDialog(
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center
                     )
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
                         Icon(
                             imageVector = Icons.Filled.Close,
                             contentDescription = "Cerrar"
                         )
                     }
                 }
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 // Lista de opciones
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState())
@@ -158,7 +165,7 @@ fun MenuDialog(
                             if (item.subItems.isNotEmpty()) {
                                 Spacer(modifier = Modifier.weight(1f))
                                 Icon(
-                                    imageVector = Icons.Filled.KeyboardArrowRight,
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                     contentDescription = "Siguiente"
                                 )
                             }

@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.draw.clip
 import androidx.paging.compose.collectAsLazyPagingItems
 import ar.com.nexofiscal.nexofiscalposv2.R
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.FormaPagoViewModel
@@ -101,7 +102,7 @@ fun CobrarScreen(
     var showPromocionSelector by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Cobrar Venta") }, navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Cerrar") } }) },
+        topBar = { TopAppBar(title = { Text("Cobrar Venta") }, navigationIcon = { IconButton(onClick = onDismiss, modifier = Modifier.clip(RoundedCornerShape(5.dp))) { Icon(Icons.Default.Close, "Cerrar") } }) },
         bottomBar = {
             Row(
                 modifier = Modifier
@@ -350,7 +351,7 @@ fun PagoItemRow(
         label = { Text("${pago.formaPago.nombre?.uppercase(Locale.getDefault())} (${pago.formaPago.porcentaje}%)") },
         readOnly = isLocked,
         trailingIcon = {
-            IconButton(onClick = onRemove, enabled = !isLocked) {
+            IconButton(onClick = onRemove, enabled = !isLocked, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
                 Icon(Icons.Default.Delete, "Eliminar", tint = MaterialTheme.colorScheme.error)
             }
         },

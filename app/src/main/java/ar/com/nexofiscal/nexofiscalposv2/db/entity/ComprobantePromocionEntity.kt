@@ -18,6 +18,6 @@ import androidx.room.Index
     indices = [Index(value = ["comprobanteLocalId"])]
 )
 data class ComprobantePromocionEntity(
-    val comprobanteLocalId: Long,
+    val comprobanteLocalId: Int,
     val promocionId: Int
 )

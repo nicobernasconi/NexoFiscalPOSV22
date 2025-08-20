@@ -10,6 +10,7 @@ import ar.com.nexofiscal.nexofiscalposv2.models.Cliente
 import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
 import ar.com.nexofiscal.nexofiscalposv2.models.Familia
 import ar.com.nexofiscal.nexofiscalposv2.models.FormaPago
+import ar.com.nexofiscal.nexofiscalposv2.models.Gasto
 import ar.com.nexofiscal.nexofiscalposv2.models.Localidad
 import ar.com.nexofiscal.nexofiscalposv2.models.Moneda
 import ar.com.nexofiscal.nexofiscalposv2.models.Notificacion
@@ -363,6 +364,18 @@ object SyncManager {
                     val errorMsg = "Error en $taskName: ${e.message}"
                     Log.e(TAG, errorMsg, e)
                     _progressState.update { it.copy(errors = it.errors + errorMsg) }
+                }
+            },
+            {
+                _progressState.update { it.copy(currentTaskName = "Gastos", currentTaskItemCount = 0) }
+                executeSyncTask<Gasto>(
+                    "Gastos",
+                    "/api/gastos",
+                    object : com.google.gson.reflect.TypeToken<List<Gasto>>() {}.type,
+                    headers
+                ) { items ->
+                    val entities = items.map(Gasto::toEntity)
+                    db.gastoDao().upsertAll(entities)
                 }
             }
         )

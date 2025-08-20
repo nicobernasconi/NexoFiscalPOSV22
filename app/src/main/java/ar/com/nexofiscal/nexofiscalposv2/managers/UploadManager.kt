@@ -584,7 +584,7 @@ object UploadManager {
 
                             // --- INICIO DE LA MODIFICACIÓN: Cargar y adjuntar detalles ---
                             // 2. Cargar y mapear los pagos asociados
-                            val pagoEntities = pagoDao.getByComprobanteLocalId(entity.id.toLong())
+                            val pagoEntities = pagoDao.getByComprobanteLocalId(entity.id)
                             val formasDePagoComprobante = pagoEntities.mapNotNull { pagoEntity ->
                                 val formaPagoEntity = formaPagoDao.findByServerId(pagoEntity.formaPagoId)
                                 formaPagoEntity?.let {

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.CierreCajaResumenView
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.CierreCajaRepository
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.ComprobanteRepository
@@ -19,7 +20,8 @@ import java.util.*
 
 data class CierreCajaResultado(
     val cierreId: Int,
-    val comprobantesAsignados: Int
+    val comprobantesAsignados: Int,
+    val gastosAsignados: Int
 )
 
 class CierreCajaViewModel(application: Application) : AndroidViewModel(application) {
@@ -27,6 +29,7 @@ class CierreCajaViewModel(application: Application) : AndroidViewModel(applicati
     private val cierreRepo: CierreCajaRepository
     private val compRepo: ComprobanteRepository
     private val formaRepo: FormaPagoRepository
+    private val gastoDao = AppDatabase.getInstance(application).gastoDao()
 
     init {
         val db = AppDatabase.getInstance(application)
@@ -35,16 +38,20 @@ class CierreCajaViewModel(application: Application) : AndroidViewModel(applicati
         formaRepo = FormaPagoRepository(db.formaPagoDao())
     }
 
-    // Exponer flujo paginado de cierres de caja (ordenado por fecha desc segun DAO)
+    // Exponer flujo paginado de cierres (entidad)
     fun cierresPaginated(query: String = ""): Flow<androidx.paging.PagingData<CierreCajaEntity>> =
         cierreRepo.getCierresCajaPaginated(query)
+
+    // Nuevo: flujo paginado desde la vista de resumen (incluye usuario y comentarios)
+    fun cierresResumenPaginated(): Flow<androidx.paging.PagingData<CierreCajaResumenView>> =
+        cierreRepo.getCierresResumenPaginated()
 
     private fun ahoraStr(): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         return sdf.format(Date())
     }
 
-    suspend fun cerrarCaja(efectivoInicial: Double, efectivoFinal: Double): CierreCajaResultado = withContext(Dispatchers.IO) {
+    suspend fun cerrarCaja(efectivoInicial: Double, efectivoFinal: Double, comentarios: String? = null): CierreCajaResultado = withContext(Dispatchers.IO) {
         val usuarioId = SessionManager.usuarioId
         require(usuarioId > 0) { "Usuario no válido para cierre de caja." }
 
@@ -59,15 +66,23 @@ class CierreCajaViewModel(application: Application) : AndroidViewModel(applicati
             efectivoInicial = efectivoInicial,
             efectivoFinal = efectivoFinal,
             tipoCajaId = null,
-            usuarioId = usuarioId
+            usuarioId = usuarioId,
+            comentarios = comentarios
         )
         val cierreIdLong = cierreRepo.guardar(cierre)
         val cierreId = cierreIdLong.toInt()
 
-        // Asignar el id de cierre a los comprobantes del usuario
-        val asignados = compRepo.asignarCierreAComprobantesDeUsuario(usuarioId, cierreId)
+        // Asignar el id de cierre a los comprobantes y gastos del usuario
+        val comps = compRepo.asignarCierreAComprobantesDeUsuario(usuarioId, cierreId)
+        val gastos = gastoDao.asignarCierreAGastosDeUsuario(usuarioId, cierreId)
 
-        CierreCajaResultado(cierreId = cierreId, comprobantesAsignados = asignados)
+        CierreCajaResultado(cierreId = cierreId, comprobantesAsignados = comps, gastosAsignados = gastos)
+    }
+
+    // Sugerencia: último efectivoFinal del usuario como efectivo inicial
+    suspend fun sugerirEfectivoInicial(): Double = withContext(Dispatchers.IO) {
+        val uid = SessionManager.usuarioId
+        if (uid <= 0) 0.0 else (cierreRepo.ultimoEfectivoFinalUsuario(uid) ?: 0.0)
     }
 
     // Calcula el resumen listo para imprimir a partir del cierre
@@ -75,9 +90,18 @@ class CierreCajaViewModel(application: Application) : AndroidViewModel(applicati
         val cierre = cierreRepo.porId(cierreId)
         val comprobantes = compRepo.listarPorCierre(cierreId)
 
-        // Mapear id de forma de pago -> nombre
+        // Mapear serverId de forma de pago -> nombre (serverId coincide con comprobante_pagos.formaPagoId)
         val formas = formaRepo.getAllWithDetails()
-        val nombrePorFormaId = formas.associate { it.formaPago.id to (it.formaPago.nombre ?: ("Forma #" + it.formaPago.id)) }
+        val nombrePorFormaId = formas.associate {
+            val key = it.formaPago.serverId ?: it.formaPago.id
+            val nombre = it.formaPago.nombre ?: ("Forma #" + (it.formaPago.serverId ?: it.formaPago.id))
+            key to nombre
+        }
+        // Mapa adicional: serverId -> tipoFormaPagoId para poder filtrar CTA CTE (id=2)
+        val tipoPorFormaId = formas.associate {
+            val key = it.formaPago.serverId ?: it.formaPago.id
+            it.formaPago.tipoFormaPagoId?.let { t -> key to t } ?: (key to -1)
+        }
 
         var ventasBrutas = 0.0
         var descuentos = 0.0
@@ -87,7 +111,7 @@ class CierreCajaViewModel(application: Application) : AndroidViewModel(applicati
         var cantidadNC = 0
         var cancelados = 0
 
-        // Sumas por forma de pago (id)
+        // Sumas por forma de pago (id del servidor)
         val pagosPorFormaId = mutableMapOf<Int, Double>()
 
         comprobantes.forEach { compDet ->
@@ -108,8 +132,10 @@ class CierreCajaViewModel(application: Application) : AndroidViewModel(applicati
                 ivaTotal += iva
             }
 
-            // pagos
+            // pagos (formaPagoId es serverId)
             compDet.pagos.forEach { p ->
+                val tipo = tipoPorFormaId[p.formaPagoId] ?: -1
+                if (tipo == 2) return@forEach // excluir CTA CTE
                 pagosPorFormaId[p.formaPagoId] = (pagosPorFormaId[p.formaPagoId] ?: 0.0) + p.importe
             }
         }
@@ -122,6 +148,9 @@ class CierreCajaViewModel(application: Application) : AndroidViewModel(applicati
         val pagosPorNombre = pagosPorFormaId.mapKeys { (id, _) -> nombrePorFormaId[id] ?: "Forma #$id" }
 
         val totalEsperadoEnCaja = pagosPorNombre.values.sum()
+
+        // Obtener total de gastos asociados al cierre
+        val totalGastos = gastoDao.getTotalPorCierre(cierreId)
 
         val filtros = CierreCajaFiltros(
             desde = null,
@@ -146,7 +175,9 @@ class CierreCajaViewModel(application: Application) : AndroidViewModel(applicati
             efectivoInicial = cierre?.efectivoInicial,
             efectivoFinal = cierre?.efectivoFinal,
             cierreId = cierreId,
-            usuarioNombre = SessionManager.nombreCompleto
+            usuarioNombre = SessionManager.nombreCompleto,
+            totalGastos = totalGastos,
+            comentarios = cierre?.comentarios
         )
 
         filtros to resumen

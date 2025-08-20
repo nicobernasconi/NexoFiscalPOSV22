@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ProductoConStockCompleto
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.StockViewModel
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.*
+import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,13 +51,11 @@ fun StockScreen(
                     Text(
                         text = "Control de Stock",
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = Blanco,
-                        fontWeight = FontWeight.Bold
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.clip(BordeSuave)) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Volver",

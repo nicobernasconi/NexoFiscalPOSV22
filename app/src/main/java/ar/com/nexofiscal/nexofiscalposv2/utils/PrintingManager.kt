@@ -113,6 +113,16 @@ object PrintingManager {
             try {
                 val cierrePrinter = CierreCajaPrinter()
                 cierrePrinter.print(filtros, resumen)
+                // Además: generar y guardar PDF aunque la impresión térmica haya sido exitosa
+                try {
+                    val pdfGenerator = CierreCajaPdfGenerator()
+                    val file = pdfGenerator.createPdfCierreCaja(context, filtros, resumen)
+                    withContext(Dispatchers.Main) {
+                        NotificationManager.show("Cierre de caja guardado en PDF: ${file.absolutePath}", NotificationType.SUCCESS)
+                    }
+                } catch (pdfOkError: Exception) {
+                    Log.e("PrintingManager", "Error al generar el PDF tras impresión exitosa", pdfOkError)
+                }
             } catch (e: Exception) {
                 Log.e("PrintingManager", "Error al imprimir el cierre de caja", e)
                 // Fallback: generar y guardar PDF automáticamente
@@ -120,7 +130,7 @@ object PrintingManager {
                     val pdfGenerator = CierreCajaPdfGenerator()
                     val file = pdfGenerator.createPdfCierreCaja(context, filtros, resumen)
                     withContext(Dispatchers.Main) {
-                        NotificationManager.show("Cierre de caja guardado en PDF: ${'$'}{file.absolutePath}", NotificationType.SUCCESS)
+                        NotificationManager.show("Cierre de caja guardado en PDF: ${file.absolutePath}", NotificationType.SUCCESS)
                     }
                 } catch (pdfError: Exception) {
                     Log.e("PrintingManager", "Error al generar el PDF del cierre de caja", pdfError)

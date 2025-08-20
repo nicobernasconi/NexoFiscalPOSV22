@@ -22,6 +22,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.StockActualizacionEntity
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +54,7 @@ fun StockMovimientosScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.clip(BordeSuave)) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Volver",
@@ -62,7 +63,7 @@ fun StockMovimientosScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.cargarMovimientos() }) {
+                    IconButton(onClick = { viewModel.cargarMovimientos() }, modifier = Modifier.clip(BordeSuave)) {
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = "Actualizar",

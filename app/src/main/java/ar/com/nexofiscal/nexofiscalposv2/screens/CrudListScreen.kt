@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -77,7 +78,7 @@ fun <T: Any> CrudListScreen(
             TopAppBar(
                 title = { Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Blanco)
                     }
                 },
@@ -117,7 +118,7 @@ fun <T: Any> CrudListScreen(
                         IconButton(onClick = {
                             searchText = ""
                             onSearchQueryChanged("")
-                        }) {
+                        }, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
                             Icon(Icons.Default.Clear, stringResource(R.string.clear_search_description))
                         }
                     }
@@ -239,53 +240,26 @@ fun <T> CrudListItem(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.weight(1f)) {
-                itemContent()
-            }
-            Spacer(Modifier.width(16.dp))
-
-            if (showSelectActionIcon) {
+            Box(modifier = Modifier.weight(1f)) { itemContent() }
+            Spacer(modifier = Modifier.width(8.dp))
+            if (screenMode == CrudScreenMode.VIEW_SELECT) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = stringResource(R.string.select_item),
+                    contentDescription = "Seleccionar",
                     tint = MaterialTheme.colorScheme.primary
                 )
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // El botón de Editar/Imprimir ahora solo depende de si `onEdit` no es nulo.
-                    // Se mostrará siempre que la acción exista, sin importar `isActionEnabled`.
-                    if (onEdit != null) {
-                        IconButton(onClick = { onEdit(item) }) {
-                            if (screenMode == CrudScreenMode.EDIT_DELETE_EDIT_PRINT) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_print),
-                                    contentDescription = "Reimprimir",
-                                    tint = NegroNexo
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = stringResource(R.string.edit_item),
-                                    tint = NegroNexo
-                                )
-                            }
-                        }
+                if (onEdit != null) {
+                    IconButton(onClick = { onEdit(item) }, enabled = isActionEnabled, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
+                        Icon(Icons.Default.Edit, contentDescription = "Editar")
                     }
-                    // El botón de Borrar/Anular ahora depende de `onDelete` Y de `isActionEnabled`.
-                    // Esto permite ocultarlo condicionalmente para ítems ya anulados.
-                    if (onDelete != null && isActionEnabled) {
-                        if (onEdit != null) Spacer(Modifier.width(8.dp))
-                        IconButton(onClick = { onDelete(item) }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = stringResource(R.string.delete_item),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
+                }
+                if (onDelete != null) {
+                    IconButton(onClick = { onDelete(item) }, enabled = isActionEnabled, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = RojoError)
                     }
                 }
             }
