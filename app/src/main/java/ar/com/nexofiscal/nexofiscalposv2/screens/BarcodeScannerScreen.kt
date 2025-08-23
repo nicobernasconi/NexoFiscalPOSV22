@@ -30,16 +30,15 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import ar.com.nexofiscal.nexofiscalposv2.R
-import ar.com.nexofiscal.nexofiscalposv2.managers.KeyEventManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.BordeSuave
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -65,22 +64,18 @@ fun BarcodeScannerScreen(
     val packageManager = context.packageManager
     val prefs = remember { context.getSharedPreferences("nexofiscal", Context.MODE_PRIVATE) }
 
-    LaunchedEffect(Unit) {
-        KeyEventManager.scannedCodeFlow.collectLatest { code ->
-            onCodeScanned(code)
-        }
-    }
+    // Sin gestión de KeyEvent: el SDK/IME inyecta directamente en el TextField; Enter (\n/\r) se detecta en onValueChange/onDone.
 
     // --- Detección de Hardware ---
     val hqScanner = remember { try { DriverManager.getInstance().hQrsannerDriver
-    } catch (e: Exception) { null } }
+    } catch (_: Exception) { null } }
     val hasZcsScanner = remember { hqScanner != null }
     val hasDeviceCamera = remember { packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) }
 
     // --- Lógica de modo inicial con persistencia ---
     val initialMode = remember {
         val savedModeName = prefs.getString("scanner_last_mode", null)
-        val savedMode = savedModeName?.let { try { ScannerMode.valueOf(it) } catch (e: IllegalArgumentException) { null } }
+        val savedMode = savedModeName?.let { try { ScannerMode.valueOf(it) } catch (_: IllegalArgumentException) { null } }
 
         // Prioridad 1: Usar el modo guardado si el hardware está disponible.
         if (savedMode == ScannerMode.ZCS && hasZcsScanner) {
@@ -94,6 +89,8 @@ fun BarcodeScannerScreen(
     }
 
     var currentMode by remember { mutableStateOf(initialMode) }
+
+    // Nota: ya no deshabilitamos el lector en modo Cámara; Enter siempre se captura en esta pantalla
 
     Scaffold(
         topBar = {
@@ -113,7 +110,7 @@ fun BarcodeScannerScreen(
                             currentMode = newMode
 
                             // Guardar la nueva preferencia
-                            prefs.edit().putString("scanner_last_mode", newMode.name).apply()
+                            prefs.edit { putString("scanner_last_mode", newMode.name) }
                         }) {
                             Icon(
                                 painter = if (currentMode == ScannerMode.ZCS) {
@@ -139,7 +136,6 @@ fun BarcodeScannerScreen(
                 )
             }
             ScannerMode.CAMERA -> {
-                @OptIn(androidx.camera.core.ExperimentalGetImage::class)
                 CameraScannerView(
                     modifier = Modifier.padding(paddingValues),
                     onCodeScanned = onCodeScanned
@@ -246,7 +242,7 @@ private fun ZcsScannerView(
     }
 }
 
-@androidx.camera.core.ExperimentalGetImage
+@ExperimentalGetImage
 @Composable
 private fun CameraScannerView(
     modifier: Modifier = Modifier,

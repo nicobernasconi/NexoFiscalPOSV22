@@ -70,25 +70,79 @@ fun InformeDeVentasScreen(
     ) { paddingValues ->
         Column(Modifier.padding(paddingValues).fillMaxSize().padding(16.dp)) {
             Text("Filtros", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Filtros en 2 columnas, diseño compacto
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) { EntitySelectionButton("Fecha Desde", filtros.fechaDesde?.let { dateFormat.format(it) }, false, null) { datePickerDialog { fecha -> informeViewModel.actualizarFiltro(filtros.copy(fechaDesde = fecha)) }.show() } }
-                    Box(Modifier.weight(1f)) { EntitySelectionButton("Fecha Hasta", filtros.fechaHasta?.let { dateFormat.format(it) }, false, null) { datePickerDialog { fecha -> informeViewModel.actualizarFiltro(filtros.copy(fechaHasta = fecha)) }.show() } }
+                    Box(Modifier.weight(1f)) {
+                        EntitySelectionButton(
+                            "Fecha Desde",
+                            filtros.fechaDesde?.let { dateFormat.format(it) },
+                            false,
+                            null
+                        ) { datePickerDialog { fecha -> informeViewModel.actualizarFiltro(filtros.copy(fechaDesde = fecha)) }.show() }
+                    }
+                    Box(Modifier.weight(1f)) {
+                        EntitySelectionButton(
+                            "Fecha Hasta",
+                            filtros.fechaHasta?.let { dateFormat.format(it) },
+                            false,
+                            null
+                        ) { datePickerDialog { fecha -> informeViewModel.actualizarFiltro(filtros.copy(fechaHasta = fecha)) }.show() }
+                    }
                 }
-                EntitySelectionButton("Tipo de Comprobante", filtros.tipoComprobante?.nombre, false, null) { showTipoComprobanteDialog = true }
-                EntitySelectionButton("Cliente", filtros.cliente?.nombre, false, null) { showClienteDialog = true }
-                EntitySelectionButton("Vendedor", filtros.vendedor?.nombre, false, null) { showVendedorDialog = true }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        EntitySelectionButton("Tipo de Comprobante", filtros.tipoComprobante?.nombre, false, null) { showTipoComprobanteDialog = true }
+                    }
+                    Box(Modifier.weight(1f)) {
+                        EntitySelectionButton("Cliente", filtros.cliente?.nombre, false, null) { showClienteDialog = true }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        EntitySelectionButton("Vendedor", filtros.vendedor?.nombre, false, null) { showVendedorDialog = true }
+                    }
+                    Box(Modifier.weight(1f)) {
+                        EntitySelectionButton("Usuario", filtros.usuario?.nombreUsuario, false, null) { showUsuarioDialog = true }
+                    }
+                }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { informeViewModel.ejecutarInforme() }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(5.dp)) { Text("Generar Informe") }
                 OutlinedButton(onClick = { informeViewModel.limpiarFiltros() }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(5.dp)) { Text("Limpiar Filtros") }
             }
 
-            Divider(modifier = Modifier.padding(vertical = 16.dp))
+            // Resumen compacto de filtros y totales
+            val fechaDesdeStr = filtros.fechaDesde?.let { dateFormat.format(it) } ?: "Sin fecha"
+            val fechaHastaStr = filtros.fechaHasta?.let { dateFormat.format(it) } ?: "Sin fecha"
+            val tipoNombre = filtros.tipoComprobante?.nombre ?: "Todos"
+            val clienteNombre = filtros.cliente?.nombre ?: "Todos"
+            val vendedorNombre = filtros.vendedor?.nombre ?: "Todos"
+            val usuarioNombre = filtros.usuario?.nombreUsuario ?: "Todos"
+            val conteoPorTipo = remember(resultados.comprobantes) {
+                resultados.comprobantes.groupBy { it.tipoComprobante?.nombre ?: "Desconocido" }
+                    .mapValues { it.value.size }
+                    .toList()
+                    .sortedBy { it.first }
+            }
+            Spacer(Modifier.height(6.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Rango: $fechaDesdeStr – $fechaHastaStr", style = MaterialTheme.typography.labelSmall)
+                Text("Tipo: $tipoNombre  ·  Cliente: $clienteNombre  ·  Vendedor: $vendedorNombre  ·  Usuario: $usuarioNombre", style = MaterialTheme.typography.labelSmall)
+                Text("Total vendido: $${String.format(Locale.getDefault(), "%.2f", resultados.totalVentas)}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                if (conteoPorTipo.isNotEmpty()) {
+                    Text("Cantidad por tipo:", style = MaterialTheme.typography.labelSmall)
+                    conteoPorTipo.forEach { (tipo, cant) ->
+                        Text("• $tipo: $cant", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
             if (resultados.comprobantes.isNotEmpty()) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -103,7 +157,7 @@ fun InformeDeVentasScreen(
                             Text("Fecha", Modifier.weight(0.7f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                             Text("Monto", Modifier.weight(0.6f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
                         }
-                        Divider()
+                        HorizontalDivider()
                     }
                     items(resultados.comprobantes, key = { it.comprobante.localId }) { detalle ->
                         val comprobante = detalle.comprobante
@@ -135,6 +189,10 @@ fun InformeDeVentasScreen(
         val pagedItems = vendedorViewModel.pagedVendedores.collectAsLazyPagingItems()
         SelectionModal("Seleccionar Vendedor", pagedItems, { Text(it.nombre ?: "") }, { vendedorViewModel.search(it) }, { informeViewModel.actualizarFiltro(filtros.copy(vendedor = it)); showVendedorDialog = false }, { showVendedorDialog = false }, {it.id})
     }
+    if (showUsuarioDialog) {
+        val pagedItems = usuarioViewModel.pagedUsuarios.collectAsLazyPagingItems()
+        SelectionModal("Seleccionar Usuario", pagedItems, { Text(it.nombreUsuario ?: "") }, { usuarioViewModel.search(it) }, { informeViewModel.actualizarFiltro(filtros.copy(usuario = it)); showUsuarioDialog = false }, { showUsuarioDialog = false }, {it.id})
+    }
 }
 
 @Composable
@@ -146,7 +204,7 @@ private fun rememberFormattedDate(dateString: String?): String {
                 val parser = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
                 parser.parse(dateString)?.let { formatter.format(it) } ?: dateString
-            } catch (e: Exception) { dateString }
+            } catch (_: Exception) { dateString }
         }
     }
 }

@@ -77,7 +77,8 @@ class InformeDeVentasViewModel(application: Application) : AndroidViewModel(appl
                 fechaHasta = fechaHastaStr,
                 tipoComprobanteIds = tiposComprobanteIds,
                 clienteId = filtrosActuales.cliente?.id,
-                vendedorId = filtrosActuales.vendedor?.id
+                vendedorId = filtrosActuales.vendedor?.id,
+                usuarioId = filtrosActuales.usuario?.id
             )
 
             val comprobantesResult = comprobantesEntities.map { it.toComprobanteConDetalle() }

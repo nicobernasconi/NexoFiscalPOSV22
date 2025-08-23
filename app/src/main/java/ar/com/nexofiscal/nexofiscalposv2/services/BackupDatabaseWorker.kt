@@ -37,69 +37,56 @@ class BackupDatabaseWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            // Asegurar que SessionManager esté inicializado en este proceso
             SessionManager.init(applicationContext)
-
+            val maxBackups = SessionManager.getMaxBackups().coerceAtLeast(1)
             val companyRaw = SessionManager.empresaNombre?.takeIf { it.isNotBlank() } ?: "Empresa"
             val company = companyRaw.replace("[^A-Za-z0-9_-]".toRegex(), "_")
-
             val today = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
             val time = SimpleDateFormat("HHmmss", Locale.getDefault()).format(Date())
-
             val dbName = "nexofiscal.db"
             val dbFile = applicationContext.getDatabasePath(dbName)
             val dbShm = File(dbFile.absolutePath + "-shm")
             val dbWal = File(dbFile.absolutePath + "-wal")
-
-            if (!dbFile.exists()) {
-                // No hay base creada aún, salir sin error para no reintentar indefinidamente
-                return@withContext Result.success()
-            }
-
+            if (!dbFile.exists()) return@withContext Result.success()
             val filesToZip = listOf(dbFile, dbShm, dbWal).filter { it.exists() }
             if (filesToZip.isEmpty()) return@withContext Result.success()
-
             val outName = "${company}_${today}_${time}.db.zip"
 
-            // API 29+: usar MediaStore (scoped storage)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Si ya existe un backup para hoy, no hacemos nada
-                if (alreadyHasTodayInDownloads(today)) return@withContext Result.success()
-
-                val uri = createDownloadsItemUri(outName)
-                if (uri == null) {
-                    // No se pudo crear el item; salir sin error
-                    return@withContext Result.success()
+                val hadToday = alreadyHasTodayInDownloads(today)
+                if (!hadToday) {
+                    val uri = createDownloadsItemUri(outName)
+                    if (uri != null) {
+                        applicationContext.contentResolver.openOutputStream(uri, "w")?.use { os ->
+                            zipFilesToStream(filesToZip, os)
+                        } ?: return@withContext Result.retry()
+                    }
                 }
-
-                applicationContext.contentResolver.openOutputStream(uri, "w")?.use { os ->
-                    zipFilesToStream(filesToZip, os)
-                } ?: run {
-                    return@withContext Result.retry()
-                }
-
-                // Marcar como no pendiente si aplicara (ya insertamos con IS_PENDING=0)
+                // Poda siempre (haya o no nuevo backup)
+                pruneMediaStoreBackups(maxBackups)
                 return@withContext Result.success()
             }
 
-            // API 28: escribir en carpeta pública de Downloads; si falla por permisos, fallback a app-specific
+            // API 28 y fallback
             val wroteToPublic = tryWriteToPublicDownloadsP(filesToZip, outName, today)
-            if (wroteToPublic) return@withContext Result.success()
-
-            // Fallback: usar carpeta app-específica (se borra al desinstalar, pero evita fallos)
-            val backupsDir = getAppBackupsDir(applicationContext)
-            if (!backupsDir.exists()) backupsDir.mkdirs()
-            val alreadyHasToday = backupsDir.listFiles()?.any { it.name.contains("_${today}_") } == true
-            if (alreadyHasToday) return@withContext Result.success()
-            val outFile = File(backupsDir, outName)
-            FileOutputStream(outFile).use { fos ->
-                zipFilesToStream(filesToZip, fos)
+            if (!wroteToPublic) {
+                val backupsDir = getAppBackupsDir(applicationContext)
+                if (!backupsDir.exists()) backupsDir.mkdirs()
+                val alreadyHasToday = backupsDir.listFiles()?.any { it.name.contains("_${today}_") } == true
+                if (!alreadyHasToday) {
+                    val outFile = File(backupsDir, outName)
+                    FileOutputStream(outFile).use { fos -> zipFilesToStream(filesToZip, fos) }
+                }
+                pruneFileBackups(backupsDir, maxBackups)
+            } else {
+                // Poda en carpeta pública
+                val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val backupsDir = File(downloads, "NexoFiscal/backups")
+                pruneFileBackups(backupsDir, maxBackups)
             }
-
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
-            // En caso de error de E/S transitorio, permitir reintento
             Result.retry()
         }
     }
@@ -165,6 +152,47 @@ class BackupDatabaseWorker(
     private fun getAppBackupsDir(context: Context): File {
         val external = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
         return if (external != null) File(external, "backups") else File(context.filesDir, "backups")
+    }
+
+    // Poda de backups (filesystem)
+    private fun pruneFileBackups(dir: File, maxBackups: Int) {
+        if (!dir.exists()) return
+        val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".db.zip") }?.toList() ?: return
+        if (files.size <= maxBackups) return
+        // Ordenar por nombre descendente (fecha en nombre) y eliminar los más antiguos (al final)
+        val sorted = files.sortedByDescending { it.name }
+        sorted.drop(maxBackups).forEach { runCatching { it.delete() } }
+    }
+
+    // Poda de backups en MediaStore (API 29+)
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun pruneMediaStoreBackups(maxBackups: Int) {
+        val cr = applicationContext.contentResolver
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val relativePath = Environment.DIRECTORY_DOWNLOADS + "/NexoFiscal/backups/"
+        val projection = arrayOf(
+            MediaStore.MediaColumns._ID,
+            MediaStore.MediaColumns.DISPLAY_NAME,
+            MediaStore.MediaColumns.RELATIVE_PATH
+        )
+        val selection = "${MediaStore.MediaColumns.RELATIVE_PATH}=? AND ${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
+        val selectionArgs = arrayOf(relativePath, "%.db.zip")
+        val backups = mutableListOf<Pair<String, Long>>() // name to id
+        cr.query(collection, projection, selection, selectionArgs, null)?.use { cursor ->
+            val idIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val nameIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(idIdx)
+                val name = cursor.getString(nameIdx)
+                backups.add(name to id)
+            }
+        }
+        if (backups.size <= maxBackups) return
+        val sorted = backups.sortedByDescending { it.first }
+        sorted.drop(maxBackups).forEach { (_, id) ->
+            val uri = Uri.withAppendedPath(collection, id.toString())
+            runCatching { cr.delete(uri, null, null) }
+        }
     }
 
     private fun zipFilesToStream(files: List<File>, outStream: OutputStream) {

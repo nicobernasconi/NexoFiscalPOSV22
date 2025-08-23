@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -42,6 +43,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.paging.compose.collectAsLazyPagingItems
 import ar.com.nexofiscal.nexofiscalposv2.R
@@ -59,12 +63,21 @@ import ar.com.nexofiscal.nexofiscalposv2.screens.edit.EntityEditScreen
 import ar.com.nexofiscal.nexofiscalposv2.ui.*
 import ar.com.nexofiscal.nexofiscalposv2.ui.theme.*
 import ar.com.nexofiscal.nexofiscalposv2.utils.PrintingManager
+import com.zcs.sdk.DriverManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 class SaleItem(val producto: Producto) {
     var cantidad by mutableStateOf(1.0)
@@ -116,6 +129,36 @@ fun MainScreen(
     stockViewModel: StockViewModel,
 
 ) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    fun ensureZcsScannerOff() {
+        try {
+            val hq = DriverManager.getInstance().hQrsannerDriver
+            CoroutineScope(Dispatchers.IO).launch {
+                try { hq?.QRScanerCtrl(0.toByte()) } catch (_: Exception) {}
+                try { hq?.QRScanerPowerCtrl(0.toByte()) } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+    }
+
+    // Apagar hardware QR del ZCS si está disponible al montar
+    DisposableEffect(Unit) {
+        ensureZcsScannerOff()
+        onDispose { }
+    }
+
+    // Apagar también cuando la pantalla recobra foco (p.ej. regreso desde scanner)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                ensureZcsScannerOff()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var showMenu by remember { mutableStateOf(false) }
     var showAgrupacionesScreen by remember { mutableStateOf(false) }
     var showCategoriaScreen by remember { mutableStateOf(false) }
@@ -152,8 +195,10 @@ fun MainScreen(
     var showBarcodeScanner by remember { mutableStateOf(false) }
     var showKioskConfigScreen by remember { mutableStateOf(false) }
     var showConfiguracionScreen by remember { mutableStateOf(false) }
+    // NUEVO: pantalla oculta de configuración avanzada
+    var showAdvancedConfig by remember { mutableStateOf(false) }
+    var showAdvancedPinDialog by remember { mutableStateOf(false) }
     var tipoComprobanteActual by remember { mutableStateOf(1) }
-    val context = LocalContext.current
     val saleItems = remember { mutableStateListOf<SaleItem>() }
     var clienteSeleccionado by remember { mutableStateOf<Cliente?>(null) }
     val total by remember { derivedStateOf { saleItems.sumOf { it.subtotal } } }
@@ -161,8 +206,12 @@ fun MainScreen(
     val productDescriptors = remember { getMainProductFieldDescriptors(tipoViewModel, familiaViewModel, tasaIvaViewModel, unidadViewModel, proveedorViewModel, agrupacionViewModel,monedaViewModel) }
     val clientDescriptors = remember { getMainClientFieldDescriptors(tipoDocumentoViewModel, tipoIvaViewModel, localidadViewModel, provinciaViewModel, categoriaViewModel, vendedorViewModel) }
     val scope = rememberCoroutineScope()
-    var showSyncStatus by remember { mutableStateOf(false) }
     var showInformeDeVentas by remember { mutableStateOf(false) }
+    // Estados para captura de escáner tipo teclado
+    var scanBuffer by remember { mutableStateOf("") }
+    var lastKeyTime by remember { mutableStateOf(0L) }
+    var scanning by remember { mutableStateOf(false) }
+    val scanThresholdMs = 50L
     var showPromocionEditScreen by remember { mutableStateOf(false) }
     var isPromocionCreateMode by remember { mutableStateOf(false) }
     var promocionInScreen by remember { mutableStateOf<Promocion?>(null) }
@@ -177,6 +226,25 @@ fun MainScreen(
     var showStockAjusteScreen by remember { mutableStateOf(false) }
     LaunchedEffect(total) { onTotalUpdated(total) }
 
+    // NUEVO: estado para saber si algún campo de cantidad está enfocado
+    var quantityFieldFocused by remember { mutableStateOf(false) }
+
+    // Helper: agregar producto fusionando cantidades si NO es de balanza
+    fun addOrMergeProduct(producto: Producto, cantidad: Double = 1.0) {
+        val esBalanza = (producto.productoBalanza ?: 0) == 1
+        if (!esBalanza) {
+            val existente = saleItems.firstOrNull { it.producto.id != 0 && it.producto.id == producto.id }
+                ?: saleItems.firstOrNull { (it.producto.id == 0 || producto.id == 0) && !it.producto.codigoBarra.isNullOrBlank() && it.producto.codigoBarra == producto.codigoBarra }
+            if (existente != null) {
+                existente.updateCantidad(existente.cantidad + cantidad)
+                NotificationManager.show("Cantidad actualizada: ${producto.descripcion}", NotificationType.INFO)
+                return
+            }
+        }
+        // Agregar al inicio de la lista en lugar del final
+        saleItems.add(0, SaleItem(producto).apply { updateCantidad(cantidad) })
+        NotificationManager.show("Agregado: ${producto.descripcion}", NotificationType.SUCCESS)
+    }
 
     // --- Lógica de Edición y Carga ---
     val clientInScreen by clienteViewModel.clienteParaEditar.collectAsState()
@@ -280,7 +348,7 @@ fun MainScreen(
         var noGravadoTotal: Double
         var noGravadoIva21: Double
         var noGravadoIva105: Double
-        var noGravadoIva0: Double=0.0
+        var noGravadoIva0: Double
 
         var acumuladoImporteIva21 = 0.0
         var acumuladoImporteIva105 = 0.0
@@ -327,7 +395,7 @@ fun MainScreen(
             noGravadoIva105 = noGravadoIva105, noGravadoIva0 = noGravadoIva0,
             numero = numeroDeComprobante, puntoVenta = SessionManager.puntoVentaNumero,
             empresaId = SessionManager.empresaId, sucursalId = SessionManager.sucursalId,
-            vendedorId = SessionManager.usuarioId, formas_de_pago = formasDePagoComprobante, promociones = resultado.promociones,
+            vendedorId = null, formas_de_pago = formasDePagoComprobante, promociones = resultado.promociones,
             cuotas = null, remito = null, persona = null, provinciaId = null, fechaBaja = null, motivoBaja = null,
             fechaProceso = null, letra = null, numeroFactura = null, prefijoFactura = null, operacionNegocioId = null, retencionIva = null,
             retencionIibb = null, retencionGanancias = null, porcentajeGanancias = null, porcentajeIibb = null, porcentajeIva = null,
@@ -404,7 +472,7 @@ fun MainScreen(
                     auth = authResponse,
                     cuit = cuit,
                     comprobante = comprobanteParaGestionar
-                ) ?: throw Exception("La respuesta de AFIP no fue válida.")
+                )
 
                 val cae = caeDetailResponse.cae ?: throw Exception("La respuesta de AFIP no contiene un CAE.")
                 val fechaVencimiento = caeDetailResponse.fechaVencimiento ?: throw Exception("La respuesta de AFIP no contiene fecha de vencimiento.")
@@ -496,11 +564,81 @@ fun MainScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier
+        .fillMaxSize()
+        .onPreviewKeyEvent { event: KeyEvent ->
+            // Intercepta ráfagas de dígitos que terminan en Enter/Tab (escáner estilo teclado)
+            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            val now = System.currentTimeMillis()
+            val isDigit = when (event.key) {
+                Key.Zero, Key.One, Key.Two, Key.Three, Key.Four, Key.Five, Key.Six, Key.Seven, Key.Eight, Key.Nine,
+                Key.NumPad0, Key.NumPad1, Key.NumPad2, Key.NumPad3, Key.NumPad4, Key.NumPad5, Key.NumPad6, Key.NumPad7, Key.NumPad8, Key.NumPad9 -> true
+                else -> false
+            }
+            val isEnter = event.key == Key.Enter || event.key == Key.NumPadEnter
+            val isTab = event.key == Key.Tab
+
+            if (isDigit) {
+                val delta = now - lastKeyTime
+                // NUEVO: si campo cantidad enfocado, consumir siempre para no ensuciar el TextField
+                val treatAsScanner = scanning || delta in 1..scanThresholdMs || quantityFieldFocused
+                if (treatAsScanner) {
+                    scanning = true
+                    scanBuffer += when (event.key) {
+                        Key.Zero, Key.NumPad0 -> "0"
+                        Key.One, Key.NumPad1 -> "1"
+                        Key.Two, Key.NumPad2 -> "2"
+                        Key.Three, Key.NumPad3 -> "3"
+                        Key.Four, Key.NumPad4 -> "4"
+                        Key.Five, Key.NumPad5 -> "5"
+                        Key.Six, Key.NumPad6 -> "6"
+                        Key.Seven, Key.NumPad7 -> "7"
+                        Key.Eight, Key.NumPad8 -> "8"
+                        Key.Nine, Key.NumPad9 -> "9"
+                        else -> ""
+                    }
+                    lastKeyTime = now
+                    return@onPreviewKeyEvent true // consumir para que no entre al TextField
+                } else {
+                    // Tipiado normal
+                    lastKeyTime = now
+                    scanning = false
+                    scanBuffer = ""
+                    return@onPreviewKeyEvent false
+                }
+            }
+
+            if ((isEnter || isTab) && scanning) {
+                val code = scanBuffer
+                scanning = false
+                scanBuffer = ""
+                lastKeyTime = now
+                if (code.isNotBlank()) {
+                    scope.launch {
+                        val producto = productoViewModel.findByBarcode(code)
+                        if (producto != null) {
+                            addOrMergeProduct(producto)
+                        } else {
+                            NotificationManager.show("Código no encontrado.", NotificationType.WARNING)
+                        }
+                    }
+                }
+                return@onPreviewKeyEvent true // consumir Enter/Tab final
+            }
+
+            // Si pasó demasiado tiempo, resetear estado de escáner y no consumir
+            if (now - lastKeyTime > 300L) {
+                scanning = false
+                scanBuffer = ""
+            }
+            lastKeyTime = now
+            false
+        }
+    ) {
         Column(Modifier
             .fillMaxSize()
             .background(Blanco)) {
-            HeaderSection { showMenu = true }
+            HeaderSection(onMenuClick = { showMenu = true }, onSecretOpen = { showAdvancedPinDialog = true })
             NotificationHost()
             PrintingStatusDialog()
 
@@ -524,7 +662,7 @@ fun MainScreen(
                     showProductEditScreen = true
                 }
             )
-            SaleItemsList(saleItems, { saleItems.remove(it) }, Modifier.weight(1f))
+            SaleItemsList(saleItems, { saleItems.remove(it) }, Modifier.weight(1f), onQuantityFieldFocusChange = { quantityFieldFocused = it })
             TotalSection(total)
 
             ActionButtonsBottom(
@@ -652,9 +790,8 @@ fun MainScreen(
                     productoViewModel = productoViewModel,
                     onDismiss = { showPluDirectos = false },
                     onProductSelected = { product ->
-                        saleItems.add(SaleItem(product))
+                        addOrMergeProduct(product)
                         showPluDirectos = false
-                        NotificationManager.show("Agregado: ${product.descripcion}", NotificationType.SUCCESS)
                     }
                 )
             }
@@ -756,8 +893,7 @@ fun MainScreen(
                     ProductListContent(
                         productoViewModel = productoViewModel,
                         onProductSelected = { producto ->
-                            saleItems.add(SaleItem(producto))
-                            NotificationManager.show("Agregado: ${producto.descripcion}", NotificationType.SUCCESS)
+                            addOrMergeProduct(producto)
                             showFullScreenProductSearch = false
                         },
                         screenMode = productScreenMode,
@@ -813,8 +949,7 @@ fun MainScreen(
                         scope.launch {
                             val producto = productoViewModel.findByBarcode(code)
                             if (producto != null) {
-                                saleItems.add(SaleItem(producto))
-                                NotificationManager.show("Agregado: ${producto.descripcion}", NotificationType.SUCCESS)
+                                addOrMergeProduct(producto)
                             } else {
                                 NotificationManager.show("Código no encontrado.", NotificationType.WARNING)
                             }
@@ -852,7 +987,6 @@ fun MainScreen(
                 KioskConfigScreen { showKioskConfigScreen = false }
             }
         }
-
         if (showInformeDeVentas) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 InformeDeVentasScreen(
@@ -867,6 +1001,24 @@ fun MainScreen(
         if (showConfiguracionScreen) {
             Surface(Modifier.fillMaxSize()) {
                 ConfiguracionScreen(viewModel = configuracionViewModel) { showConfiguracionScreen = false }
+            }
+        }
+        // NUEVO: diálogo de PIN (FALTABA MOSTRARLO)
+        if (showAdvancedPinDialog) {
+            AdvancedPinDialog(
+                onDismiss = { showAdvancedPinDialog = false },
+                onSuccess = {
+                    showAdvancedPinDialog = false
+                    showAdvancedConfig = true
+                }
+            )
+        }
+        // NUEVO: pantalla avanzada oculta
+        if (showAdvancedConfig) {
+            Surface(Modifier.fillMaxSize()) {
+                AdvancedConfigScreen(
+                    onDismiss = { showAdvancedConfig = false }
+                )
             }
         }
 
@@ -966,7 +1118,12 @@ fun MainScreen(
 
 
 @Composable
-private fun HeaderSection(onMenuClick: () -> Unit) {
+private fun HeaderSection(onMenuClick: () -> Unit, onSecretOpen: () -> Unit) {
+    // Contador de taps rápidos para abrir config avanzada
+    var tapCount by remember { mutableStateOf(0) }
+    var lastTapTime by remember { mutableStateOf(0L) }
+    val requiredTaps = 8
+    val windowMs = 4000L // ampliado a 4s para facilitar
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -977,7 +1134,20 @@ private fun HeaderSection(onMenuClick: () -> Unit) {
         Image(
             painter = painterResource(id = R.drawable.header_logo),
             contentDescription = "Logo",
-            modifier = Modifier.size(width = 175.dp, height = 36.dp),
+            modifier = Modifier
+                .size(width = 175.dp, height = 36.dp)
+                .clickable {
+                    val now = System.currentTimeMillis()
+                    if (now - lastTapTime > windowMs) {
+                        tapCount = 0 // reinicio ventana
+                    }
+                    tapCount++
+                    lastTapTime = now
+                    if (tapCount >= requiredTaps) {
+                        tapCount = 0
+                        onSecretOpen()
+                    }
+                },
             contentScale = ContentScale.Fit
         )
         Spacer(Modifier.weight(1f))
@@ -1009,7 +1179,9 @@ private fun ClientInfoSection(
             ) {
                 Button(
                     onClick = onListClients,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .blockEnterToClick(),
                     shape = BordeSuave,
                     colors = ButtonDefaults.buttonColors(containerColor = Blanco)
                 ) {
@@ -1018,7 +1190,9 @@ private fun ClientInfoSection(
                 Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = onAddClient,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .blockEnterToClick(),
                     shape = BordeSuave,
                     colors = ButtonDefaults.buttonColors(containerColor = Blanco)
                 ) {
@@ -1097,6 +1271,7 @@ private fun ActionIcon(
                 color = CC,
                 shape = BordeSuave
             )
+            .blockEnterToClick()
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -1113,8 +1288,19 @@ private fun ActionIcon(
 private fun SaleItemsList(
     saleItems: List<SaleItem>,
     onRemoveItem: (SaleItem) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onQuantityFieldFocusChange: (Boolean) -> Unit
 ) {
+    // Estado para controlar el scroll automático
+    val listState = rememberLazyListState()
+
+    // Efecto para hacer scroll al inicio cuando se agrega un item
+    LaunchedEffect(saleItems.size) {
+        if (saleItems.isNotEmpty()) {
+            listState.animateScrollToItem(0)
+        }
+    }
+
     Column(modifier = modifier.background(Blanco)) {
         if (saleItems.isNotEmpty()) {
             Row(
@@ -1144,12 +1330,13 @@ private fun SaleItemsList(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.padding(horizontal = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp)
             ) {
                 items(saleItems, key = { saleItem -> saleItem.producto.id.toString() + saleItem.hashCode() }) { item ->
-                    SaleItemRow(item = item, onRemove = { onRemoveItem(item) })
+                    SaleItemRow(item = item, onRemove = { onRemoveItem(item) }, onQuantityFieldFocusChange = onQuantityFieldFocusChange)
                 }
             }
         }
@@ -1157,7 +1344,7 @@ private fun SaleItemsList(
 }
 
 @Composable
-private fun SaleItemRow(item: SaleItem, onRemove: () -> Unit) {
+private fun SaleItemRow(item: SaleItem, onRemove: () -> Unit, onQuantityFieldFocusChange: (Boolean) -> Unit) {
     var precioTextFieldValue by remember {
         mutableStateOf(TextFieldValue(String.format(Locale.US, "%.2f", item.precio)))
     }
@@ -1209,7 +1396,8 @@ private fun SaleItemRow(item: SaleItem, onRemove: () -> Unit) {
             ) {
                 QuantitySelector(
                     quantity = item.cantidad,
-                    onQuantityChange = { item.updateCantidad(it) }
+                    onQuantityChange = { item.updateCantidad(it) },
+                    onQuantityFieldFocusChange = onQuantityFieldFocusChange
                 )
                 Spacer(Modifier.weight(1f))
 
@@ -1267,7 +1455,8 @@ private fun SaleItemRow(item: SaleItem, onRemove: () -> Unit) {
 @Composable
 private fun QuantitySelector(
     quantity: Double,
-    onQuantityChange: (Double) -> Unit
+    onQuantityChange: (Double) -> Unit,
+    onQuantityFieldFocusChange: (Boolean) -> Unit
 ) {
     var textValue by remember { mutableStateOf(String.format(Locale.US, "%.3f", quantity)) }
     var isFocused by remember { mutableStateOf(false) }
@@ -1302,7 +1491,10 @@ private fun QuantitySelector(
             },
             modifier = Modifier
                 .width(80.dp)
-                .onFocusChanged { focusState -> isFocused = focusState.isFocused }
+                .onFocusChanged { focusState ->
+                    isFocused = focusState.isFocused
+                    onQuantityFieldFocusChange(isFocused)
+                }
                 .border(1.dp, Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
                 .padding(vertical = 6.dp),
             textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
@@ -1346,21 +1538,21 @@ private fun ActionButtonsBottom(onCobrar: () -> Unit, onPedido: () -> Unit, onPr
         val buttonModifier = Modifier.weight(1f)
         Button(
             onClick = onCobrar,
-            modifier = buttonModifier,
+            modifier = buttonModifier.blockEnterToClick(),
             shape = BordeSuave,
             colors = ButtonDefaults.buttonColors(containerColor = CC)
         ) { Text("COBRAR", color = Blanco) }
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = onPedido,
-            modifier = buttonModifier,
+            modifier = buttonModifier.blockEnterToClick(),
             shape = BordeSuave,
             colors = ButtonDefaults.buttonColors(containerColor = CC)
         ) { Text("PEDIDO", color = Blanco) }
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = onPresupuesto,
-            modifier = buttonModifier,
+            modifier = buttonModifier.blockEnterToClick(),
             shape = BordeSuave,
             colors = ButtonDefaults.buttonColors(containerColor = CC),
 
@@ -1408,7 +1600,7 @@ private fun ClientListDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            tonalElevation = androidx.compose.material3.AlertDialogDefaults.TonalElevation,
+            tonalElevation = AlertDialogDefaults.TonalElevation,
             shape = MaterialTheme.shapes.large,
             modifier = Modifier
                 .fillMaxWidth(0.9f)
@@ -1474,6 +1666,9 @@ private fun ProductListContent(
     onAttemptEdit: (Producto) -> Unit,
     onDelete: (Producto) -> Unit
 ) {
+    // Deshabilitado: no activar lector tipo teclado en esta pantalla
+    // Si llega un código escaneado por sistema, no se consumirá aquí
+
     val pagedProductos = productoViewModel.pagedProductos.collectAsLazyPagingItems()
 
     CrudListScreen(
@@ -1482,7 +1677,8 @@ private fun ProductListContent(
         itemContent = { producto ->
             val label = buildString {
                 append(producto.descripcion ?: "Sin descripción")
-                append(" - $${String.format(Locale.getDefault(), "%.2f", producto.precio1)}")
+                append(" - $")
+                append(String.format(Locale.getDefault(), "%.2f", producto.precio1))
             }
             Text(label)
         },
@@ -1529,6 +1725,68 @@ fun SyncStatusIcon(state: SyncService.SyncState, modifier: Modifier = Modifier) 
                     .padding(4.dp)
                     .size(20.dp)
             )
+        }
+    }
+}
+@Composable
+private fun AdvancedPinDialog(
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit
+) {
+    var pin by remember { mutableStateOf("") }
+    var isError by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.padding(16.dp),
+            color = Blanco
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Ingrese PIN de administrador", style = MaterialTheme.typography.titleMedium)
+                TextField(
+                    value = pin,
+                    onValueChange = { newValue ->
+                        if (newValue.all { it.isDigit() } || newValue.isEmpty()) {
+                            pin = newValue
+                            if (isError) isError = false
+                        }
+                    },
+                    label = { Text("PIN") },
+                    placeholder = { Text("Ingrese su PIN") },
+                    isError = isError,
+                    keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                if (isError) {
+                    Text("PIN incorrecto.", color = RojoError, style = MaterialTheme.typography.bodySmall)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss, shape = RoundedCornerShape(5.dp)) { Text("Cancelar") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (SessionManager.validateAdvancedPin(pin)) {
+                                onSuccess()
+                            } else {
+                                isError = true
+                            }
+                        },
+                        enabled = pin.isNotBlank(),
+                        shape = RoundedCornerShape(5.dp)
+                    ) {
+                        Text("Aceptar")
+                    }
+                }
+            }
         }
     }
 }

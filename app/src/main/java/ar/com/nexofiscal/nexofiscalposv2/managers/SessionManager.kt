@@ -11,6 +11,15 @@ object SessionManager {
     private const val PREFS_NAME = "nexofiscal"
     private lateinit var prefs: SharedPreferences
 
+    // Valor por defecto de la API
+    private const val DEFAULT_API_BASE_URL = "https://test.nexofiscaltest.com.ar/"
+    // Valor por defecto del PIN de configuración avanzada
+    private const val DEFAULT_ADVANCED_PIN = "2468"
+    // Defaults para tiempos (en minutos)
+    private const val DEFAULT_TIEMPO_DESCARGA_MIN = 15
+    private const val DEFAULT_TIEMPO_SUBIDA_MIN = 15
+    private const val DEFAULT_MAX_BACKUPS = 30
+
     // --- DATOS DE USUARIO Y SESIÓN ---
     val token: String? get() = prefs.getString("token", null)
     val usuarioId: Int get() = prefs.getInt("usuario_id", -1)
@@ -47,6 +56,28 @@ object SessionManager {
     val codigosBarrasPayloadType: String? get() = prefs.getString("codigos_barras_payload_type", null)
     val certificadoAfip: String? get() = prefs.getString("empresa_cert", null)
     val claveAfip: String? get() = prefs.getString("empresa_key", null)
+
+    // --- CONFIGURACIONES AVANZADAS / OCULTAS ---
+    fun getApiBaseUrl(): String = prefs.getString("api_base_url", DEFAULT_API_BASE_URL) ?: DEFAULT_API_BASE_URL
+    fun setApiBaseUrl(url: String) { prefs.edit().putString("api_base_url", url).apply() }
+    fun resetApiBaseUrl() { setApiBaseUrl(DEFAULT_API_BASE_URL) }
+
+    fun getAdvancedConfigPin(): String = prefs.getString("advanced_config_pin", DEFAULT_ADVANCED_PIN) ?: DEFAULT_ADVANCED_PIN
+    fun setAdvancedConfigPin(pin: String) { prefs.edit().putString("advanced_config_pin", pin).apply() }
+    fun validateAdvancedPin(input: String): Boolean = input == getAdvancedConfigPin()
+    // Nuevo: reset explícito del PIN avanzado
+    fun resetAdvancedConfigPin() { setAdvancedConfigPin(DEFAULT_ADVANCED_PIN) }
+
+    // Nuevo: acceso directo al JSON crudo de permisos para edición avanzada
+    fun getPermissionsJson(): String = prefs.getString("permisos", "{}") ?: "{}"
+
+    // Nuevos getters/setters para tiempos de sincronización (modo avanzado)
+    fun getTiempoDescargaMin(): Int = prefs.getInt("tiempo_descarga_min", DEFAULT_TIEMPO_DESCARGA_MIN)
+    fun setTiempoDescargaMin(value: Int) { prefs.edit().putInt("tiempo_descarga_min", value).apply() }
+    fun getTiempoSubidaMin(): Int = prefs.getInt("tiempo_subida_min", DEFAULT_TIEMPO_SUBIDA_MIN)
+    fun setTiempoSubidaMin(value: Int) { prefs.edit().putInt("tiempo_subida_min", value).apply() }
+    fun getMaxBackups(): Int = prefs.getInt("max_backups", DEFAULT_MAX_BACKUPS)
+    fun setMaxBackups(value: Int) { prefs.edit().putInt("max_backups", value).apply() }
 
     @Volatile
     private var permissionsMap: Map<String, List<String>> = emptyMap()

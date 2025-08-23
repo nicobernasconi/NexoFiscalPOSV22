@@ -63,6 +63,7 @@ interface ComprobanteDao {
             AND (tipoComprobanteId IN (:tipoComprobanteIds))
             AND (:clienteId IS NULL OR clienteId = :clienteId)
             AND (:vendedorId IS NULL OR vendedorId = :vendedorId)
+            AND (:usuarioId IS NULL OR usuarioId = :usuarioId)
         ORDER BY fecha DESC, hora DESC
     """)
         suspend fun getComprobantesParaInforme(
@@ -70,7 +71,8 @@ interface ComprobanteDao {
                 fechaHasta: String?,
                 tipoComprobanteIds: List<Int>,
                 clienteId: Int?,
-                vendedorId: Int?
+                vendedorId: Int?,
+                usuarioId: Int?
         ): List<ComprobanteConDetalles>
 
         @Query("DELETE FROM comprobante_pagos WHERE comprobanteLocalId = :comprobanteId")

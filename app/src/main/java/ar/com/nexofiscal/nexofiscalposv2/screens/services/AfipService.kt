@@ -7,9 +7,16 @@ import ar.com.nexofiscal.nexofiscalposv2.managers.AfipVoucherManager
 import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Cliente
 import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
+import ar.com.nexofiscal.nexofiscalposv2.models.Localidad
+import ar.com.nexofiscal.nexofiscalposv2.models.Provincia
+import ar.com.nexofiscal.nexofiscalposv2.models.TipoIVA
 import ar.com.nexofiscal.nexofiscalposv2.ui.LoadingManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -86,7 +93,7 @@ object AfipService {
 
         } catch (e: Exception) {
             Log.e(TAG, "Error en el flujo de facturación electrónica: ${e.message}")
-            NotificationManager.show(e.message ?: "Ocurrió un error desconocido con AFIP.", NotificationType.ERROR)
+            NotificationManager.show(e.message ?: "Ocurrió un error desconocido con ARCA.", NotificationType.ERROR)
             throw e
         } finally {
             LoadingManager.hide()
@@ -103,9 +110,9 @@ object AfipService {
         val puntoVenta = SessionManager.puntoVentaNumero
 
         when {
-            cuit.isBlank() -> throw Exception("CUIT de la empresa no configurado. Configure las credenciales AFIP.")
-            cert.isBlank() -> throw Exception("Certificado AFIP no configurado. Configure las credenciales AFIP.")
-            key.isBlank() -> throw Exception("Clave privada AFIP no configurada. Configure las credenciales AFIP.")
+            cuit.isBlank() -> throw Exception("CUIT de la empresa no configurado. Configure las credenciales ARCA.")
+            cert.isBlank() -> throw Exception("Certificado ARCA no configurado. Configure las credenciales ARCA.")
+            key.isBlank() -> throw Exception("Clave privada ARCA no configurada. Configure las credenciales ARCA.")
             puntoVenta <= 0 -> throw Exception("Punto de venta no configurado correctamente.")
         }
 
@@ -150,7 +157,7 @@ object AfipService {
             cuit = credenciales.cuit,
             pointOfSale = credenciales.puntoVenta,
             voucherType = tipoFacturaAfip
-        ) ?: throw Exception("No se pudo obtener el próximo número de factura de AFIP.")
+        ) ?: throw Exception("No se pudo obtener el próximo número de factura de ARCA.")
 
         return ultimoNumero + 1
     }
@@ -225,4 +232,71 @@ object AfipService {
         val key: String,
         val puntoVenta: Int
     )
+
+    // NUEVO: Recuperar datos de cliente (contribuyente) remoto via AFIP
+    suspend fun recuperarClienteDesdeAfip(cuit: String): Cliente? = withContext(Dispatchers.IO) {
+        val limpio = cuit.filter { it.isDigit() }
+        if (limpio.length !in 8..11) {
+            NotificationManager.show("CUIT/CUIL inválido", NotificationType.ERROR)
+            return@withContext null
+        }
+        val base = SessionManager.getApiBaseUrl()
+        val sep = if (base.endsWith("/")) "" else "/"
+        val url = base + sep + "_wsafip_contribuyente_remoto.php?cuit=$limpio"
+        Log.d(TAG, "Consultando AFIP contribuyente: $url")
+        LoadingManager.show()
+        try {
+            val client = OkHttpClient.Builder().build()
+            val req = Request.Builder().url(url).get().build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    NotificationManager.show("Error ARCA (${resp.code})", NotificationType.ERROR)
+                    return@withContext null
+                }
+                val bodyStr = resp.body?.string().orEmpty()
+                if (bodyStr.isBlank()) {
+                    NotificationManager.show("Respuesta vacía ARCA", NotificationType.ERROR)
+                    return@withContext null
+                }
+                val root = try { JSONObject(bodyStr) } catch (e: Exception) {
+                    Log.e(TAG, "JSON inválido ARCA", e)
+                    NotificationManager.show("JSON inválido ARCA", NotificationType.ERROR)
+                    return@withContext null
+                }
+                val datosGenerales = root.optJSONObject("datosGenerales") ?: run {
+                    NotificationManager.show("Sin datos generales", NotificationType.ERROR)
+                    return@withContext null
+                }
+                val domFiscal = datosGenerales.optJSONObject("domicilioFiscal")
+                val nombre = datosGenerales.optString("nombre", "").trim()
+                val apellido = datosGenerales.optString("apellido", "").trim()
+                val fullName = listOf(apellido, nombre).filter { it.isNotBlank() }.joinToString(" ")
+                val direccion = domFiscal?.optString("direccion", "")?.trim()?.ifBlank { null }
+                val datoAd = domFiscal?.optString("datoAdicional", "")?.trim().orEmpty()
+                val direccionFinal = buildString {
+                    direccion?.let { append(it) }
+                    if (datoAd.isNotBlank()) {
+                        if (isNotEmpty()) append(" - ")
+                        append(datoAd)
+                    }
+                }.ifBlank { null }
+                val cliente = Cliente().apply {
+                    this.cuit = limpio
+                    this.nombre = fullName.ifBlank { nombre.ifBlank { apellido } }
+                    this.direccionComercial = direccionFinal
+                    // Numero de documento: si la API no lo provee diferenciado usamos el mismo CUIT
+                    this.numeroDocumento = limpio
+                }
+                Log.d(TAG, "Cliente ARCA parseado: nombre=${cliente.nombre} cuit=${cliente.cuit}")
+                NotificationManager.show("Cliente ARCA encontrado", NotificationType.SUCCESS)
+                return@withContext cliente
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error consultando ARCA contribuyente", e)
+            NotificationManager.show(e.message ?: "Error consultando ARCA", NotificationType.ERROR)
+            null
+        } finally {
+            LoadingManager.hide()
+        }
+    }
 }

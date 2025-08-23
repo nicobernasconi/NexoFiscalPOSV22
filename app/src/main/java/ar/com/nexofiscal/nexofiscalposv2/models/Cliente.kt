@@ -60,7 +60,7 @@ class Cliente {
     var provincia: Provincia? = null
 
     override fun toString(): String {
-        return "Cliente(nroCliente=$nroCliente,${tipoIva}, cuit=$cuit, nombre=$nombre)"
+        return "Cliente(nroCliente=$nroCliente, tipoIva=${tipoIva}, cuit=$cuit, nombre=$nombre)"
     }
 
     fun copy(

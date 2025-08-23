@@ -24,7 +24,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.*
 import ar.com.nexofiscal.nexofiscalposv2.devices.XmlPresentationScreen
-import ar.com.nexofiscal.nexofiscalposv2.managers.KeyEventManager
 import ar.com.nexofiscal.nexofiscalposv2.managers.SyncManager
 import ar.com.nexofiscal.nexofiscalposv2.screens.MainScreen
 import ar.com.nexofiscal.nexofiscalposv2.ui.LoadingDialog
@@ -267,12 +266,7 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // Pasamos el evento a nuestro gestor.
-        // Si el gestor lo consume, no lo propagamos más.
-        if (KeyEventManager.processKeyEvent(event)) {
-            return true
-        }
-        // Si no, dejamos que el sistema lo maneje de forma normal.
+        // Dejar que el SDK/IME gestione todos los eventos de teclado sin interceptar
         return super.dispatchKeyEvent(event)
     }
 }

@@ -2,6 +2,7 @@ package ar.com.nexofiscal.nexofiscalposv2.screens.config
 
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
 import androidx.compose.runtime.*
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -12,6 +13,10 @@ import ar.com.nexofiscal.nexofiscalposv2.screens.edit.ValidationResult
 import ar.com.nexofiscal.nexofiscalposv2.ui.EntitySelectionButton
 import ar.com.nexofiscal.nexofiscalposv2.ui.SelectAllTextField
 import ar.com.nexofiscal.nexofiscalposv2.ui.SelectionModal
+import kotlinx.coroutines.launch
+import ar.com.nexofiscal.nexofiscalposv2.screens.services.AfipService
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.unit.dp
 import java.util.regex.Pattern
 
 fun getMainClientFieldDescriptors(
@@ -35,26 +40,23 @@ fun getMainClientFieldDescriptors(
     return listOf(
         FieldDescriptor(
             id = "nombre",
-            label = "Nombre del Cliente",
+            label = "Nombre",
             editorContent = { entity, onUpdate, isReadOnly, error ->
                 SelectAllTextField(
                     value = entity.nombre ?: "",
                     onValueChange = { newValue -> onUpdate { it.copy(nombre = newValue.trim()) } },
-                    label = "Nombre Completo",
+                    label = "Nombre",
                     isReadOnly = isReadOnly,
                     error = error
                 )
             },
             validator = { entity ->
                 if (entity.nombre.isNullOrBlank()) {
-                    ValidationResult.Invalid("El nombre del cliente es obligatorio.")
-                } else if (entity.nombre!!.length < 3) {
-                    ValidationResult.Invalid("El nombre debe tener al menos 3 caracteres.")
-                } else {
-                    ValidationResult.Valid
-                }
+                    ValidationResult.Invalid("El nombre es obligatorio.")
+                } else ValidationResult.Valid
             }
         ),
+
         FieldDescriptor(
             id = "tipoIva",
             label = "Condición de IVA",
@@ -72,22 +74,41 @@ fun getMainClientFieldDescriptors(
             id = "cuit",
             label = "CUIT",
             editorContent = { entity, onUpdate, isReadOnly, error ->
-                SelectAllTextField(
-                    value = entity.cuit ?: "",
-                    onValueChange = { newValue -> onUpdate { it.copy(cuit = newValue.filter { char -> char.isDigit() }) } },
-                    label = "CUIT (solo números)",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isReadOnly = isReadOnly,
-                    error = error
-                )
+                val scope = rememberCoroutineScope()
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SelectAllTextField(
+                        value = entity.cuit ?: "",
+                        onValueChange = { newValue -> onUpdate { it.copy(cuit = newValue.filter { ch -> ch.isDigit() }) } },
+                        label = "CUIT (solo números)",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isReadOnly = isReadOnly,
+                        error = error
+                    )
+                    val cuitClean = (entity.cuit ?: "").filter { it.isDigit() }
+                    Button(
+                        enabled = !isReadOnly && cuitClean.length == 11,
+                        onClick = {
+                            scope.launch {
+                                val recuperado = AfipService.recuperarClienteDesdeAfip(cuitClean)
+                                if (recuperado != null) {
+                                    onUpdate {
+                                        it.copy(
+                                            nombre = recuperado.nombre ?: it.nombre,
+                                            direccionComercial = recuperado.direccionComercial ?: it.direccionComercial,
+                                            cuit = recuperado.cuit
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    ) { Text("Recuperar AFIP") }
+                }
             },
             validator = { entity ->
                 val cuit = entity.cuit
                 if (!cuit.isNullOrBlank() && (cuit.length != 11 || !cuit.all { it.isDigit() })) {
                     ValidationResult.Invalid("El CUIT debe tener 11 dígitos numéricos.")
-                } else {
-                    ValidationResult.Valid
-                }
+                } else ValidationResult.Valid
             }
         ),
         FieldDescriptor(
@@ -104,9 +125,7 @@ fun getMainClientFieldDescriptors(
             validator = { entity ->
                 if (entity.cuit.isNullOrBlank() && entity.tipoDocumento == null) {
                     ValidationResult.Invalid("Debe especificar un CUIT o un Tipo de Documento.")
-                } else {
-                    ValidationResult.Valid
-                }
+                } else ValidationResult.Valid
             }
         ),
         FieldDescriptor(
@@ -123,11 +142,9 @@ fun getMainClientFieldDescriptors(
                 )
             },
             validator = { entity ->
-                if (entity.tipoDocumento != null && entity.numeroDocumento.isNullOrBlank()){
+                if (entity.tipoDocumento != null && entity.numeroDocumento.isNullOrBlank()) {
                     ValidationResult.Invalid("El número de documento es obligatorio si se seleccionó un tipo.")
-                } else {
-                    ValidationResult.Valid
-                }
+                } else ValidationResult.Valid
             }
         ),
         FieldDescriptor(
@@ -157,11 +174,7 @@ fun getMainClientFieldDescriptors(
                 )
             },
             validator = { entity ->
-                if (entity.email.isNullOrBlank() || emailPattern.matcher(entity.email!!).matches()) {
-                    ValidationResult.Valid
-                } else {
-                    ValidationResult.Invalid("El formato del email no es válido.")
-                }
+                if (entity.email.isNullOrBlank() || emailPattern.matcher(entity.email!!).matches()) ValidationResult.Valid else ValidationResult.Invalid("El formato del email no es válido.")
             }
         ),
         FieldDescriptor(

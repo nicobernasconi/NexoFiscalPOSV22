@@ -25,7 +25,7 @@ class StockAjusteViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     suspend fun cargarStockActual(producto: ProductoEntity): Double = withContext(Dispatchers.IO) {
-        val sucursalId = SessionManager.sucursalId ?: 0
+        val sucursalId = SessionManager.sucursalId
         // stock_productos.productoId referencia serverId del producto
         val prodServerId = producto.serverId
         if (prodServerId == null) return@withContext 0.0
@@ -41,7 +41,7 @@ class StockAjusteViewModel(application: Application) : AndroidViewModel(applicat
         actualizarPrecio1: Boolean,
         nuevoPrecio1: Double?
     ): Double = withContext(Dispatchers.IO) {
-        val sucursalId = SessionManager.sucursalId ?: 0
+        val sucursalId = SessionManager.sucursalId
         // Obtener/crear registro de stock_productos para este producto y sucursal
         val prodServerId = producto.serverId
             ?: throw IllegalStateException("El producto no tiene serverId asignado, no se puede ajustar stock.")
@@ -81,20 +81,23 @@ class StockAjusteViewModel(application: Application) : AndroidViewModel(applicat
         }
 
         // Actualizar costos/precio si corresponde
-        var actualizado = false
         val modProducto = producto.copy(
             precioCosto = nuevoCosto ?: producto.precioCosto,
             precio1 = if (actualizarPrecio1 && nuevoPrecio1 != null) nuevoPrecio1 else producto.precio1
         )
         if (modProducto.precioCosto != producto.precioCosto || modProducto.precio1 != producto.precio1) {
             productoDao.update(modProducto)
-            actualizado = true
         }
 
         // Registrar movimiento de stock (usa id local de producto)
         StockActualizacionManager.registrarActualizacionStock(context, producto.id, sucursalId, cantidadAjuste)
 
+        // Enviar pendientes a la API si hay token disponible
+        SessionManager.token?.let { token ->
+            val headers = mutableMapOf<String?, String?>("Authorization" to "Bearer $token")
+            StockActualizacionManager.enviarActualizacionesPendientes(context, headers)
+        }
+
         return@withContext nuevoStock
     }
 }
-

@@ -1,5 +1,6 @@
 package ar.com.nexofiscal.nexofiscalposv2.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,6 +52,7 @@ class AjusteRowState(val producto: ProductoEntity, stock: Double) {
     var isApplying by mutableStateOf(false)
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StockAjusteScreen(
     onDismiss: () -> Unit,
@@ -129,8 +131,8 @@ fun StockAjusteScreen(
                 nuevoPrecio1 = nuevoPrecio1
             )
             row.stockActual = nuevoStock
-            // Reset cantidad para evitar re-aplicar por error
-            row.cantidadText = ""
+            // Eliminamos la fila aplicada
+            items.remove(row)
             NotificationManager.show("Ajuste aplicado a ${row.producto.descripcion}. Nuevo stock: ${MoneyUtils.format(nuevoStock)}", NotificationType.SUCCESS)
         } catch (e: Exception) {
             NotificationManager.show(e.message ?: "Error al aplicar el ajuste.", NotificationType.ERROR)
@@ -147,7 +149,8 @@ fun StockAjusteScreen(
         applyingAll = true
         try {
             var aplicados = 0
-            for (row in items) {
+            val snapshot = items.toList()
+            for (row in snapshot) {
                 val cant = row.cantidadText.replace(',', '.').toDoubleOrNull()
                 if (cant == null || cant == 0.0) continue
                 try {
@@ -162,7 +165,8 @@ fun StockAjusteScreen(
                         nuevoPrecio1 = nuevoPrecio1
                     )
                     row.stockActual = nuevoStock
-                    row.cantidadText = ""
+                    // Eliminamos la fila aplicada del listado visible
+                    items.remove(row)
                     aplicados++
                 } catch (e: Exception) {
                     NotificationManager.show("Error en ${row.producto.descripcion}: ${e.message}", NotificationType.ERROR)
@@ -175,18 +179,18 @@ fun StockAjusteScreen(
     }
 
     val headerTextStyle = MaterialTheme.typography.labelSmall
-    val cellPadding = 6.dp
-    val rowHeight = 44.dp
+    val cellPadding = 8.dp
+    val rowHeight = 52.dp
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Título compacto
-            Text("Ajuste de stock", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Ajuste de stock", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
 
             // Agregar por código/código de barras (compacto)
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -197,108 +201,123 @@ fun StockAjusteScreen(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { scope.launch { agregarPorCodigoOBarras() } }),
-                    modifier = Modifier.weight(1f).heightIn(min = 40.dp)
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = { scope.launch { agregarPorCodigoOBarras() } },
                     enabled = !isAdding,
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(5.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = "Agregar")
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(if (isAdding) "Buscando..." else "Agregar", style = MaterialTheme.typography.labelSmall)
                 }
             }
 
-            // Encabezado de tabla
-            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-                Text("Producto", style = headerTextStyle, modifier = Modifier.weight(1.6f))
-                Text("Stock", style = headerTextStyle, modifier = Modifier.weight(0.8f))
-                Text("Cant.", style = headerTextStyle, modifier = Modifier.weight(0.9f))
-                Text("Costo", style = headerTextStyle, modifier = Modifier.weight(0.9f))
-                Text("P1?", style = headerTextStyle, modifier = Modifier.weight(0.5f))
-                Text("Nuevo P1", style = headerTextStyle, modifier = Modifier.weight(0.9f))
-                Text("", style = headerTextStyle, modifier = Modifier.width(64.dp))
-            }
-
-            // Lista compacta
+            // Encabezado sticky + Lista compacta
             if (items.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Text("Agregue productos para ajustar", style = MaterialTheme.typography.labelSmall)
                 }
             } else {
                 LazyColumn(modifier = Modifier.weight(1f)) {
+                    stickyHeader {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            tonalElevation = 2.dp,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp)) {
+                                Text("Producto", style = headerTextStyle, modifier = Modifier.weight(2.6f))
+                                Text("Cant.", style = headerTextStyle, modifier = Modifier.weight(0.9f))
+                                Text("Costo", style = headerTextStyle, modifier = Modifier.weight(1.0f))
+                                Text("P1?", style = headerTextStyle, modifier = Modifier.weight(0.6f))
+                                Text("Nuevo P1", style = headerTextStyle, modifier = Modifier.weight(1.1f))
+                                Text("", style = headerTextStyle, modifier = Modifier.width(96.dp))
+                            }
+                        }
+                    }
+
                     items(items, key = { it.producto.id }) { row ->
-                        TableRowCompact(
-                            row = row,
-                            onCantidadChange = { if (validarCantidad(it)) row.cantidadText = it.replace(',', '.') },
-                            onCostoChange = { input ->
-                                if (validarPrecio(input)) {
-                                    row.costoText = input.replace(',', '.')
+                        // Fila en tarjeta suave para mejor legibilidad
+                        Card(
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            TableRowCompact(
+                                row = row,
+                                onCantidadChange = { if (validarCantidad(it)) row.cantidadText = it.replace(',', '.') },
+                                onCostoChange = { input ->
+                                    if (validarPrecio(input)) {
+                                        row.costoText = input.replace(',', '.')
+                                        val costoVal = row.costoText.toDoubleOrNull()
+                                        if (row.actualizarPrecio1 && costoVal != null) {
+                                            row.precio1Text = computePrecio1ByMargen(costoVal, row.producto.margenGanancia)
+                                        }
+                                    }
+                                },
+                                onTogglePrecio1 = { checked ->
+                                    row.actualizarPrecio1 = checked
                                     val costoVal = row.costoText.toDoubleOrNull()
-                                    if (row.actualizarPrecio1 && costoVal != null) {
+                                    if (checked && costoVal != null) {
                                         row.precio1Text = computePrecio1ByMargen(costoVal, row.producto.margenGanancia)
                                     }
-                                }
-                            },
-                            onTogglePrecio1 = { checked ->
-                                row.actualizarPrecio1 = checked
-                                val costoVal = row.costoText.toDoubleOrNull()
-                                if (checked && costoVal != null) {
-                                    row.precio1Text = computePrecio1ByMargen(costoVal, row.producto.margenGanancia)
-                                }
-                            },
-                            onPrecio1Change = { if (validarPrecio(it)) row.precio1Text = it.replace(',', '.') },
-                            onAplicar = { scope.launch { aplicarFila(row) } },
-                            onEliminar = { items.remove(row) },
-                            cellPadding = cellPadding,
-                            rowHeight = rowHeight
-                        )
-                        HorizontalDivider(thickness = 0.5.dp)
+                                },
+                                onPrecio1Change = { if (validarPrecio(it)) row.precio1Text = it.replace(',', '.') },
+                                onAplicar = { scope.launch { aplicarFila(row) } },
+                                onEliminar = { items.remove(row) },
+                                cellPadding = cellPadding,
+                                rowHeight = rowHeight
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
                     }
                 }
 
                 // Acciones globales compactas
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedButton(
                         onClick = onDismiss,
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(5.dp),
+                        shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
                     ) {
                         Icon(Icons.Filled.Close, contentDescription = "Cerrar")
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text("Cerrar", style = MaterialTheme.typography.labelSmall)
                     }
                     OutlinedButton(
                         onClick = { items.clear(); NotificationManager.show("Lista limpiada", NotificationType.INFO) },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(5.dp),
+                        shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
                     ) {
                         Icon(Icons.Filled.DeleteSweep, contentDescription = "Limpiar")
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text("Limpiar", style = MaterialTheme.typography.labelSmall)
                     }
                     Button(
                         onClick = { scope.launch { aplicarTodos() } },
                         enabled = !applyingAll,
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(5.dp),
+                        shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(Icons.Filled.DoneAll, contentDescription = "Aplicar todos")
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(if (applyingAll) "Aplicando..." else "Aplicar todos", style = MaterialTheme.typography.labelSmall)
                     }
                 }
@@ -320,11 +339,11 @@ private fun TableRowCompact(
     rowHeight: Dp
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = rowHeight).padding(horizontal = 4.dp, vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = rowHeight).padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Producto
-        Column(Modifier.weight(1.6f).padding(end = cellPadding)) {
+        // Producto (ahora ocupa más espacio)
+        Column(Modifier.weight(2.6f).padding(end = cellPadding)) {
             Text(
                 text = "${row.producto.codigo ?: ""} - ${row.producto.descripcion ?: ""}",
                 style = MaterialTheme.typography.bodySmall,
@@ -338,12 +357,7 @@ private fun TableRowCompact(
             )
         }
 
-        // Stock (solo lectura)
-        Text(
-            text = MoneyUtils.format(row.stockActual),
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.weight(0.8f).padding(horizontal = cellPadding)
-        )
+        // Removed Stock column
 
         // Cantidad (sin +/-)
         OutlinedTextField(
@@ -353,7 +367,7 @@ private fun TableRowCompact(
             placeholder = { Text("0", style = MaterialTheme.typography.labelSmall) },
             textStyle = MaterialTheme.typography.bodySmall,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.weight(0.9f).heightIn(min = 40.dp)
+            modifier = Modifier.weight(0.9f).heightIn(min = 44.dp)
         )
 
         // Costo (sin +/-)
@@ -364,11 +378,11 @@ private fun TableRowCompact(
             placeholder = { Text("0.00", style = MaterialTheme.typography.labelSmall) },
             textStyle = MaterialTheme.typography.bodySmall,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.weight(0.9f).heightIn(min = 40.dp)
+            modifier = Modifier.weight(1.0f).heightIn(min = 44.dp)
         )
 
         // Check Precio1
-        Row(Modifier.weight(0.5f), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(0.6f), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = row.actualizarPrecio1, onCheckedChange = onTogglePrecio1)
         }
 
@@ -381,13 +395,29 @@ private fun TableRowCompact(
             placeholder = { Text("0.00", style = MaterialTheme.typography.labelSmall) },
             textStyle = MaterialTheme.typography.bodySmall,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.weight(0.9f).heightIn(min = 40.dp)
+            modifier = Modifier.weight(1.1f).heightIn(min = 44.dp)
         )
 
         // Acciones
-        Row(Modifier.width(64.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            IconButton(onClick = onAplicar, modifier = Modifier.clip(RoundedCornerShape(5.dp))) { Icon(imageVector = Icons.Filled.Check, contentDescription = "Aplicar") }
-            IconButton(onClick = onEliminar, modifier = Modifier.clip(RoundedCornerShape(5.dp))) { Icon(imageVector = Icons.Filled.Delete, contentDescription = "Eliminar") }
+        Row(Modifier.width(96.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            IconButton(
+                onClick = onAplicar,
+                enabled = !row.isApplying,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            ) { Icon(imageVector = Icons.Filled.Check, contentDescription = "Aplicar") }
+
+            IconButton(
+                onClick = onEliminar,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            ) { Icon(imageVector = Icons.Filled.Delete, contentDescription = "Eliminar") }
         }
     }
 }

@@ -1,6 +1,7 @@
 package ar.com.nexofiscal.nexofiscalposv2.network
 
 import android.util.Log
+import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
@@ -17,14 +18,41 @@ object ApiClient {
         .writeTimeout(120, TimeUnit.SECONDS)   // Tiempo de espera para enviar datos
         .build()
 
+    @Volatile
+    private var retrofit: Retrofit? = null
+    @Volatile
+    private var currentBaseUrl: String? = null
 
-    private val retrofit: Retrofit =
-        Retrofit.Builder()
-            .baseUrl("https://test.nexofiscaltest.com.ar/")
-            .client(okHttpClient)
-            .build()
-    private val api: ApiService = retrofit.create(ApiService::class.java)
+    private fun ensureRetrofit(): Retrofit {
+        val target = SessionManager.getApiBaseUrl().ensureSlash()
+        if (retrofit == null || currentBaseUrl != target) {
+            Log.i(TAG, "(Re)creando Retrofit con baseUrl=$target")
+            currentBaseUrl = target
+            retrofit = Retrofit.Builder()
+                .baseUrl(target)
+                .client(okHttpClient)
+                .build()
+            api = retrofit!!.create(ApiService::class.java)
+        }
+        return retrofit!!
+    }
+
+    // api ya no es val inmutable
+    @Volatile
+    private var api: ApiService? = null
+
+    fun refreshBaseUrl() { // Forzar recreación en próximo uso
+        currentBaseUrl = null
+    }
+
     private val gson = com.google.gson.Gson()
+
+    private fun getApi(): ApiService {
+        ensureRetrofit()
+        return api!!
+    }
+
+    fun String.ensureSlash(): String = if (endsWith('/')) this else this + "/"
 
     /**
      * @param method       GET, POST, PUT o DELETE
@@ -42,65 +70,55 @@ object ApiClient {
         responseType: java.lang.reflect.Type,
         callback: ApiCallback<T?>
     ) {
-        var effectiveHeaders = headers ?: mutableMapOf()
-
+        val effectiveHeaders = headers ?: mutableMapOf()
+        val service = getApi()
         val call: Call<ResponseBody?> = when (method) {
-            HttpMethod.GET -> api.requestGet(url, effectiveHeaders)!!
-            HttpMethod.DELETE -> api.requestDelete(url, effectiveHeaders)!!
+            HttpMethod.GET -> service.requestGet(url, effectiveHeaders)!!
+            HttpMethod.DELETE -> service.requestDelete(url, effectiveHeaders)!!
             HttpMethod.POST -> {
                 val postBody: RequestBody = gson.toJson(bodyObject)
                     .toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
-                api.requestPost(url, effectiveHeaders, postBody)!!
+                service.requestPost(url, effectiveHeaders, postBody)!!
             }
             HttpMethod.PUT -> {
                 val putBody: RequestBody = gson.toJson(bodyObject)
                     .toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
-                api.requestPut(url, effectiveHeaders, putBody)!!
+                service.requestPut(url, effectiveHeaders, putBody)!!
             }
         }
 
         call.enqueue(object : Callback<ResponseBody?> {
             override fun onResponse(c: Call<ResponseBody?>, r: Response<ResponseBody?>) {
                 val httpCode: Int = r.code()
-                if (!r.isSuccessful()) {
+                if (!r.isSuccessful) {
                     val errorMsg = r.errorBody()?.let { safeString(it) } ?: r.message()
                     Log.e(TAG, "Respuesta de error HTTP (código: $httpCode) para la URL: ${c.request().url}. Body: $errorMsg")
                     callback.onError(httpCode, errorMsg)
                     return
                 }
-
                 try {
                     val json: String? = r.body()?.string()
                     Log.d(TAG, "Respuesta del servidor (HTTP $httpCode) para la URL: ${c.request().url}")
                     Log.d(TAG, "Parametros de la petición: ${c.request().url.queryParameterNames.joinToString(", ")}")
                     Log.d(TAG, "Body de la Respuesta: $json")
-
                     if (json.isNullOrBlank()) {
                         callback.onSuccess(httpCode, r.headers(), null)
                         return
                     }
-
                     val jsonElement = com.google.gson.JsonParser.parseString(json)
-
-                    // Verificamos si la respuesta es un objeto JSON para chequear el status.
                     if (jsonElement.isJsonObject) {
                         val jsonObject = jsonElement.asJsonObject
                         val statusInJson = jsonObject.get("status")?.asInt
                         val statusMessageInJson = jsonObject.get("status_message")?.asString
-
                         if (statusInJson != null && statusInJson !in 200..299) {
                             val errorMessage = statusMessageInJson ?: "Error en la respuesta de la API."
                             Log.e(TAG, "Error lógico de la API (status JSON: $statusInJson): $errorMessage")
                             callback.onError(statusInJson, errorMessage)
-                            return // Finalizamos, es un error lógico.
+                            return
                         }
                     }
-                    // ---- FIN DE LA NUEVA LÓGICA ----
-
-                    // 3. Si no hay error lógico, procedemos como antes
                     val payload = gson.fromJson<T?>(json, responseType)
                     callback.onSuccess(httpCode, r.headers(), payload)
-
                 } catch (e: java.io.IOException) {
                     Log.e(TAG, "Error de Parseo IO", e)
                     callback.onError(httpCode, "Error de Parseo IO: " + e.message)
@@ -108,7 +126,6 @@ object ApiClient {
                     Log.e(TAG, "Error de Sintaxis JSON", e)
                     callback.onError(httpCode, "Error de Sintaxis JSON: " + e.message)
                 } catch (e: Exception) {
-                    // Captura cualquier otro error durante el parseo del JSON, como un campo inesperado
                     Log.e(TAG, "Error procesando la respuesta JSON", e)
                     callback.onError(httpCode, "Error inesperado al procesar la respuesta: " + e.message)
                 }
