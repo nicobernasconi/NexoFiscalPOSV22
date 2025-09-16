@@ -21,6 +21,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.Headers
 import java.lang.reflect.Type
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -28,6 +29,7 @@ object UploadManager {
 
     private const val TAG = "UploadManager"
     private val gson = Gson()
+    private val uploadInProgress = AtomicBoolean(false)
     /**
      * Inicia el SyncService en segundo plano para ejecutar una única
      * subida de datos locales.
@@ -43,33 +45,46 @@ object UploadManager {
     }
 
     suspend fun uploadLocalChanges(context: Context, token: String) {
-        val db = AppDatabase.getInstance(context)
-        val headers = mutableMapOf<String?, String?>("Authorization" to "Bearer $token")
+        if (!uploadInProgress.compareAndSet(false, true)) {
+            Log.w(TAG, "El proceso de subida ya está en ejecución. Omitiendo esta llamada.")
+            return
+        }
 
-        withContext(Dispatchers.IO) {
-            Log.d(TAG, "================================================")
-            Log.d(TAG, "INICIANDO PROCESO DE SUBIDA DE CAMBIOS LOCALES")
-            Log.d(TAG, "================================================")
+        try {
+            val db = AppDatabase.getInstance(context)
+            val headers = mutableMapOf<String?, String?>("Authorization" to "Bearer $token")
 
-            // --- Orden de subida por dependencias ---
+            withContext(Dispatchers.IO) {
+                Log.d(TAG, "================================================")
+                Log.d(TAG, "INICIANDO PROCESO DE SUBIDA DE CAMBIOS LOCALES")
+                Log.d(TAG, "================================================")
 
-            uploadAgrupaciones(db, headers)
-            uploadCategorias(db, headers)
-            uploadFamilias(db, headers)
-            uploadClientes(db, headers)
-            uploadFormasDePago(db, headers)
-            uploadMonedas(db, headers)
-            uploadPromociones(db, headers)
-            uploadTipoDocumento(db, headers)
-            uploadTipoIVA(db, headers)
-            uploadUnidades(db, headers)
-            uploadProveedores(db, headers)
-            uploadProductos(db, headers)
-            uploadComprobantes(db, headers)
+                // --- Orden de subida por dependencias ---
+                uploadAgrupaciones(db, headers)
+                uploadCategorias(db, headers)
+                uploadFamilias(db, headers)
+                uploadClientes(db, headers)
+                uploadFormasDePago(db, headers)
+                uploadMonedas(db, headers)
+                uploadPromociones(db, headers)
+                uploadTipoDocumento(db, headers)
 
-            Log.d(TAG, "================================================")
-            Log.d(TAG, "PROCESO DE SUBIDA FINALIZADO")
-            Log.d(TAG, "================================================")
+                uploadUnidades(db, headers)
+                uploadProveedores(db, headers)
+                uploadProductos(db, headers)
+                // Reemplazo: antes había uploadStock(db, headers)
+                Log.d(TAG, "Llamando a StockActualizacionManager.enviarActualizacionesPendientes desde UploadManager...")
+                StockActualizacionManager.enviarActualizacionesPendientes(context, headers)
+                uploadComprobantes(db, headers)
+
+
+                Log.d(TAG, "================================================")
+                Log.d(TAG, "PROCESO DE SUBIDA FINALIZADO")
+                Log.d(TAG, "================================================")
+            }
+        } finally {
+            uploadInProgress.set(false)
+            Log.d(TAG, "Proceso de subida finalizado. Bloqueo liberado.")
         }
     }
     private suspend fun uploadAgrupaciones(db: AppDatabase, headers: MutableMap<String?, String?>) {
@@ -405,6 +420,7 @@ object UploadManager {
         }
     }
 
+
     private suspend fun uploadFamilias(db: AppDatabase, headers: MutableMap<String?, String?>) {
         val dao = db.familiaDao()
         try {
@@ -568,10 +584,10 @@ object UploadManager {
         val pagoDao = db.comprobantePagoDao()
         val promocionDao = db.comprobantePromocionDao()
         val formaPagoDao = db.formaPagoDao()
-        val promocionDaoForDetails = db.promocionDao()
         val promocionJoinDao = db.comprobantePromocionDao()
-        val promocionDetailDao = db.promocionDao()
+        val promocionDaoForDetails = db.promocionDao()
         try {
+        val promocionDetailDao = db.promocionDao()
             val unsyncedItems = comprobanteDao.getUnsynced()
             if (unsyncedItems.isEmpty()) return
             Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Comprobantes] ---")
@@ -687,6 +703,7 @@ object UploadManager {
         }
     }
 
+
     private suspend fun uploadProveedores(db: AppDatabase, headers: MutableMap<String?, String?>) {
         val dao = db.proveedorDao()
         try {
@@ -730,64 +747,7 @@ object UploadManager {
             Log.e(TAG, "Error general en uploadProveedores: ${e.message}", e)
         }
     }
-    private suspend fun uploadTipoIVA(db: AppDatabase, headers: MutableMap<String?, String?>) {
-        val dao = db.tipoIvaDao()
-        try {
-            val unsyncedItems = dao.getUnsynced()
-            if (unsyncedItems.isEmpty()) {
-                return
-            }
-            Log.d(TAG, "--- Subiendo ${unsyncedItems.size} cambios de [Tipos de IVA] ---")
 
-            for (entity in unsyncedItems) {
-                try {
-                    when (entity.syncStatus) {
-                        SyncStatus.CREATED -> {
-                            // 1. Convertir la entidad a su DTO de subida.
-                            val uploadRequest = entity.toDomainModel().toUploadRequest()
-                            Log.d(TAG, "[TIPO_IVA] Petición POST a /api/tipos_iva. Body: ${gson.toJson(uploadRequest)}")
-
-                            // 2. Realizar la petición POST.
-                            val response = apiRequest<TipoIVA>(
-                                method = HttpMethod.POST,
-                                url = "/api/tipos_iva",
-                                headers = headers,
-                                body = uploadRequest,
-                                responseType = object : TypeToken<TipoIVA>() {}.type
-                            )
-
-                            // 3. Actualizar la entidad local con el ID del servidor.
-                            dao.updateServerIdAndStatus(entity.id, response.id)
-                            Log.i(TAG, "[TIPO_IVA] Éxito POST: LocalID=${entity.id} ahora es ServerID=${response.id}")
-                        }
-                        SyncStatus.UPDATED -> {
-                            // 1. Convertir la entidad a su DTO de subida.
-                            val uploadRequest = entity.toDomainModel().toUploadRequest()
-                            Log.d(TAG, "[TIPO_IVA] Petición PUT a /api/tipos_iva/${entity.serverId}. Body: ${gson.toJson(uploadRequest)}")
-
-                            // 2. Realizar la petición PUT.
-                            apiRequest<Unit>(
-                                method = HttpMethod.PUT,
-                                url = "/api/tipos_iva/${entity.serverId}",
-                                headers = headers,
-                                body = uploadRequest,
-                                responseType = object : TypeToken<Unit>() {}.type
-                            )
-
-                            // 3. Marcar la entidad local como sincronizada.
-                            dao.updateStatusToSyncedByServerId(entity.serverId!!)
-                            Log.i(TAG, "[TIPO_IVA] Éxito PUT: ServerID=${entity.serverId} actualizado.")
-                        }
-                        else -> {}
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "[TIPO_IVA] Falló subida para LocalID ${entity.id} (ServerID: ${entity.serverId}). Error: ${e.message}")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error general en uploadTiposDeIVA: ${e.message}", e)
-        }
-    }
     private suspend fun <T> apiRequest(
         method: HttpMethod,
         url: String,

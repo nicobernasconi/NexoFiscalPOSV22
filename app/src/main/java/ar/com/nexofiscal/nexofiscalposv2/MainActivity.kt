@@ -12,7 +12,7 @@ import android.util.Log
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.compose.BackHandler // --- CAMBIO: Import necesario ---
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -95,13 +95,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        // Eliminado soporte safe area (WindowCompat y colores transparentes)
         val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val prefs = getSharedPreferences("nexofiscal", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("kiosk_mode_enabled", false)) {
-            if (dpm.isLockTaskPermitted(this.packageName)) {
-                startLockTask()
-            }
-        }
+        if (prefs.getBoolean("kiosk_mode_enabled", false)) if (dpm.isLockTaskPermitted(this.packageName)) startLockTask()
         val isOffline = intent.getBooleanExtra("IS_OFFLINE_MODE", false)
         if (isOffline) {
             Handler(Looper.getMainLooper()).postDelayed({
@@ -110,7 +107,7 @@ class MainActivity : ComponentActivity() {
         }
         NotificationHelper.createNotificationChannel(this)
         observeSyncProgress()
-        // Inicializaciones de todos los ViewModels
+        // Inicializar ViewModels
         productoViewModel = ViewModelProvider(this)[ProductoViewModel::class.java]
         clienteViewModel = ViewModelProvider(this)[ClienteViewModel::class.java]
         formaPagoViewModel = ViewModelProvider(this)[FormaPagoViewModel::class.java]
@@ -141,39 +138,27 @@ class MainActivity : ComponentActivity() {
         stockViewModel = ViewModelProvider(this)[StockViewModel::class.java]
 
         currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "AR")).apply {
-            maximumFractionDigits = 2
-            minimumFractionDigits = 2
+            maximumFractionDigits = 2; minimumFractionDigits = 2
         }
 
         setContent {
             NexoFiscalPOSV2Theme {
-                // --- CAMBIO: Se añade el BackHandler aquí para controlar el botón "Volver" ---
-                BackHandler(enabled = true) {
-                    // Cuando el usuario presiona "Volver", no hacemos nada excepto mostrar una notificación.
-                    // Esto bloquea la acción de cerrar la aplicación.
-                    NotificationManager.show(
-                        "El botón de retroceso está deshabilitado. Use el menú para salir.",
-                        NotificationType.INFO
-                    )
+                BackHandler(true) {
+                    NotificationManager.show("El botón de retroceso está deshabilitado. Use el menú para salir.", NotificationType.INFO)
                 }
-
                 val isLoading by LoadingManager.isLoading.collectAsState()
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Box(Modifier.fillMaxSize()) {
                         MainScreen(
-                            onTotalUpdated = { newTotal ->
-                                updateSecondScreenTotal(newTotal)
-                            },
+                            onTotalUpdated = { newTotal -> updateSecondScreenTotal(newTotal) },
                             productoViewModel, clienteViewModel, formaPagoViewModel, tipoViewModel,
                             familiaViewModel, tasaIvaViewModel, unidadViewModel, proveedorViewModel,
                             agrupacionViewModel, comprobanteViewModel, renglonComprobanteViewModel,
                             tipoDocumentoViewModel, tipoIvaViewModel, categoriaViewModel,
                             tipoFormaPagoViewModel, localidadViewModel, promocionViewModel,
-                            paisViewModel, provinciaViewModel, rolViewModel, sucursalViewModel,configuracionViewModel,
-                            usuarioViewModel, vendedorViewModel, cierreCajaViewModel,tipoComprobanteViewModel,monedaViewModel,
+                            paisViewModel, provinciaViewModel, rolViewModel, sucursalViewModel, configuracionViewModel,
+                            usuarioViewModel, vendedorViewModel, cierreCajaViewModel, tipoComprobanteViewModel, monedaViewModel,
                             stockViewModel
-
-
                         )
                         NotificationHost()
                         LoadingDialog(show = isLoading, message = "Sincronizando...")
@@ -182,7 +167,6 @@ class MainActivity : ComponentActivity() {
             }
         }
         setupSecondScreen()
-        // Registrar listener para asegurar visibilidad al conectar/desconectar
         val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         dm.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
     }

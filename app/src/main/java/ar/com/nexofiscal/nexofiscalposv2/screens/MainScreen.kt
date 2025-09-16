@@ -580,8 +580,8 @@ fun MainScreen(
 
             if (isDigit) {
                 val delta = now - lastKeyTime
-                // NUEVO: si campo cantidad enfocado, consumir siempre para no ensuciar el TextField
-                val treatAsScanner = scanning || delta in 1..scanThresholdMs || quantityFieldFocused
+                // No interceptar cuando el campo de cantidad está enfocado (permitir escribir)
+                val treatAsScanner = !quantityFieldFocused && (scanning || delta in 1..scanThresholdMs)
                 if (treatAsScanner) {
                     scanning = true
                     scanBuffer += when (event.key) {
@@ -1349,11 +1349,22 @@ private fun SaleItemRow(item: SaleItem, onRemove: () -> Unit, onQuantityFieldFoc
         mutableStateOf(TextFieldValue(String.format(Locale.US, "%.2f", item.precio)))
     }
     var isPriceFocused by remember { mutableStateOf(false) }
+    var pricePendingSelectAll by remember { mutableStateOf(false) }
 
     LaunchedEffect(item.precio, isPriceFocused) {
         val modelPriceFormatted = String.format(Locale.US, "%.2f", item.precio)
         if (!isPriceFocused && precioTextFieldValue.text != modelPriceFormatted) {
             precioTextFieldValue = precioTextFieldValue.copy(text = modelPriceFormatted)
+        }
+    }
+
+    // Seleccionar todo tras el toque/click que da foco (siguiente frame)
+    LaunchedEffect(isPriceFocused, pricePendingSelectAll) {
+        if (isPriceFocused && pricePendingSelectAll) {
+            kotlinx.coroutines.yield()
+            val end = precioTextFieldValue.text.length
+            precioTextFieldValue = precioTextFieldValue.copy(selection = TextRange(0, end))
+            pricePendingSelectAll = false
         }
     }
 
@@ -1414,10 +1425,7 @@ private fun SaleItemRow(item: SaleItem, onRemove: () -> Unit, onQuantityFieldFoc
                         .onFocusChanged { focusState ->
                             isPriceFocused = focusState.isFocused
                             if (focusState.isFocused) {
-                                val end = precioTextFieldValue.text.length
-                                precioTextFieldValue = precioTextFieldValue.copy(
-                                    selection = TextRange(0, end)
-                                )
+                                pricePendingSelectAll = true
                             }
                         }
                         .background(
@@ -1458,12 +1466,25 @@ private fun QuantitySelector(
     onQuantityChange: (Double) -> Unit,
     onQuantityFieldFocusChange: (Boolean) -> Unit
 ) {
-    var textValue by remember { mutableStateOf(String.format(Locale.US, "%.3f", quantity)) }
+    var textValue by remember { mutableStateOf(TextFieldValue(String.format(Locale.US, "%.3f", quantity))) }
     var isFocused by remember { mutableStateOf(false) }
+    var pendingSelectAll by remember { mutableStateOf(false) }
 
     LaunchedEffect(quantity) {
         if (!isFocused) {
-            textValue = String.format(Locale.US, "%.3f", quantity)
+            val formatted = String.format(Locale.US, "%.3f", quantity)
+            if (textValue.text != formatted) {
+                textValue = textValue.copy(text = formatted, selection = TextRange(formatted.length))
+            }
+        }
+    }
+
+    // Seleccionar todo tras el toque/click que da foco (siguiente frame)
+    LaunchedEffect(isFocused, pendingSelectAll) {
+        if (isFocused && pendingSelectAll) {
+            kotlinx.coroutines.yield()
+            textValue = textValue.copy(selection = TextRange(0, textValue.text.length))
+            pendingSelectAll = false
         }
     }
 
@@ -1480,13 +1501,12 @@ private fun QuantitySelector(
 
         BasicTextField(
             value = textValue,
-            onValueChange = { newText ->
+            onValueChange = { newValue ->
+                val newText = newValue.text
                 if (newText.matches(Regex("^\\d*\\.?\\d{0,3}$"))) {
-                    textValue = newText
+                    textValue = newValue
                     val newQuantity = newText.toDoubleOrNull()
-                    if (newQuantity != null) {
-                        onQuantityChange(newQuantity)
-                    }
+                    if (newQuantity != null) onQuantityChange(newQuantity)
                 }
             },
             modifier = Modifier
@@ -1494,6 +1514,9 @@ private fun QuantitySelector(
                 .onFocusChanged { focusState ->
                     isFocused = focusState.isFocused
                     onQuantityFieldFocusChange(isFocused)
+                    if (focusState.isFocused) {
+                        pendingSelectAll = true
+                    }
                 }
                 .border(1.dp, Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
                 .padding(vertical = 6.dp),

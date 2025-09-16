@@ -1277,9 +1277,19 @@ fun Comprobante.toUploadRequest(): ComprobanteUploadRequest {
 }
 
 fun RenglonComprobante.toUploadRequest(comprobanteServerId: Int): RenglonUploadRequest {
+    // FIX: Evitar NPE cuando 'producto' viene null en el JSON almacenado (caso NC u otros)
+    // Se prioriza el campo primario 'productoId' y solo si es 0 se intenta leer desde 'producto?.id'.
+    val resolvedProductoId = when {
+        this.productoId != 0 -> this.productoId
+        this.producto != null && this.producto.id != 0 -> this.producto.id
+        else -> 0
+    }
+    if (resolvedProductoId == 0) {
+        // Lanzamos excepción para que el try/catch superior marque el renglón como fallido y reintente luego
+        throw IllegalStateException("Renglón ${this.id}: productoId no definido (productoId=0 y producto?.id=0/null)")
+    }
     return RenglonUploadRequest(
-
-        productoId = this.producto.id,
+        productoId = resolvedProductoId,
         descripcion = this.descripcion,
         cantidad = this.cantidad,
         precioUnitario = this.precioUnitario,
@@ -1439,3 +1449,105 @@ fun Gasto.toEntity(): GastoEntity {
     )
 }
 fun List<Gasto?>.toGastoEntityList(): List<GastoEntity> = this.mapNotNull { it?.toEntity() }
+
+fun Comprobante.toNewLocalEntity(): ComprobanteEntity {
+    val ncTypes = listOf(3,8,13,53)
+    val resolvedTipoComprobanteId = this.tipoComprobanteId ?: if (this.tipoFactura in ncTypes) 4 else null
+    return ComprobanteEntity(
+        id = 0,
+        serverId = null,
+        syncStatus = SyncStatus.CREATED,
+        numero = this.numero,
+        cuotas = this.cuotas,
+        clienteId = this.clienteId,
+        remito = this.remito,
+        persona = this.persona,
+        provinciaId = this.provinciaId,
+        fecha = this.fecha,
+        fechaBaja = this.fechaBaja,
+        motivoBaja = this.motivoBaja,
+        hora = this.hora,
+        fechaProceso = this.fechaProceso,
+        letra = this.letra,
+        numeroFactura = this.numeroFactura,
+        prefijoFactura = this.prefijoFactura,
+        operacionNegocioId = this.operacionNegocioId,
+        retencionIva = this.retencionIva,
+        retencionIibb = this.retencionIibb,
+        retencionGanancias = this.retencionGanancias,
+        porcentajeGanancias = this.porcentajeGanancias,
+        porcentajeIibb = this.porcentajeIibb,
+        porcentajeIva = this.porcentajeIva,
+        noGravado = this.noGravado,
+        importeIva = this.importeIva,
+        total = this.total,
+        totalPagado = this.totalPagado,
+        condicionVentaId = this.condicionVentaId,
+        descripcionFlete = this.descripcionFlete,
+        usuarioId = SessionManager.usuarioId,
+        vendedorId = this.vendedorId,
+        recibo = this.recibo,
+        observaciones1 = this.observaciones1,
+        observaciones2 = this.observaciones2,
+        observaciones3 = this.observaciones3,
+        observaciones4 = this.observaciones4,
+        descuento = this.descuento,
+        descuento1 = this.descuento1,
+        descuento2 = this.descuento2,
+        descuento3 = this.descuento3,
+        descuento4 = this.descuento4,
+        iva2 = this.iva2,
+        impresa = this.impresa,
+        cancelado = this.cancelado,
+        nombreCliente = this.nombreCliente,
+        direccionCliente = this.direccionCliente,
+        localidadCliente = this.localidadCliente,
+        garantia = this.garantia,
+        concepto = this.concepto,
+        notas = this.notas,
+        lineaPagoUltima = this.lineaPagoUltima,
+        relacionTk = this.relacionTk,
+        totalIibb = this.totalIibb,
+        importeIibb = this.importeIibb,
+        provinciaCategoriaIibbId = this.provinciaCategoriaIibbId,
+        importeRetenciones = this.importeRetenciones,
+        provinciaIvaProveedorId = this.provinciaIvaProveedorId,
+        gananciasProveedorId = this.gananciasProveedorId,
+        importeGanancias = this.importeGanancias,
+        numeroIibb = this.numeroIibb,
+        numeroGanancias = this.numeroGanancias,
+        gananciasProveedor = this.gananciasProveedor,
+        cae = this.cae,
+        fechaVencimiento = this.fechaVencimiento,
+        remitoCliente = this.remitoCliente,
+        textoDolares = this.textoDolares,
+        comprobanteFinal = this.comprobanteFinal,
+        numeroGuia1 = this.numeroGuia1,
+        numeroGuia2 = this.numeroGuia2,
+        numeroGuia3 = this.numeroGuia3,
+        tipoAlicuota1 = this.tipoAlicuota1,
+        tipoAlicuota2 = this.tipoAlicuota2,
+        tipoAlicuota3 = this.tipoAlicuota3,
+        importeIva105 = this.importeIva105,
+        importeIva21 = this.importeIva21,
+        importeIva0 = this.importeIva0,
+        noGravadoIva105 = this.noGravadoIva105,
+        noGravadoIva21 = this.noGravadoIva21,
+        noGravadoIva0 = this.noGravadoIva0,
+        direccionEntrega = this.direccionEntrega,
+        fechaEntrega = this.fechaEntrega,
+        horaEntrega = this.horaEntrega,
+        empresaId = this.empresaId,
+        puntoVenta = this.puntoVenta,
+        tipoFactura = this.tipoFactura,
+        tipoDocumento = this.tipoDocumento,
+        numeroDeDocumento = this.numeroDeDocumento,
+        qr = this.qr,
+        comprobanteIdBaja = this.comprobanteIdBaja,
+        sucursalId = this.sucursalId,
+        descuentoTotal = this.descuentoTotal,
+        incrementoTotal = this.incrementoTotal,
+        tipoComprobanteId = resolvedTipoComprobanteId,
+        cierreCajaId = this.cierreCajaId
+    )
+}

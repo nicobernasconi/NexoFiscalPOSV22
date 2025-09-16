@@ -4,12 +4,14 @@ import android.content.Context
 import android.print.PrintManager
 import android.util.Log
 import ar.com.nexofiscal.nexofiscalposv2.R
+import ar.com.nexofiscal.nexofiscalposv2.db.AppDatabase
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.InformeFiltros
 import ar.com.nexofiscal.nexofiscalposv2.db.viewmodel.InformeResultados
 import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
 import ar.com.nexofiscal.nexofiscalposv2.models.RenglonComprobante
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
+import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -24,14 +26,46 @@ object PrintingManager {
             val ticketPrinter = TicketPrinter()
             val pdfGenerator = PdfTicketGenerator()
 
+            // Nueva lógica: si es Nota de Crédito, intentar usar comprobanteIdBaja (serverId original)
+            val esNotaCredito = (comprobante.tipoFactura in listOf(3,8,13,53)) || comprobante.tipoComprobanteId == 4
+            val renglonesEfectivos: List<RenglonComprobante> = if (esNotaCredito && !comprobante.comprobanteIdBaja.isNullOrBlank()) {
+                val originalServerId = comprobante.comprobanteIdBaja.toIntOrNull()
+                if (originalServerId != null) {
+                    try {
+                        val db = AppDatabase.getInstance(context)
+                        val originalEntity = db.comprobanteDao().getByServerId(originalServerId)
+                        if (originalEntity != null) {
+                            val originales = db.renglonComprobanteDao().getByComprobanteId(originalEntity.id)
+                            if (originales.isNotEmpty()) {
+                                Log.d("PrintingManager", "NC: usando ${originales.size} renglones del comprobante original serverId=$originalServerId localId=${originalEntity.id}")
+                                val gson = Gson()
+                                originales.map { gson.fromJson(it.data, RenglonComprobante::class.java) }
+                            } else {
+                                Log.w("PrintingManager", "NC: comprobante original sin renglones, uso renglones provistos (${renglones.size})")
+                                renglones
+                            }
+                        } else {
+                            Log.w("PrintingManager", "NC: no se encontró comprobante original serverId=$originalServerId, uso renglones provistos (${renglones.size})")
+                            renglones
+                        }
+                    } catch (e: Exception) {
+                        Log.e("PrintingManager", "Error obteniendo renglones originales para NC: ${e.message}")
+                        renglones
+                    }
+                } else {
+                    Log.w("PrintingManager", "NC: comprobanteIdBaja no es numérico (${comprobante.comprobanteIdBaja}), uso renglones provistos (${renglones.size})")
+                    renglones
+                }
+            } else renglones
+
             try {
                 // Intento 1: Impresora térmica
-                ticketPrinter.printTicket(comprobante, renglones)
+                ticketPrinter.printTicket(comprobante, renglonesEfectivos)
             } catch (e: PrintingException) {
                 // Intento 2 (Fallback): Generar PDF para impresión estándar de Android
                 Log.w("PrintingManager", "Error de impresora térmica, generando PDF: ${e.message}")
                 try {
-                    val file = pdfGenerator.createPdfTicket(context, comprobante, renglones)
+                    val file = pdfGenerator.createPdfTicket(context, comprobante, renglonesEfectivos)
                     val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
                     val jobName = "${context.getString(R.string.app_name)} Documento"
                     withContext(Dispatchers.Main) {

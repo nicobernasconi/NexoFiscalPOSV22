@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -58,7 +59,9 @@ fun <T: Any> CrudListScreen(
     onAttemptDelete: ((T) -> Unit)? = null, // Renombrado de onDelete
     useInternalDeleteDialog: Boolean = true,
     onCreate: (() -> Unit)? = null,
-    isActionEnabled: ((T) -> Boolean)? = null,
+    isActionEnabled: ((T) -> Boolean)? = null, // compatibilidad: si no se pasan banderas específicas se usa para ambos
+    isEditEnabled: ((T) -> Boolean)? = null,
+    isDeleteEnabled: ((T) -> Boolean)? = null,
     screenMode: CrudScreenMode = CrudScreenMode.VIEW_SELECT,
     itemKey: ((T) -> Any)? = null,
     searchHint: String = stringResource(R.string.default_search_hint)
@@ -151,21 +154,24 @@ fun <T: Any> CrudListScreen(
                             ) { index ->
                                 val item = items[index]
                                 if (item != null) {
+                                    val actionEnabled = isActionEnabled?.invoke(item) ?: true
+                                    val editEnabled = isEditEnabled?.invoke(item) ?: actionEnabled
+                                    val deleteEnabled = isDeleteEnabled?.invoke(item) ?: actionEnabled
                                     CrudListItem(
                                         item = item,
                                         itemContent = { itemContent(item) },
                                         onSelect = { onSelect(item) },
                                         onEdit = onAttemptEdit,
-                                         onDelete  = { selectedItem ->
+                                        onDelete  = { selectedItem ->
                                             if (useInternalDeleteDialog) {
                                                 itemToDelete = selectedItem
                                                 showDeleteDialog = true
                                             } else {
-                                                // Si el diálogo interno está desactivado, llamamos directamente a la acción.
                                                 onAttemptDelete?.invoke(selectedItem)
                                             }
                                         },
-                                        isActionEnabled = isActionEnabled?.invoke(item) ?: true,
+                                        isEditEnabled = editEnabled,
+                                        isDeleteEnabled = deleteEnabled,
                                         showSelectActionIcon = screenMode == CrudScreenMode.VIEW_SELECT,
                                         screenMode = screenMode
                                     )
@@ -220,11 +226,12 @@ fun <T> CrudListItem(
     onSelect: () -> Unit,
     onEdit: ((T) -> Unit)?,
     onDelete: ((T) -> Unit)?,
-    isActionEnabled: Boolean,
+    isEditEnabled: Boolean,
+    isDeleteEnabled: Boolean,
     showSelectActionIcon: Boolean,
     screenMode: CrudScreenMode
 ) {
-    val backgroundColor = if (isActionEnabled) GrisClaro else GrisClaro.copy(alpha = 0.5f)
+    val backgroundColor = if (isEditEnabled || isDeleteEnabled) GrisClaro else GrisClaro.copy(alpha = 0.5f)
 
     Card(
         modifier = Modifier
@@ -253,13 +260,23 @@ fun <T> CrudListItem(
                 )
             } else {
                 if (onEdit != null) {
-                    IconButton(onClick = { onEdit(item) }, enabled = isActionEnabled, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar")
+                    val (iconEdit, descEdit) = if (screenMode == CrudScreenMode.EDIT_DELETE_EDIT_PRINT) {
+                        Icons.Default.Print to "Imprimir"
+                    } else {
+                        Icons.Default.Edit to "Editar"
+                    }
+                    IconButton(onClick = { onEdit(item) }, enabled = isEditEnabled, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
+                        Icon(iconEdit, contentDescription = descEdit)
                     }
                 }
                 if (onDelete != null) {
-                    IconButton(onClick = { onDelete(item) }, enabled = isActionEnabled, modifier = Modifier.clip(RoundedCornerShape(5.dp))) {
-                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = RojoError)
+                    IconButton(
+                        onClick = { onDelete(item) },
+                        enabled = isDeleteEnabled,
+                        modifier = Modifier.clip(RoundedCornerShape(5.dp))
+                    ) {
+                        val deleteTint = if (isDeleteEnabled) RojoError else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = deleteTint)
                     }
                 }
             }

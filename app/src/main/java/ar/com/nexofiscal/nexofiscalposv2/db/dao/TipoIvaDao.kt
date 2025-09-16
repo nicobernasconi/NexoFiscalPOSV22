@@ -70,4 +70,7 @@ interface TipoIvaDao {
 
     @Query("DELETE FROM tipos_iva")
     suspend fun clearAll()
+
+    @Query("SELECT * FROM tipos_iva WHERE syncStatus != :statusDeleted")
+    suspend fun getAll(statusDeleted: SyncStatus = SyncStatus.DELETED): List<TipoIvaEntity>
 }

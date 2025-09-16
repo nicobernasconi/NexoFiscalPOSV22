@@ -11,6 +11,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toDomainModel
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.repository.*
+import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
 import ar.com.nexofiscal.nexofiscalposv2.managers.UploadManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Cliente
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
@@ -83,6 +84,13 @@ class ClienteViewModel(application: Application) : AndroidViewModel(application)
 
     fun save(cliente: Cliente) { // Recibe el modelo de dominio
         viewModelScope.launch {
+            // VALIDACIÓN: impedir guardar cliente con mismo CUIT que la empresa
+            val empresaCuit = SessionManager.empresaCuit?.replace("-", "")?.trim()
+            val clienteCuit = cliente.cuit?.replace("-", "")?.trim()
+            if (!empresaCuit.isNullOrBlank() && !clienteCuit.isNullOrBlank() && empresaCuit == clienteCuit) {
+                NotificationManager.show("No se puede registrar un cliente con el mismo CUIT de la empresa.", NotificationType.ERROR)
+                return@launch
+            }
             val entity = cliente.toEntity() // Esta llamada ahora preserva el localId
             if (entity.serverId == null || entity.serverId == 0) {
                 entity.syncStatus = SyncStatus.CREATED

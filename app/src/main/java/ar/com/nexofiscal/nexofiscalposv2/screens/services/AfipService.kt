@@ -7,9 +7,6 @@ import ar.com.nexofiscal.nexofiscalposv2.managers.AfipVoucherManager
 import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
 import ar.com.nexofiscal.nexofiscalposv2.models.Cliente
 import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
-import ar.com.nexofiscal.nexofiscalposv2.models.Localidad
-import ar.com.nexofiscal.nexofiscalposv2.models.Provincia
-import ar.com.nexofiscal.nexofiscalposv2.models.TipoIVA
 import ar.com.nexofiscal.nexofiscalposv2.ui.LoadingManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
@@ -298,5 +295,101 @@ object AfipService {
         } finally {
             LoadingManager.hide()
         }
+    }
+
+    /**
+     * Procesa una nota de crédito electrónica y obtiene el CAE de AFIP
+     */
+    suspend fun procesarNotaCredito(comprobanteOriginal: Comprobante): Comprobante {
+        LoadingManager.show()
+        try {
+            val credenciales = validarCredencialesAfip()
+            val authResponse = AfipAuthManager.getAuthToken(
+                credenciales.cuit,
+                credenciales.cert,
+                credenciales.key
+            ) ?: throw Exception("Fallo autenticación AFIP para NC")
+
+            // Construir NC base (sin forzar letra ni tipoReceptorIVA aquí)
+            val ncBase = AfipVoucherManager.generarNotaDeCredito(comprobanteOriginal)
+                .copy(
+                    puntoVenta = credenciales.puntoVenta,
+                    tipoFactura = ncBaseTipo(comprobanteOriginal.tipoFactura)
+                )
+
+            // Crear en AFIP
+            val (detail, numeroNC) = AfipVoucherManager.createNotaDeCredito(
+                auth = authResponse,
+                cuit = credenciales.cuit,
+                comprobanteAnulado = comprobanteOriginal
+            )
+
+            val (tipoDoc, nroDoc) = obtenerDatosDocumento(comprobanteOriginal.cliente)
+            val qr = generarQrGenerico(
+                credenciales = credenciales,
+                tipoComprobanteAfip = ncBase.tipoFactura!!,
+                numero = numeroNC,
+                total = ncBase.total?.toDoubleOrNull() ?: 0.0,
+                tipoDocRec = tipoDoc,
+                nroDocRec = nroDoc,
+                cae = detail.cae
+            )
+
+            return ncBase.copy(
+                numeroFactura = numeroNC,
+                cae = detail.cae,
+                fechaVencimiento = detail.fechaVencimiento,
+                qr = qr
+            )
+        } catch (e: Exception) {
+            NotificationManager.show(e.message ?: "Error generando Nota de Crédito", NotificationType.ERROR)
+            throw e
+        } finally {
+            LoadingManager.hide()
+        }
+    }
+
+    /**
+     * Mapea el tipo de factura original al tipo de Nota de Crédito correspondiente
+     */
+    private fun ncBaseTipo(tipoFacturaOriginal: Int?): Int? {
+        return when (tipoFacturaOriginal) {
+            1 -> 3   // Factura A -> NC A
+            6 -> 8   // Factura B -> NC B
+            11 -> 13 // Factura C -> NC C
+            51 -> 53 // Factura M -> NC M
+            else -> null
+        }
+    }
+
+    /**
+     * Genera el QR para comprobantes electrónicos (NC) con los campos mínimos requeridos por AFIP
+     */
+    private fun generarQrGenerico(
+        credenciales: CredencialesAfip,
+        tipoComprobanteAfip: Int,
+        numero: Int,
+        total: Double,
+        tipoDocRec: Int,
+        nroDocRec: Long,
+        cae: String?
+    ): String {
+        val json = JSONObject().apply {
+            put("ver", 1)
+            put("fecha", SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()))
+            put("cuit", credenciales.cuit.toLong())
+            put("ptoVta", credenciales.puntoVenta)
+            put("tipoCmp", tipoComprobanteAfip)
+            put("nroCmp", numero)
+            put("importe", total)
+            put("moneda", "PES")
+            put("ctz", 1)
+            put("tipoDocRec", tipoDocRec)
+            put("nroDocRec", nroDocRec)
+            put("tipoCodAut", "E")
+            put("codAut", cae)
+        }
+        val b64 = Base64.encodeToString(json.toString().toByteArray(), Base64.NO_WRAP)
+        return "https://www.afip.gob.ar/fe/qr/?p=$b64"
     }
 }

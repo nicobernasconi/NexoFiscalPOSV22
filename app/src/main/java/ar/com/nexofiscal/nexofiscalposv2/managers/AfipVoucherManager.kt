@@ -80,36 +80,28 @@ object AfipVoucherManager {
         val fechaAfip = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
 
         val subtotalesIva = listOf(
-            if (comprobante.importeIva21!! > 0) AlicIva(id = 5, baseImp = comprobante.noGravadoIva21!!, importe = comprobante.importeIva21!!) else null,
-            if (comprobante.importeIva105!! > 0) AlicIva(id = 4, baseImp = comprobante.noGravadoIva105!!, importe = comprobante.importeIva105!!) else null,
-            if (comprobante.noGravadoIva0!! > 0) AlicIva(id = 3, baseImp = comprobante.noGravadoIva0!!, importe = 0.0) else null
+            if ((comprobante.importeIva21 ?: 0.0) > 0) AlicIva(id = 5, baseImp = (comprobante.noGravadoIva21 ?: 0.0), importe = (comprobante.importeIva21 ?: 0.0)) else null,
+            if ((comprobante.importeIva105 ?: 0.0) > 0) AlicIva(id = 4, baseImp = (comprobante.noGravadoIva105 ?: 0.0), importe = (comprobante.importeIva105 ?: 0.0)) else null,
+            if ((comprobante.noGravadoIva0 ?: 0.0) > 0) AlicIva(id = 3, baseImp = (comprobante.noGravadoIva0 ?: 0.0), importe = 0.0) else null
         ).filterNotNull()
 
-        // Determinar CondicionIVAReceptorId basado en el tipo de factura y la condición de IVA del cliente
-        // Referencia: https://www.afip.gob.ar/ws/WSCI/tabla_CondicionIVAReceptorId.txt
-        // 1=IVA Responsable Inscripto, 2=IVA Responsable No Inscripto, 3=IVA No Responsable,
-        // 4=IVA Sujeto Exento, 5=Consumidor Final, 6=Responsable Monotributo, 7=Sujeto No Categorizado,
-        // 8=Proveedor del Exterior, 9=Cliente del Exterior, 10=IVA Liberado Ley Nº 19.640,
-        // 11=IVA Responsable Inscripto Agente de Percepción, 12=Pequeño Contribuyente Eventual,
-        // 13=Monotributista Social, 14=Pequeño Contribuyente Eventual Social
-        val clienteSeleccionado = comprobante.cliente
-        val condicionIvaCliente = clienteSeleccionado?.tipoIva?.nombre
-            ?.uppercase(Locale.getDefault()) ?: "CONSUMIDOR" // Predeterminado a Consumidor Final
-        val condicionIvaReceptorId = when {
-            condicionIvaCliente.contains("INSCRIPTO") -> 1
-            condicionIvaCliente.contains("NO INSCRIPTO") -> 2 // Generalmente significa Monotributista o Exento en la práctica para la app
-            condicionIvaCliente.contains("NO RESPONSABLE") -> 3
-            condicionIvaCliente.contains("EXENTO") -> 4
-            condicionIvaCliente.contains("CONSUMIDOR") -> 5
-            condicionIvaCliente.contains("MONOTRIBUTO") -> 6
-            condicionIvaCliente.contains("NO CATEGORIZADO") -> 7
-            condicionIvaCliente.contains("PROVEEDOR DEL EXTERIOR") -> 8
-            condicionIvaCliente.contains("CLIENTE DEL EXTERIOR") -> 9
-            condicionIvaCliente.contains("LIBERADO") -> 10
-            else -> throw Exception("Condición de IVA del cliente no válida: $condicionIvaCliente")
+        // Condición IVA receptor: depende del tipo de contribuyente (cliente)
+        val idInferido = inferCondicionIvaId(comprobante.cliente?.tipoIva?.nombre)
+        val condicionIvaReceptorId = idInferido ?: run {
+            when (comprobante.tipoDocumento) {
+                96 -> 5 // DNI -> Consumidor Final
+                80 -> { // CUIT
+                    val nombre = comprobante.cliente?.tipoIva?.nombre?.uppercase(Locale.getDefault())
+                    when {
+                        nombre?.contains("MONOTRIBUTO") == true -> 5
+                        nombre?.contains("EXENTO") == true -> 4
+                        nombre?.contains("INSCRIPTO") == true -> 1
+                        else -> 5
+                    }
+                }
+                else -> 5
+            }
         }
-
-
 
         val feDetRequest = FECAEDetRequest(
             docTipo = comprobante.tipoDocumento!!,
@@ -175,40 +167,56 @@ object AfipVoucherManager {
         auth: AfipAuthResponse,
         cuit: String,
         comprobanteAnulado: Comprobante
-    ): CreateVoucherDetailResponse {
+    ): Pair<CreateVoucherDetailResponse, Int> { // devuelve detalle y número asignado
         val puntoDeVenta = comprobanteAnulado.puntoVenta!!
-        val tipoNotaDeCredito = 13 // Nota de Crédito C
+        // Mapear tipo factura original a tipo de nota de crédito
+        val tipoNotaDeCredito = when (comprobanteAnulado.tipoFactura) {
+            1 -> 3   // Factura A -> NC A
+            6 -> 8   // Factura B -> NC B
+            11 -> 13 // Factura C -> NC C
+            51 -> 53 // Factura M -> NC M
+            else -> throw IllegalArgumentException("Tipo de factura no soportado para NC: ${comprobanteAnulado.tipoFactura}")
+        }
 
-        // Obtener el último número de comprobante para la Nota de Crédito
+        // Obtener último número autorizado para la NC correspondiente
         val lastVoucher = getLastVoucherNumber(auth, cuit, puntoDeVenta, tipoNotaDeCredito)
         val numeroDeNota = (lastVoucher ?: 0) + 1
 
         val fechaActual = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
 
-        val condicionIvaClienteAnulado = comprobanteAnulado.cliente?.tipoIva?.nombre
-            ?.uppercase(Locale.getDefault()) ?: "CONSUMIDOR" // Predeterminado a Consumidor Final
-        val condicionIvaReceptorId = when {
-            condicionIvaClienteAnulado.contains("INSCRIPTO") -> 1
-            condicionIvaClienteAnulado.contains("NO INSCRIPTO") -> 2 // Generalmente significa Monotributista o Exento en la práctica para la app
-            condicionIvaClienteAnulado.contains("NO RESPONSABLE") -> 3
-            condicionIvaClienteAnulado.contains("EXENTO") -> 4
-            condicionIvaClienteAnulado.contains("CONSUMIDOR") -> 5
-            condicionIvaClienteAnulado.contains("MONOTRIBUTO") -> 6
-            condicionIvaClienteAnulado.contains("NO CATEGORIZADO") -> 7
-            condicionIvaClienteAnulado.contains("PROVEEDOR DEL EXTERIOR") -> 8
-            condicionIvaClienteAnulado.contains("CLIENTE DEL EXTERIOR") -> 9
-            condicionIvaClienteAnulado.contains("LIBERADO") -> 10
-            // No se manejan "MONOTRIBUTISTA SOCIAL", "IVA NO ALCANZADO", "MONOTRIBUTO TRABAJADOR INDEPENDIENTE PROMOVIDO" explícitamente aquí,
-            // se asume que "MONOTRIBUTO" o "NO CATEGORIZADO" cubrirán esos casos o se usa el valor por defecto.
-            else -> 1 // Valor por defecto: Responsable Inscripto
+        // Nuevo: inferir y normalizar condición IVA receptor compatible con el tipo de NC
+        val idInferido = inferCondicionIvaId(comprobanteAnulado.cliente?.tipoIva?.nombre)
+        val condicionIvaReceptorId = normalizarCondicionIvaParaNC(
+            tipoNC = tipoNotaDeCredito,
+            idInferido = idInferido,
+            docTipo = comprobanteAnulado.tipoDocumento,
+            cliente = comprobanteAnulado.cliente
+        )
+
+        val base21 = comprobanteAnulado.noGravadoIva21 ?: 0.0
+        val base105 = comprobanteAnulado.noGravadoIva105 ?: 0.0
+        val base0 = comprobanteAnulado.noGravadoIva0 ?: 0.0
+        val iva21 = comprobanteAnulado.importeIva21 ?: 0.0
+        val iva105 = comprobanteAnulado.importeIva105 ?: 0.0
+        val iva0 = comprobanteAnulado.importeIva0 ?: 0.0 // normalmente 0
+
+        val subtotalesIva = listOf(
+            if (iva21 > 0) AlicIva(id = 5, baseImp = base21, importe = iva21) else null,
+            if (iva105 > 0) AlicIva(id = 4, baseImp = base105, importe = iva105) else null,
+            if (base0 > 0) AlicIva(id = 3, baseImp = base0, importe = 0.0) else null
+        ).filterNotNull()
+
+        // Recalcular importes coherentes para AFIP
+        val impNeto = (base21 + base105 + base0)
+        val impIVA = (iva21 + iva105 + iva0)
+        val impTotalCalculado = impNeto + impIVA
+        val impTotalOriginal = comprobanteAnulado.total?.toDoubleOrNull() ?: impTotalCalculado
+        if (kotlin.math.abs(impTotalCalculado - impTotalOriginal) > 0.05) {
+            Log.w(TAG, "Ajuste impTotal NC: original=${impTotalOriginal} vs calculado=${impTotalCalculado}. Se usará calculado.")
         }
+        val impTotal = if (impTotalOriginal <= 0.0) impTotalCalculado else impTotalCalculado
 
         val feCabReq = FeCabReq(ptoVta = puntoDeVenta, cbteTipo = tipoNotaDeCredito)
-        val subtotalesIva = listOf(
-            if (comprobanteAnulado.importeIva21!! > 0) AlicIva(id = 5, baseImp = comprobanteAnulado.noGravadoIva21!!, importe = comprobanteAnulado.importeIva21!!) else null,
-            if (comprobanteAnulado.importeIva105!! > 0) AlicIva(id = 4, baseImp = comprobanteAnulado.noGravadoIva105!!, importe = comprobanteAnulado.importeIva105!!) else null,
-            if (comprobanteAnulado.noGravadoIva0!! > 0) AlicIva(id = 3, baseImp = comprobanteAnulado.noGravadoIva0!!, importe = 0.0) else null
-        ).filterNotNull()
 
         val feDetRequest = FECAEDetRequest(
             docTipo = comprobanteAnulado.tipoDocumento!!,
@@ -216,16 +224,18 @@ object AfipVoucherManager {
             cbteDesde = numeroDeNota.toLong(),
             cbteHasta = numeroDeNota.toLong(),
             cbteFch = fechaActual,
-            impTotal = comprobanteAnulado.total!!.toDouble(),
-            impNeto = comprobanteAnulado.noGravado!!,
-            impIVA = comprobanteAnulado.importeIva!!,
+            impTotal = impTotal,
+            impNeto = impNeto,
+            impIVA = impIVA,
             iva = if (subtotalesIva.isNotEmpty()) IvaData(subtotalesIva) else null,
             condicionIVAReceptorId = condicionIvaReceptorId,
-            cbtesAsoc = listOf(
-                CbteAsoc(
-                    tipo = comprobanteAnulado.tipoFactura!!,
-                    ptoVta = comprobanteAnulado.puntoVenta!!,
-                    nro = comprobanteAnulado.numeroFactura!!.toLong()
+            cbtesAsoc = CbtesAsocData(
+                cbteAsoc = listOf(
+                    CbteAsoc(
+                        tipo = comprobanteAnulado.tipoFactura!!,
+                        ptoVta = comprobanteAnulado.puntoVenta!!,
+                        nro = comprobanteAnulado.numeroFactura!!.toLong()
+                    )
                 )
             )
         )
@@ -234,39 +244,38 @@ object AfipVoucherManager {
         val params = CreateVoucherParams(auth = AuthPayload(auth.token, auth.sign, cuit), feCAEReq = feCAEReq)
         val request = CreateVoucherRequest(params = params)
 
-        Log.d(TAG, "Creando Nota de Crédito N°$numeroDeNota. Petición: ${Gson().toJson(request)}")
+        Log.d(TAG, "Creando Nota de Crédito N°$numeroDeNota (tipo $tipoNotaDeCredito). Payload: ${Gson().toJson(request)}")
 
-        return withContext(Dispatchers.IO) {
+        val detail = withContext(Dispatchers.IO) {
             try {
                 val response = AfipApiClient.instance.createVoucher(request).execute()
                 if (response.isSuccessful) {
-                    val afipResult = response.body()?.result
-
-                    // Validar si la respuesta de AFIP es un rechazo
+                    val bodyRaw = response.body()
+                    val afipResult = bodyRaw?.result
+                    Log.d(TAG, "Respuesta bruta NC: ${Gson().toJson(bodyRaw)}")
                     if (afipResult?.feCabResp?.resultado == "R") {
-                        val errorMsg = afipResult.errors?.errorDetails?.firstOrNull()?.message
-                            ?: "AFIP rechazó la solicitud sin un mensaje claro."
+                        val errorMsg = afipResult.errors?.errorDetails?.joinToString(" | ") { "${it.code}:${it.message}" }
+                            ?: "AFIP rechazó la solicitud de NC sin mensaje claro."
                         throw Exception(errorMsg)
                     }
-
-                    // Si es Aprobado, extraer el CAE y la fecha de vencimiento
                     val detailResponse = afipResult?.feDetResp?.FECAEDetResponse?.firstOrNull()
                     if (detailResponse?.resultado == "A" && !detailResponse.cae.isNullOrBlank()) {
-                        Log.i(TAG, "CAE obtenido con éxito: ${detailResponse.cae}")
+                        Log.i(TAG, "NC CAE obtenido: ${detailResponse.cae}")
                         detailResponse
                     } else {
-                        throw Exception("Respuesta de AFIP Aprobada pero sin CAE válido.")
+                        throw Exception("Respuesta AFIP aprobada pero sin CAE válido para la NC.")
                     }
                 } else {
                     val errorBody = response.errorBody()?.string()
-                    Log.e(TAG, "Error al crear la Nota de Crédito. Código: ${response.code()}, Mensaje: $errorBody")
-                    throw Exception("Error de comunicación con el servidor de AFIP (${response.code()})")
+                    Log.e(TAG, "Error HTTP al crear NC. Código: ${response.code()}, Mensaje: $errorBody")
+                    throw Exception("Error comunicación AFIP (${response.code()})")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Excepción al crear la Nota de Crédito: ${e.message}")
+                Log.e(TAG, "Excepción al crear NC: ${e.message}", e)
                 throw e
             }
         }
+        return detail to numeroDeNota
     }
 
     /**
@@ -289,35 +298,38 @@ object AfipVoucherManager {
             else -> throw IllegalArgumentException("Tipo de factura no soportado para generar nota de crédito: ${comprobanteAnulado.tipoFactura}")
         }
 
+        // Funciones helper para evitar NPE
+        fun dbl(v: Double?): Double = v ?: 0.0
+        fun strTotal(v: String?): String = (v?.toDoubleOrNull() ?: 0.0).toString()
 
         return Comprobante(
-            id = 0, // Nuevo comprobante, sin ID asignado aún
+            id = 0,
             serverId = null,
             cliente = comprobanteAnulado.cliente,
             clienteId = comprobanteAnulado.clienteId,
             tipoComprobante = comprobanteAnulado.tipoComprobante,
-            tipoComprobanteId = tipoNotaDeCredito,
+            tipoComprobanteId = 4,
             fecha = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
             hora = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()),
-            total = (comprobanteAnulado.total!!.toDouble()).toString(), // Total negativo para la nota de crédito
+            total = strTotal(comprobanteAnulado.total),
             totalPagado = comprobanteAnulado.totalPagado,
-            descuentoTotal = "0.0", // Sin descuentos
-            incrementoTotal = "0.0", // Sin incrementos
-            importeIva = (comprobanteAnulado.importeIva!!).toDouble(),
-            noGravado = (comprobanteAnulado.noGravado!!).toDouble(),
-            importeIva21 = (comprobanteAnulado.importeIva21!!).toDouble(),
-            importeIva105 = (comprobanteAnulado.importeIva105!!).toDouble(),
-            importeIva0 = (comprobanteAnulado.importeIva0!!).toDouble(),
-            noGravadoIva21 = (comprobanteAnulado.noGravadoIva21!!).toDouble(),
-            noGravadoIva105 = (comprobanteAnulado.noGravadoIva105!!).toDouble(),
-            noGravadoIva0 = (comprobanteAnulado.noGravadoIva0!!).toDouble(),
-            numero = null, // Número aún no asignado
+            descuentoTotal = "0.0",
+            incrementoTotal = "0.0",
+            importeIva = dbl(comprobanteAnulado.importeIva),
+            noGravado = dbl(comprobanteAnulado.noGravado),
+            importeIva21 = dbl(comprobanteAnulado.importeIva21),
+            importeIva105 = dbl(comprobanteAnulado.importeIva105),
+            importeIva0 = dbl(comprobanteAnulado.importeIva0),
+            noGravadoIva21 = dbl(comprobanteAnulado.noGravadoIva21),
+            noGravadoIva105 = dbl(comprobanteAnulado.noGravadoIva105),
+            noGravadoIva0 = dbl(comprobanteAnulado.noGravadoIva0),
+            numero = null,
             puntoVenta = comprobanteAnulado.puntoVenta,
             empresaId = comprobanteAnulado.empresaId,
             sucursalId = comprobanteAnulado.sucursalId,
             vendedorId = comprobanteAnulado.vendedorId,
-            formas_de_pago = emptyList(), // Sin formas de pago
-            promociones = emptyList(), // Sin promociones
+            formas_de_pago = emptyList(),
+            promociones = emptyList(),
             cuotas = null,
             remito = null,
             persona = null,
@@ -325,8 +337,8 @@ object AfipVoucherManager {
             fechaBaja = null,
             motivoBaja = null,
             fechaProceso = null,
-            letra = comprobanteAnulado.letra, // Mantener la misma letra
-            numeroFactura = null, // Número aún no asignado
+            letra = comprobanteAnulado.letra,
+            numeroFactura = null,
             prefijoFactura = null,
             operacionNegocioId = null,
             retencionIva = null,
@@ -382,15 +394,67 @@ object AfipVoucherManager {
             direccionEntrega = null,
             fechaEntrega = null,
             horaEntrega = null,
-            tipoFactura = tipoNotaDeCredito, // Usar el tipo de nota de crédito
+            tipoFactura = tipoNotaDeCredito,
             tipoDocumento = comprobanteAnulado.tipoDocumento,
             numeroDeDocumento = comprobanteAnulado.numeroDeDocumento,
             qr = null,
-            comprobanteIdBaja = comprobanteAnulado.id.toString(),
+            comprobanteIdBaja = (comprobanteAnulado.serverId ?: comprobanteAnulado.id).toString(),
             vendedor = comprobanteAnulado.vendedor,
             provincia = comprobanteAnulado.provincia,
             localId = 0
         )
+    }
+
+    // Helper: infiere id de condición de IVA a partir del nombre de la condición
+    private fun inferCondicionIvaId(nombreCondicion: String?): Int? {
+        val n = nombreCondicion?.uppercase(Locale.getDefault()) ?: return null
+        return when {
+            n.contains("INSCRIPTO") -> 1
+            n.contains("NO INSCRIPTO") -> 2
+            n.contains("NO RESPONSABLE") -> 3
+            n.contains("EXENTO") -> 4
+            n.contains("CONSUMIDOR") -> 5
+            n.contains("MONOTRIBUTO") -> 5
+            n.contains("NO CATEGORIZADO") -> 7
+            n.contains("PROVEEDOR DEL EXTERIOR") -> 8
+            n.contains("CLIENTE DEL EXTERIOR") -> 9
+            n.contains("LIBERADO") -> 10
+            else -> null
+        }
+    }
+
+    // Helper: normaliza id de condición de IVA según el tipo de NC (compatibilidad AFIP)
+    private fun normalizarCondicionIvaParaNC(
+        tipoNC: Int,
+        idInferido: Int?,
+        docTipo: Int?,
+        cliente: Cliente?
+    ): Int {
+        val id = idInferido ?: 5 // default CF
+        return when (tipoNC) {
+            3, 53 -> { // NC A o NC M
+                // Para clases A/M, evitar CF/Monotributo; forzar RI si no coincide
+                if (id in setOf(1, 11)) 1 else 1
+            }
+            8 -> { // NC B
+                // Permitidos típicos: Exento(4), CF(5), Monotributo(6), No categ(7)
+                if (id in setOf(4, 5, 6, 7)) id
+                else {
+                    // Elegir heurística según documento/condición
+                    when {
+                        cliente?.tipoIva?.nombre?.uppercase(Locale.getDefault())?.contains("MONOTRIBUTO") == true -> 5
+                        cliente?.tipoIva?.nombre?.uppercase(Locale.getDefault())?.contains("EXENTO") == true -> 4
+                        docTipo == 96 -> 5
+                        else -> 5
+                    }
+                }
+            }
+            13 -> { // NC C
+                // Generalmente aceptan varias; usar inferido si está, sino CF
+                id
+            }
+            else -> id
+        }
     }
 
 

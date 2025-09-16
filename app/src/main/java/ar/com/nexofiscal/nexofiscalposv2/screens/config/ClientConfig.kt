@@ -18,6 +18,9 @@ import ar.com.nexofiscal.nexofiscalposv2.screens.services.AfipService
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.unit.dp
 import java.util.regex.Pattern
+import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
+import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 
 fun getMainClientFieldDescriptors(
     tipoDocumentoViewModel: TipoDocumentoViewModel,
@@ -75,28 +78,48 @@ fun getMainClientFieldDescriptors(
             label = "CUIT",
             editorContent = { entity, onUpdate, isReadOnly, error ->
                 val scope = rememberCoroutineScope()
+                val empresaCuit = SessionManager.empresaCuit?.filter { it.isDigit() }
+                val esCuitEmpresa = empresaCuit != null && entity.cuit?.filter { it.isDigit() } == empresaCuit
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SelectAllTextField(
                         value = entity.cuit ?: "",
-                        onValueChange = { newValue -> onUpdate { it.copy(cuit = newValue.filter { ch -> ch.isDigit() }) } },
+                        onValueChange = { newValue ->
+                            if (esCuitEmpresa) return@SelectAllTextField // Bloquea cambios si ya coincide con CUIT empresa
+                            val soloNum = newValue.filter { ch -> ch.isDigit() }
+                            if (empresaCuit != null && soloNum == empresaCuit) {
+                                // Evitar asignar exactamente el CUIT de la empresa
+                                return@SelectAllTextField
+                            }
+                            onUpdate { it.copy(cuit = soloNum) }
+                        },
                         label = "CUIT (solo números)",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        isReadOnly = isReadOnly,
+                        isReadOnly = isReadOnly || esCuitEmpresa,
                         error = error
                     )
                     val cuitClean = (entity.cuit ?: "").filter { it.isDigit() }
                     Button(
-                        enabled = !isReadOnly && cuitClean.length == 11,
+                        enabled = !isReadOnly && !esCuitEmpresa && cuitClean.length == 11,
                         onClick = {
                             scope.launch {
                                 val recuperado = AfipService.recuperarClienteDesdeAfip(cuitClean)
                                 if (recuperado != null) {
-                                    onUpdate {
-                                        it.copy(
-                                            nombre = recuperado.nombre ?: it.nombre,
-                                            direccionComercial = recuperado.direccionComercial ?: it.direccionComercial,
-                                            cuit = recuperado.cuit
-                                        )
+                                    val recuperadoClean = recuperado.cuit?.filter { it.isDigit() }
+                                    if (empresaCuit != null && recuperadoClean == empresaCuit) {
+                                        NotificationManager.show("El CUIT pertenece a la empresa, no se puede usar como cliente.", NotificationType.ERROR)
+                                    } else {
+                                        onUpdate {
+                                            it.copy(
+                                                nombre = recuperado.nombre ?: it.nombre,
+                                                direccionComercial = recuperado.direccionComercial ?: it.direccionComercial,
+                                                cuit = recuperado.cuit,
+                                                // NUEVO: asignar condición de IVA si fue inferida
+                                                tipoIva = recuperado.tipoIva ?: it.tipoIva,
+                                                tipoIvaId = recuperado.tipoIvaId ?: it.tipoIvaId,
+                                                tipoDocumento = recuperado.tipoDocumento ?: it.tipoDocumento,
+                                                numeroDocumento = recuperado.numeroDocumento ?: it.numeroDocumento
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -105,10 +128,13 @@ fun getMainClientFieldDescriptors(
                 }
             },
             validator = { entity ->
-                val cuit = entity.cuit
-                if (!cuit.isNullOrBlank() && (cuit.length != 11 || !cuit.all { it.isDigit() })) {
-                    ValidationResult.Invalid("El CUIT debe tener 11 dígitos numéricos.")
-                } else ValidationResult.Valid
+                val empresaCuit = SessionManager.empresaCuit?.filter { it.isDigit() }
+                val cuit = entity.cuit?.filter { it.isDigit() }
+                when {
+                    !cuit.isNullOrBlank() && cuit.length != 11 -> ValidationResult.Invalid("El CUIT debe tener 11 dígitos numéricos.")
+                    !cuit.isNullOrBlank() && empresaCuit != null && cuit == empresaCuit -> ValidationResult.Invalid("No puede usar el CUIT de la empresa.")
+                    else -> ValidationResult.Valid
+                }
             }
         ),
         FieldDescriptor(

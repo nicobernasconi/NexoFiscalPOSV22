@@ -88,4 +88,7 @@ interface StockActualizacionDao {
             ))
         }
     }
+
+    @Query("UPDATE stock_actualizaciones SET productoId = :nuevoProductoId WHERE id = :id")
+    suspend fun actualizarProductoLocal(id: Int, nuevoProductoId: Int)
 }

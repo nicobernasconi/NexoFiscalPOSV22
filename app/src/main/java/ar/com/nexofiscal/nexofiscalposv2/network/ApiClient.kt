@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody
+import org.json.JSONObject
 import retrofit2.*
 import java.util.concurrent.TimeUnit
 
@@ -72,20 +73,39 @@ object ApiClient {
     ) {
         val effectiveHeaders = headers ?: mutableMapOf()
         val service = getApi()
+
+        var jsonBody: String? = null
         val call: Call<ResponseBody?> = when (method) {
             HttpMethod.GET -> service.requestGet(url, effectiveHeaders)!!
             HttpMethod.DELETE -> service.requestDelete(url, effectiveHeaders)!!
             HttpMethod.POST -> {
-                val postBody: RequestBody = gson.toJson(bodyObject)
-                    .toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+                jsonBody = buildRawJson(bodyObject)
+                val postBody: RequestBody = jsonBody!!.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
                 service.requestPost(url, effectiveHeaders, postBody)!!
             }
             HttpMethod.PUT -> {
-                val putBody: RequestBody = gson.toJson(bodyObject)
-                    .toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+                jsonBody = buildRawJson(bodyObject)
+                val putBody: RequestBody = jsonBody!!.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
                 service.requestPut(url, effectiveHeaders, putBody)!!
             }
         }
+
+        // Sanitizar headers para logs
+        val safeHeaders = effectiveHeaders.mapNotNull { (k, v) ->
+            if (k == null) null else {
+                val safeV = if (k.equals("Authorization", true) && !v.isNullOrBlank()) {
+                    if (v.length > 15) v.substring(0, 10) + "..." + v.takeLast(5) else "***";
+                } else v
+                k to safeV
+            }
+        }.toMap()
+
+        Log.d(TAG, buildString {
+            append("[REQUEST] ${method.name} ${call.request().url}\n")
+            append("Headers: $safeHeaders\n")
+            if (jsonBody != null) append("Body: $jsonBody\n")
+            append("BaseUrlActual=$currentBaseUrl")
+        })
 
         call.enqueue(object : Callback<ResponseBody?> {
             override fun onResponse(c: Call<ResponseBody?>, r: Response<ResponseBody?>) {
@@ -136,6 +156,18 @@ object ApiClient {
                 callback.onError(-1, t.message)
             }
         })
+    }
+
+    // Construye el JSON evitando doble serialización cuando ya viene como String o JSONObject
+    private fun buildRawJson(bodyObject: Any?): String = when (bodyObject) {
+        null -> "{}" // evita null body
+        is String -> {
+            // Si ya parece ser JSON (empieza con { o [) lo dejamos; si no, lo envolvemos en comillas
+            val t = bodyObject.trim()
+            if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) t else com.google.gson.Gson().toJson(bodyObject)
+        }
+        is JSONObject -> bodyObject.toString()
+        else -> com.google.gson.Gson().toJson(bodyObject)
     }
 
     private fun safeString(body: ResponseBody?): String? {

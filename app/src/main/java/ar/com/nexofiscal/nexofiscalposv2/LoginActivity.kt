@@ -9,6 +9,10 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import ar.com.nexofiscal.nexofiscalposv2.managers.*
@@ -24,6 +28,11 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import ar.com.nexofiscal.nexofiscalposv2.services.BackupScheduler
 import ar.com.nexofiscal.nexofiscalposv2.services.NotificacionService
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 
 class LoginActivity : ComponentActivity() {
 
@@ -31,10 +40,12 @@ class LoginActivity : ComponentActivity() {
     private lateinit var prefs: SharedPreferences
     private val SYNC_INTERVAL_HOURS = 24L
 
+    // Estado para bloquear la pantalla durante auto-login
+    private val autoLoginInProgress = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-
         // --- CAMBIO 1: Se inicializa el SessionManager aquí, una sola vez. ---
         SessionManager.init(this)
 
@@ -51,23 +62,44 @@ class LoginActivity : ComponentActivity() {
             NexoFiscalPOSV2Theme {
                 var showSyncScreen by remember { mutableStateOf(false) }
                 val syncProgress by SyncManager.progressState.collectAsState()
+                val isAutoLogin by autoLoginInProgress
 
-                if (showSyncScreen) {
-                    SyncStatusScreen(
-                        progress = syncProgress,
-                        onFinish = {
-                            prefs.edit().putLong("last_sync_timestamp", System.currentTimeMillis()).apply()
-                            navigateToMain()
+                Box(Modifier.fillMaxSize()) {
+                    if (showSyncScreen) {
+                        SyncStatusScreen(
+                            progress = syncProgress,
+                            onFinish = {
+                                prefs.edit().putLong("last_sync_timestamp", System.currentTimeMillis()).apply()
+                                navigateToMain()
+                            }
+                        )
+                    } else {
+                        LoginScreen { usuario, password ->
+                            realizarLogin(usuario, password) { showSyncScreen = true }
                         }
-                    )
-                } else {
-                    LoginScreen { usuario, password ->
-                        realizarLogin(usuario, password) {
-                            showSyncScreen = true
+                    }
+
+                    NotificationHost()
+
+                    // Overlay bloqueante durante auto login automático
+                    if (!showSyncScreen && isAutoLogin) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0x99000000))
+                                .pointerInput(Unit) { } // consume eventos
+                        ) {
+                            Column(
+                                modifier = Modifier.align(Alignment.Center),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                CircularProgressIndicator()
+                                Spacer(Modifier.height(16.dp))
+                                Text("Iniciando sesión automática...")
+                            }
                         }
                     }
                 }
-                NotificationHost()
             }
         }
         intentarLoginAutomatico()
@@ -99,8 +131,11 @@ class LoginActivity : ComponentActivity() {
 
         if (!savedUser.isNullOrBlank() && !savedPass.isNullOrBlank()) {
             Log.d("LoginActivity", "Credenciales encontradas, intentando login automático.")
+            autoLoginInProgress.value = true
             realizarLogin(savedUser, savedPass) {
-                setContent {
+                autoLoginInProgress.value = false
+                // Mostrar pantalla de sync (ya controlado por callback en contenido compose)
+                setContent { // mantenemos lógica existente para no romper flujo previo
                     NexoFiscalPOSV2Theme {
                         val syncProgress by SyncManager.progressState.collectAsState()
                         SyncStatusScreen(
@@ -115,6 +150,13 @@ class LoginActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    // Nuevo helper: determina si existe una sesión previa válida para habilitar modo offline
+    private fun hasPreviousSuccessfulLogin(): Boolean {
+        val hasCreds = prefs.contains("saved_username") && prefs.contains("saved_password")
+        val lastSync = prefs.getLong("last_sync_timestamp", 0L)
+        return hasCreds && lastSync > 0L
     }
 
     private fun realizarLogin(usuario: String, password: String, onSyncRequired: () -> Unit) {
@@ -135,6 +177,7 @@ class LoginActivity : ComponentActivity() {
                     val tokenGuardado = SessionManager.token
                     if (tokenGuardado.isNullOrBlank()) {
                         show("Error crítico: No se pudo obtener el token de sesión.", NotificationType.ERROR)
+                        autoLoginInProgress.value = false
                         return
                     }
 
@@ -150,14 +193,24 @@ class LoginActivity : ComponentActivity() {
                     } else {
                         Log.d("LoginActivity", "Sincronización no requerida. Saltando al MainActivity.")
                         show("Sincronización reciente. Cargando datos locales.", NotificationType.SUCCESS)
+                        autoLoginInProgress.value = false
                         navigateToMain()
                     }
                 }
 
                 override fun onError(error: String?, isNetworkError: Boolean) {
                     if (isNetworkError) {
-                        Log.w("LoginActivity", "Error de red, entrando en modo offline. Error: $error")
-                        navigateToMain(isOffline = true)
+                        // Solo permitir modo offline si ya hubo al menos un login + sync previo
+                        if (hasPreviousSuccessfulLogin()) {
+                            Log.w("LoginActivity", "Error de red, usando modo offline. Error: $error")
+                            show("Sin conexión. Entrando en modo offline.", NotificationType.WARNING)
+                            navigateToMain(isOffline = true)
+                        } else {
+                            Log.w("LoginActivity", "Error de red sin sesión previa. Permaneciendo en login. Error: $error")
+                            runOnUiThread {
+                                show("No hay conexión al servidor y no existe una sesión previa para modo offline.", NotificationType.ERROR)
+                            }
+                        }
                     } else {
                         Log.e("LoginActivity", "Login error: $error")
                         prefs.edit()
@@ -168,6 +221,7 @@ class LoginActivity : ComponentActivity() {
                             show("$error", NotificationType.ERROR)
                         }
                     }
+                    autoLoginInProgress.value = false
                 }
             }
         )

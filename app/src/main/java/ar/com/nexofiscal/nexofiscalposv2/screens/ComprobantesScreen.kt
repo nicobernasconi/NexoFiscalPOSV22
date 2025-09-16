@@ -113,8 +113,7 @@ fun ComprobantesScreen(
                 showDetailDialog = true
             }
         },
-        // onAttemptEdit (Imprimir) ahora no tiene condición. Se puede imprimir siempre.
-        onAttemptEdit = { item -> // Esta es la acción de "Reimprimir"
+        onAttemptEdit = { item -> // Reimprimir
             scope.launch {
                 // 1. Inicia el diálogo de carga
                 PrintingUiManager.startPrinting()
@@ -137,16 +136,17 @@ fun ComprobantesScreen(
                 }
             }
         },
-        // onDelete (Anular) ahora abre el diálogo de confirmación.
-        onAttemptDelete = { item -> // Usamos el nuevo nombre del parámetro
+        onAttemptDelete = { item ->
             comprobanteParaAnular = item.comprobante
-            showAnularDialog = true // Activamos nuestro diálogo personalizado
+            showAnularDialog = true
         },
         useInternalDeleteDialog = false,
-        // La acción de anular solo está habilitada si el comprobante no ha sido anulado previamente.
-        isActionEnabled = { item ->
-            item.comprobante.fechaBaja.isNullOrBlank()
-        },
+        isEditEnabled = { true }, // siempre se puede imprimir
+        isDeleteEnabled = { item ->
+            val c = item.comprobante
+            val esNotaCredito = (c.tipoFactura in listOf(3,8,13,53)) || c.tipoComprobanteId == 4
+            c.fechaBaja.isNullOrBlank() && !esNotaCredito
+        }, // solo si no está anulado y no es NC
         screenMode = CrudScreenMode.EDIT_DELETE_EDIT_PRINT,
         itemKey = { "comprobante_${it.comprobante.localId}" },
         searchHint = stringResource(R.string.search_items),

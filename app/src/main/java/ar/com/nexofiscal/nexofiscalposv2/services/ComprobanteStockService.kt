@@ -3,7 +3,9 @@ package ar.com.nexofiscal.nexofiscalposv2.services
 import android.util.Log
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.ComprobanteDao
 import ar.com.nexofiscal.nexofiscalposv2.db.dao.RenglonComprobanteDao
+import ar.com.nexofiscal.nexofiscalposv2.db.dao.ProductoDao
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.ComprobanteEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.managers.MovimientoStock
 import ar.com.nexofiscal.nexofiscalposv2.managers.StockMovementManager
 import ar.com.nexofiscal.nexofiscalposv2.models.RenglonComprobante
@@ -18,6 +20,7 @@ class ComprobanteStockService(
     private val comprobanteDao: ComprobanteDao,
     private val renglonComprobanteDao: RenglonComprobanteDao,
     private val stockMovementManager: StockMovementManager,
+    private val productoDao: ProductoDao, // NUEVO: para resolver id local
     private val gson: Gson = Gson()
 ) {
 
@@ -62,13 +65,19 @@ class ComprobanteStockService(
                 // 4. Preparar movimientos de stock
                 val movimientos = renglones.mapNotNull { renglon ->
                     if (renglon.productoId != null && renglon.cantidad > 0) {
+                        val productoLocal = productoDao.findByServerId(renglon.productoId)
+                        val localId = productoLocal?.id
+                        if (localId == null) {
+                            Log.w(TAG, "[CREACION] Producto serverId=${renglon.productoId} sin id local. Se guardará serverId como fallback en stock_actualizaciones.")
+                        }
                         MovimientoStock(
-                            productoId = renglon.productoId,
+                            productoId = renglon.productoId, // serverId para stock_productos
                             cantidad = renglon.cantidad,
                             tipoMovimiento = when (tipoComprobante.uppercase()) {
                                 "PEDIDO" -> StockMovementManager.MOVIMIENTO_PEDIDO
                                 else -> StockMovementManager.MOVIMIENTO_VENTA
-                            }
+                            },
+                            localProductoId = localId // se registra este en stock_actualizaciones
                         )
                     } else null
                 }
@@ -121,17 +130,32 @@ class ComprobanteStockService(
                 gson.fromJson(it.data, RenglonComprobante::class.java)
             }
 
+            // 3.1. Obtener tipo de comprobante
+            var tipoComprobante = comprobante.letra?.takeIf { it.isNotBlank() } ?: ""
+            var afectaStock = TIPOS_QUE_REDUCEN_STOCK.contains(tipoComprobante.uppercase())
+            if (tipoComprobante.isBlank()) {
+                Log.w(TAG, "[ANULACION] No se pudo determinar el tipo de comprobante para el comprobante $comprobanteId. Se forzará restitución de stock.")
+                afectaStock = true // Forzar restitución si no se puede determinar el tipo
+            }
+            Log.d(TAG, "[ANULACION] Comprobante $comprobanteId, tipo: $tipoComprobante, renglones: ${renglones.size}")
             // 4. Verificar si este tipo de comprobante afectó el stock
-            val tipoComprobante = comprobante.letra ?: ""
-            if (TIPOS_QUE_REDUCEN_STOCK.contains(tipoComprobante.uppercase())) {
+            if (afectaStock) {
 
                 // 5. Preparar restitución de stock
                 val movimientos = renglones.mapNotNull { renglon ->
                     if (renglon.productoId != null && renglon.cantidad > 0) {
+                        val productoLocal = productoDao.findByServerId(renglon.productoId)
+                        val localId = productoLocal?.id
+                        if (localId == null) {
+                            Log.w(TAG, "[ANULACION] Producto serverId=${renglon.productoId} sin id local. Se guardará serverId como fallback en stock_actualizaciones.")
+                        } else {
+                            Log.d(TAG, "[ANULACION] Generando movimiento de restitución serverId=${renglon.productoId} localId=$localId cantidad=${renglon.cantidad}")
+                        }
                         MovimientoStock(
-                            productoId = renglon.productoId,
+                            productoId = renglon.productoId, // serverId para operar stock_productos
                             cantidad = renglon.cantidad,
-                            tipoMovimiento = StockMovementManager.MOVIMIENTO_ANULACION
+                            tipoMovimiento = StockMovementManager.MOVIMIENTO_ANULACION,
+                            localProductoId = localId // id local real que se debe guardar en stock_actualizaciones
                         )
                     } else null
                 }
@@ -146,15 +170,21 @@ class ComprobanteStockService(
 
                 if (!stockExitoso) {
                     Log.w(TAG, "Algunos movimientos de restitución fallaron para comprobante $comprobanteId")
+                } else {
+                    Log.i(TAG, "[ANULACION] Movimientos de restitución procesados y enviados a StockMovementManager para comprobante $comprobanteId")
                 }
             }
 
             // 7. Marcar comprobante como anulado
+            Log.d(TAG, "[ANULACION] Estado previo LocalID=${comprobante.id} serverId=${comprobante.serverId} syncStatus=${comprobante.syncStatus}")
+            val nuevoSync = if (comprobante.serverId != null) SyncStatus.UPDATED else comprobante.syncStatus
             val comprobanteAnulado = comprobante.copy(
                 fechaBaja = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date()),
-                motivoBaja = motivoAnulacion
+                motivoBaja = motivoAnulacion,
+                syncStatus = nuevoSync
             )
             comprobanteDao.update(comprobanteAnulado)
+            Log.d(TAG, "[ANULACION] Marcado LocalID=${comprobanteAnulado.id} serverId=${comprobanteAnulado.serverId} nuevoSyncStatus=${comprobanteAnulado.syncStatus}")
 
             Log.d(TAG, "Comprobante $comprobanteId anulado exitosamente")
             Result.success(true)

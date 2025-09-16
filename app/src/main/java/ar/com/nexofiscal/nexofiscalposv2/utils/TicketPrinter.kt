@@ -42,40 +42,7 @@ class TicketPrinter {
     private val LINE_WIDTH = 32
     private val SUBT_COL = 8 // ancho para valores numéricos a la derecha
 
-    private fun padRight(text: String, width: Int): String {
-        val t = if (text.length > width) text.substring(0, width) else text
-        return t + " ".repeat((width - t.length).coerceAtLeast(0))
-    }
-
-    private fun padLeft(text: String, width: Int): String {
-        val t = if (text.length > width) text.takeLast(width) else text
-        return " ".repeat((width - t.length).coerceAtLeast(0)) + t
-    }
-
-    @Suppress("SameParameterValue")
-    private fun wrapByWidth(text: String, maxWidth: Int): List<String> {
-        if (text.isBlank()) return emptyList()
-        if (text.length <= maxWidth) return listOf(text)
-        val words = text.split(" ")
-        val lines = mutableListOf<String>()
-        var current = StringBuilder()
-        for (w in words) {
-            if (current.isEmpty()) {
-                if (w.length <= maxWidth) current.append(w) else lines.add(w.substring(0, maxWidth))
-            } else {
-                if (current.length + 1 + w.length <= maxWidth) {
-                    current.append(' ').append(w)
-                } else {
-                    lines.add(current.toString())
-                    current = StringBuilder()
-                    if (w.length <= maxWidth) current.append(w) else lines.add(w.substring(0, maxWidth))
-                }
-            }
-        }
-        if (current.isNotEmpty()) lines.add(current.toString())
-        return lines
-    }
-
+    // Restaura función kvRight para alinear clave-valor a derecha
     private fun kvRight(left: String, right: String): String {
         val leftTrim = if (left.length >= LINE_WIDTH) left.substring(0, LINE_WIDTH - 1) else left
         val rightTrim = if (right.length > SUBT_COL) right.takeLast(SUBT_COL) else right
@@ -135,96 +102,62 @@ class TicketPrinter {
             printDivider()
 
             format.apply { textSize = 42; style = BOLD }
+            val letra = (comprobante.letra ?: "").trim().uppercase()
             val tipoTexto = when (comprobante.tipoComprobanteId) {
-                1 -> "FACTURA B"; 3 -> "PEDIDO X"; 2 -> "PRESUPUESTO X"; 4 -> "NOTA DE CREDITO X";5->"COMPROBANTE DE CAJA";6->"ACOPIO X";7->"DESACOPIO X" else -> "TICKET"
+                1 -> "FACTURA ${if (letra.isNotBlank()) letra else "B"}"
+                4 -> "NOTA DE CREDITO ${if (letra.isNotBlank()) letra else "X"}"
+                3 -> "PEDIDO X"
+                2 -> "PRESUPUESTO X"
+                5 -> "COMPROBANTE DE CAJA"
+                6 -> "ACOPIO X"
+                7 -> "DESACOPIO X"
+                else -> "TICKET"
             }
             printer!!.setPrintAppendString(tipoTexto, format)
             val pv = SessionManager.puntoVentaNumero
+            // NUEVO: número mostrado según tipo (PEDIDO usa 'numero'; resto usa numeroFactura o fallback a numero)
+            val numeroParaImprimir = when (comprobante.tipoComprobanteId) {
+                3 -> (comprobante.numero ?: 0) // Pedido
+                else -> (comprobante.numeroFactura ?: comprobante.numero ?: 0)
+            }
             format.apply { textSize = 26; style = NORMAL }
-            printer!!.setPrintAppendString(String.format("P.V.: %05d   Nro.: %08d", pv, comprobante.numeroFactura ?: 0), format)
+            printer!!.setPrintAppendString(String.format("P.V.: %05d   Nro.: %08d", pv, numeroParaImprimir), format)
             printer!!.setPrintAppendString("Fecha: ${comprobante.fecha}", format)
             printDivider()
 
-            // --- Ítems con layout profesional ---
-            format.apply { textSize = 24; style = BOLD; ali = Layout.Alignment.ALIGN_CENTER }
-            printer!!.setPrintAppendString("Detalle de ítems", format)
+            // --- Ítems unificados con formato PDF (Cant, Producto, Subtotal) ---
             printDivider()
+            format.apply { textSize = 24; style = BOLD; ali = Layout.Alignment.ALIGN_NORMAL }
+            printer!!.setPrintAppendString(String.format("%-4s%-20s%8s", "Cant", "Producto", "Subtotal"), format)
+            format.apply { style = NORMAL }
+            printer!!.setPrintAppendString("-".repeat(LINE_WIDTH), format)
 
             var totalCalculado = 0.0
             renglones.forEach { renglon ->
                 val subtotalValue = renglon.totalLinea.toDoubleOrNull() ?: 0.0
                 totalCalculado += subtotalValue
-
                 val qtyStr = formatQuantity(renglon.cantidad)
-                val unitStr = String.format(Locale.US, "$%.2f", renglon.precioUnitario)
-                val subtotalStr = String.format(Locale.US, "$%.2f", subtotalValue)
-                val ivaPct = (renglon.tasaIva).let { if (it % 1.0 == 0.0) String.format(Locale.US, "%.0f", it) else String.format(Locale.US, "%.2f", it) }
-                val descValue = renglon.descuento ?: 0.0
-                val descStr = if (descValue != 0.0) String.format(Locale.US, "-$%.2f", descValue) else null
-
-                val codigo = renglon.producto.codigo?.takeIf { it.isNotBlank() }
-                val titulo = buildString {
-                    if (codigo != null) append("[$codigo] ")
-                    append(renglon.descripcion)
-                }
-
-                // Descripción (puede ocupar varias líneas)
-                format.apply { textSize = 26; style = BOLD; ali = Layout.Alignment.ALIGN_NORMAL }
-                val descLines = wrapByWidth(titulo, LINE_WIDTH)
-                if (descLines.isEmpty()) {
-                    printer!!.setPrintAppendString("(Sin descripción)", format)
-                } else {
-                    descLines.forEachIndexed { idx, line ->
-                        if (idx == 0) {
-                            printer!!.setPrintAppendString(line, format)
-                        } else {
-                            format.style = NORMAL
-                            format.textSize = 24
-                            printer!!.setPrintAppendString(line, format)
-                            format.style = BOLD
-                            format.textSize = 26
-                        }
-                    }
-                }
-
-                // Línea de cálculo principal: "Cant X x $Y" a la izquierda y "Imp $Z" a la derecha
-                format.apply { textSize = 24; style = NORMAL; ali = Layout.Alignment.ALIGN_NORMAL }
-                val leftCalc = "Cant ${qtyStr} x ${unitStr}"
-                val rightImp = "Imp ${subtotalStr}"
-                printer!!.setPrintAppendString(kvRight(leftCalc, rightImp), format)
-
-                // Línea secundaria: IVA y Descuento (si existe)
-                val leftIva = "IVA: ${ivaPct}%"
-                if (descStr != null) {
-                    printer!!.setPrintAppendString(kvRight(leftIva, "Desc ${descStr}"), format)
-                } else {
-                    printer!!.setPrintAppendString(leftIva, format)
-                }
-
-                // Separador fino entre ítems
-                format.apply { ali = Layout.Alignment.ALIGN_CENTER }
-                printer!!.setPrintAppendString("·".repeat(LINE_WIDTH), format)
-                format.ali = Layout.Alignment.ALIGN_NORMAL
+                val desc = renglon.descripcion.take(20)
+                val line = String.format(Locale.US, "%-4s%-20s%8s", qtyStr, desc, String.format("$%.2f", subtotalValue))
+                printer!!.setPrintAppendString(line, format)
             }
-            printDivider()
+            printer!!.setPrintAppendString("-".repeat(LINE_WIDTH), format)
 
             val total = comprobante.total?.toDoubleOrNull() ?: totalCalculado
             val ivaTotal = comprobante.importeIva ?: 0.0
             val totalSinIva = total - ivaTotal
 
-            // --- Totales alineados derecha ---
-            format.apply { textSize = 28; style = NORMAL; ali = Layout.Alignment.ALIGN_NORMAL }
-            val lineTotalSinIva = padRight("Total s/IVA:", LINE_WIDTH - SUBT_COL) + padLeft(String.format(Locale.US, "$%.2f", totalSinIva), SUBT_COL)
-            val lineIva = padRight("Total IVA:", LINE_WIDTH - SUBT_COL) + padLeft(String.format(Locale.US, "$%.2f", ivaTotal), SUBT_COL)
-            val lineTotal = padRight("TOTAL:", LINE_WIDTH - SUBT_COL) + padLeft(String.format(Locale.US, "$%.2f", total), SUBT_COL)
-            printer!!.setPrintAppendString(lineTotalSinIva, format)
-            format.apply { style = BOLD; textSize = 30 }
-            printer!!.setPrintAppendString(lineIva, format)
-            printer!!.setPrintAppendString(lineTotal, format)
+            // Totales alineados tipo tabla
+            format.apply { textSize = 24; style = NORMAL }
+            printer!!.setPrintAppendString(kvRight("Total s/IVA:", String.format(Locale.US, "$%.2f", totalSinIva)), format)
+            printer!!.setPrintAppendString(kvRight("Total IVA:", String.format(Locale.US, "$%.2f", ivaTotal)), format)
+            format.apply { style = BOLD; textSize = 28 }
+            printer!!.setPrintAppendString(kvRight("TOTAL:", String.format(Locale.US, "$%.2f", total)), format)
 
             val cae = comprobante.cae ?: ""
             format.apply { textSize = 30; style = NORMAL; ali = Layout.Alignment.ALIGN_CENTER }
-            if (!comprobante.qr.isNullOrBlank() && comprobante.tipoComprobanteId == 1) {
+            val esFiscalConQr = !comprobante.qr.isNullOrBlank() && (comprobante.tipoComprobanteId == 1 || comprobante.tipoComprobanteId == 4)
+            if (esFiscalConQr) {
                 printer!!.setPrintAppendString("\n\n", format)
                 printer!!.setPrintAppendString("CAE: $cae", format)
                 printer!!.setPrintAppendString("Vencimiento: ${comprobante.fechaVencimiento ?: ""}", format)
@@ -242,6 +175,14 @@ class TicketPrinter {
                 printer!!.setPrintAppendString("Este comprobante no tiena validez fiscal", format)
             }
 
+            // Bloque de Firma solo para Nota de Crédito
+            if (comprobante.tipoComprobanteId == 4) {
+                format.apply { style = NORMAL; textSize = 24; ali = Layout.Alignment.ALIGN_NORMAL }
+                printer!!.setPrintAppendString("\n\n--------------------------------", format)
+                printer!!.setPrintAppendString("Firma: _________________________", format)
+                printer!!.setPrintAppendString("Aclaración: ____________________", format)
+                printer!!.setPrintAppendString("DNI: ___________________________", format)
+            }
 
             printer!!.setPrintAppendString("\n\n\n\n", format)
             val result = printer!!.setPrintStart()

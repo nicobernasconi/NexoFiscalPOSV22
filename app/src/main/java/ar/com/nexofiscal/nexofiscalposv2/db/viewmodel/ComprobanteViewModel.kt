@@ -1,6 +1,7 @@
 package ar.com.nexofiscal.nexofiscalposv2.db.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
@@ -18,6 +19,7 @@ import ar.com.nexofiscal.nexofiscalposv2.db.entity.RenglonComprobanteEntity
 import ar.com.nexofiscal.nexofiscalposv2.db.entity.SyncStatus
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toComprobanteConDetalle
 import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toEntity
+import ar.com.nexofiscal.nexofiscalposv2.db.mappers.toNewLocalEntity
 import ar.com.nexofiscal.nexofiscalposv2.models.Cliente
 import ar.com.nexofiscal.nexofiscalposv2.models.Comprobante
 import ar.com.nexofiscal.nexofiscalposv2.models.TipoComprobante
@@ -30,8 +32,10 @@ import ar.com.nexofiscal.nexofiscalposv2.screens.Pago
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationManager
 import ar.com.nexofiscal.nexofiscalposv2.ui.NotificationType
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -39,6 +43,11 @@ import kotlin.collections.isNotEmpty
 import ar.com.nexofiscal.nexofiscalposv2.managers.StockMovementManager
 import ar.com.nexofiscal.nexofiscalposv2.managers.MovimientoStock
 import ar.com.nexofiscal.nexofiscalposv2.managers.SessionManager
+import ar.com.nexofiscal.nexofiscalposv2.screens.services.AfipService
+import ar.com.nexofiscal.nexofiscalposv2.utils.PrintingManager
+import ar.com.nexofiscal.nexofiscalposv2.utils.PrintingException
+import ar.com.nexofiscal.nexofiscalposv2.managers.StockActualizacionManager
+import ar.com.nexofiscal.nexofiscalposv2.services.ComprobanteStockService
 
 data class ComprobanteConDetalle(
     val comprobante: Comprobante,
@@ -57,6 +66,7 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
     private val renglonComprobanteDao: RenglonComprobanteDao // <-- AÑADIR
     private val _searchQuery = MutableStateFlow("")
     private val stockMovementManager: StockMovementManager
+    private lateinit var comprobanteStockService: ComprobanteStockService
 
     init {
         db = AppDatabase.getInstance(application)
@@ -66,6 +76,13 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
         renglonComprobanteDao = db.renglonComprobanteDao() // <-- AÑADIR
         comprobanteRepo = ComprobanteRepository(comprobanteDao)
         stockMovementManager = StockMovementManager(db.stockActualizacionDao(), db.stockProductoDao())
+        // Actualizado: se pasa productoDao para usar id local en movimientos (creación/anulación)
+        comprobanteStockService = ComprobanteStockService(
+            comprobanteDao = comprobanteDao,
+            renglonComprobanteDao = renglonComprobanteDao,
+            stockMovementManager = stockMovementManager,
+            productoDao = db.productoDao()
+        )
     }
 
     val pagedComprobantes: Flow<PagingData<ComprobanteConDetalle>> = _searchQuery
@@ -130,7 +147,7 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
 
             }
 
-            // 4. Preparar y guardar las entidades de promoción
+            // 4. Preparar y guardar las entidades de promoci��n
             if (promociones.isNotEmpty()) {
                 val promocionEntities = promociones.map { promocion ->
                     ComprobantePromocionEntity(
@@ -147,13 +164,15 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
             val tipoId = comprobante.tipoComprobanteId
             if (tipoId == 1 || tipoId == 3) { // 1: Venta, 3: Pedido
                 val movimientos = renglones.mapNotNull { renglon ->
-                    val pid = renglon.productoId
+                    val pidServer = renglon.productoId // id remoto (server) para operaciones sobre stock_productos
+                    val localPid = renglon.producto?.localId // id local Room
                     val cant = renglon.cantidad
-                    if (pid != null && cant > 0) {
+                    if (pidServer != null && cant > 0) {
                         MovimientoStock(
-                            productoId = pid,
+                            productoId = pidServer,
                             cantidad = cant,
-                            tipoMovimiento = if (tipoId == 3) StockMovementManager.MOVIMIENTO_PEDIDO else StockMovementManager.MOVIMIENTO_VENTA
+                            tipoMovimiento = if (tipoId == 3) StockMovementManager.MOVIMIENTO_PEDIDO else StockMovementManager.MOVIMIENTO_VENTA,
+                            localProductoId = localPid
                         )
                     } else null
                 }
@@ -165,6 +184,11 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
                     comprobanteId = newComprobanteId.toInt(),
                     esAnulacion = false
                 )
+                // Nuevo: disparar envío de actualizaciones de stock si hay token
+                SessionManager.token?.let { token ->
+                    val headers = mutableMapOf<String?, String?>("Authorization" to "Bearer $token")
+                    StockActualizacionManager.enviarActualizacionesPendientes(getApplication(), headers)
+                }
             }
         }
         UploadManager.triggerImmediateUpload(getApplication())
@@ -173,19 +197,96 @@ class ComprobanteViewModel(application: Application) : AndroidViewModel(applicat
 
     fun anularComprobante(comprobante: Comprobante) {
         viewModelScope.launch {
-            // Obtenemos la entidad de la base de datos usando el ID local del modelo de dominio.
-            val comprobanteEntity = comprobanteRepo.porId(comprobante.localId)
-            if (comprobanteEntity != null) {
-                // Asignamos la fecha y hora actual como fecha de baja.
-                comprobanteEntity.fechaBaja = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                // Marcamos la entidad como actualizada para que se suba al servidor.
-                comprobanteEntity.syncStatus = SyncStatus.UPDATED
-                // Guardamos los cambios en la base de datos.
-                comprobanteRepo.actualizar(comprobanteEntity)
-                UploadManager.triggerImmediateUpload(getApplication())
-                NotificationManager.show("Comprobante anulado correctamente.", NotificationType.SUCCESS)
-            } else {
-                NotificationManager.show("Error: No se encontró el comprobante para anular.", NotificationType.ERROR)
+            try {
+                val esNotaCredito = (comprobante.tipoFactura in listOf(3,8,13,53)) || comprobante.tipoComprobanteId == 4
+                if (esNotaCredito) {
+                    NotificationManager.show("No se puede anular una Nota de Crédito.", NotificationType.ERROR)
+                    return@launch
+                }
+                val esFacturaElectronica = comprobante.tipoFactura in listOf(1,6,11,51)
+                var notaCreditoCreada = false
+                if (esFacturaElectronica) {
+                    if (comprobante.cae.isNullOrBlank()) {
+                        NotificationManager.show("No se puede generar NC: comprobante sin CAE.", NotificationType.ERROR)
+                    } else if (comprobante.numeroFactura == null) {
+                        NotificationManager.show("No se puede generar NC: comprobante sin número.", NotificationType.ERROR)
+                    } else {
+                        try {
+                            NotificationManager.show("Generando Nota de Crédito...", NotificationType.INFO)
+                            val nc = AfipService.procesarNotaCredito(comprobante)
+                            Log.d("ComprobanteViewModel", "NC generada en memoria (antes de insertar): numeroFactura=${nc.numeroFactura} tipoFactura=${nc.tipoFactura} tipoComprobanteId=${nc.tipoComprobanteId} total=${nc.total}")
+                            val (ncLocalId, clonados) = withContext(Dispatchers.IO) {
+                                val ncEntity = nc.toNewLocalEntity()
+                                Log.d("ComprobanteViewModel", "Insertando NC entity -> tipoFactura=${ncEntity.tipoFactura} tipoComprobanteId=${ncEntity.tipoComprobanteId} numeroFactura=${ncEntity.numeroFactura}")
+                                val newId = db.comprobanteDao().insert(ncEntity).toInt()
+                                val originalesEntities = renglonComprobanteDao.getByComprobanteId(comprobante.localId)
+                                if (originalesEntities.isNotEmpty()) {
+                                    renglonComprobanteDao.insertAll(originalesEntities.map { ent ->
+                                        RenglonComprobanteEntity(
+                                            comprobanteLocalId = newId,
+                                            data = ent.data
+                                        )
+                                    })
+                                }
+                                newId to originalesEntities.size
+                            }
+                            Log.d("ComprobanteViewModel", "NC insertada OK localId=$ncLocalId renglonesClonados=$clonados")
+
+                            // Impresión (fuera de IO)
+                            try {
+                                val renglonesDominio = withContext(Dispatchers.IO) {
+                                    renglonComprobanteDao.getByComprobanteId(ncLocalId).map { ent -> Gson().fromJson(ent.data, RenglonComprobante::class.java) }
+                                }
+                                PrintingManager.print(
+                                    context = getApplication(),
+                                    comprobante = nc.copy(localId = ncLocalId),
+                                    renglones = renglonesDominio
+                                )
+                                PrintingManager.printAsPdf(
+                                    context = getApplication(),
+                                    comprobante = nc.copy(localId = ncLocalId),
+                                    renglones = renglonesDominio
+                                )
+                            } catch (pe: PrintingException) {
+                                Log.e("ComprobanteViewModel", "Error impresión NC: ${pe.message}")
+                                NotificationManager.show(pe.message ?: "Error imprimiendo NC", NotificationType.ERROR)
+                            } catch (e: Exception) {
+                                Log.e("ComprobanteViewModel", "Excepción impresión NC: ${e.message}")
+                                NotificationManager.show("Error impresión NC", NotificationType.ERROR)
+                            }
+                            UploadManager.triggerImmediateUpload(getApplication())
+                            notaCreditoCreada = true
+                            NotificationManager.show("NC creada, CAE obtenido e impresa.", NotificationType.SUCCESS)
+                        } catch (e: Exception) {
+                            Log.e("ComprobanteViewModel", "Fallo creando NC: ${e.message}", e)
+                            NotificationManager.show("Error al crear NC: ${e.message}", NotificationType.ERROR)
+                            return@launch
+                        }
+                    }
+                }
+
+                if (!esFacturaElectronica || notaCreditoCreada) {
+                    val sucursalId = SessionManager.sucursalId ?: 0
+                    val resultado = comprobanteStockService.anularComprobanteConStock(
+                        comprobanteId = comprobante.localId,
+                        sucursalId = sucursalId,
+                        motivoAnulacion = "Anulación desde app"
+                    )
+                    if (resultado.isSuccess) {
+                        // Disparar envío de actualizaciones de stock
+                        SessionManager.token?.let { token ->
+                            val headers = mutableMapOf<String?, String?>("Authorization" to "Bearer $token")
+                            StockActualizacionManager.enviarActualizacionesPendientes(getApplication(), headers)
+                        }
+                        UploadManager.triggerImmediateUpload(getApplication())
+                        NotificationManager.show("Comprobante anulado y stock restituido.", NotificationType.SUCCESS)
+                    } else {
+                        NotificationManager.show("Error al anular: ${resultado.exceptionOrNull()?.message}", NotificationType.ERROR)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ComprobanteViewModel", "Error general anulación: ${e.message}", e)
+                NotificationManager.show("Error al anular: ${e.message}", NotificationType.ERROR)
             }
         }
     }
