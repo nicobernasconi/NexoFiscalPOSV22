@@ -1,0 +1,1 @@
+AFIP ajustes condicion IVA y documento receptor y NC y QR e ignores 
